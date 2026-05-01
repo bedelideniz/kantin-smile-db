@@ -380,16 +380,29 @@ export default function KasiyerPanel() {
                     )}
                     style={{ borderColor: outOfStock ? undefined : `${color.replace("hsl(", "hsla(").replace(")", " / 0.15)")}` }}
                   >
-                    {/* Color band / hero */}
+                    {/* Image / color band hero */}
                     <div
                       className="relative flex h-2/5 items-center justify-center overflow-hidden"
                       style={{
                         background: `linear-gradient(135deg, ${color}, ${color.replace(/(\d+)%\)$/, (_, l) => `${Math.min(Number(l) + 12, 92)}%)`)})`,
                       }}
                     >
-                      <span className="text-3xl font-black leading-none text-white/95 drop-shadow-sm">
-                        {p.name.charAt(0).toLocaleUpperCase("tr-TR")}
-                      </span>
+                      {p.image_url ? (
+                        <img
+                          src={p.image_url}
+                          alt={p.name}
+                          loading="lazy"
+                          className="absolute inset-0 h-full w-full object-cover"
+                          onError={(e) => {
+                            // Hide broken image so the colored fallback shows through
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <span className="text-3xl font-black leading-none text-white/95 drop-shadow-sm">
+                          {p.name.charAt(0).toLocaleUpperCase("tr-TR")}
+                        </span>
+                      )}
                       {outOfStock && (
                         <span className="absolute inset-0 flex items-center justify-center bg-foreground/60 text-xs font-bold uppercase tracking-wider text-white">
                           Tükendi
