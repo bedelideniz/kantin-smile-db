@@ -58,10 +58,11 @@ Deno.serve(async (req) => {
       return json({ error: "Kod hatalı veya süresi dolmuş" }, 401);
     }
 
-    // Load the school admin record.
+    // Load the school admin record (tolerate legacy phone formats).
+    const variants = Array.from(new Set([phone, `0${phone}`, `90${phone}`, `+90${phone}`, parsed.data.phone]));
     const u = await query<{ id: string; school_id: string; full_name: string; auth_user_id: string | null }>(
-      "SELECT id, school_id, full_name, auth_user_id FROM app_users WHERE phone = $1 AND role = 'school_admin' AND is_active = TRUE",
-      [phone],
+      "SELECT id, school_id, full_name, auth_user_id FROM app_users WHERE phone = ANY($1::text[]) AND role = 'school_admin' AND is_active = TRUE LIMIT 1",
+      [variants],
     );
     if (u.rowCount === 0) return json({ error: "Yönetici bulunamadı" }, 404);
     const adminRow = u.rows[0];
