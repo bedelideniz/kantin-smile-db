@@ -3,7 +3,7 @@
 // Phase 0 ships only a `ping` op so we can verify the connection end-to-end.
 import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { z } from "npm:zod@3.23.8";
-import * as bcrypt from "https://deno.land/x/bcrypt@v0.4.1/mod.ts";
+import bcrypt from "npm:bcryptjs@2.4.3";
 import { authenticate, HttpError, requireSchoolAdminSchool } from "../_shared/auth.ts";
 import { query, withTransaction } from "../_shared/external-db.ts";
 import { generateOtp, sendSms } from "../_shared/sms.ts";
