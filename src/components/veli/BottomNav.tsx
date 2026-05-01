@@ -1,4 +1,4 @@
-import { Ban, Wallet, Receipt } from "lucide-react";
+import { Ban, Wallet, ArrowUpDown } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 interface Props {
@@ -46,7 +46,7 @@ export default function BottomNav({ onTopUp }: Props) {
             }`}
             aria-label="Hareketler"
           >
-            <Receipt className="h-6 w-6" />
+            <ArrowUpDown className="h-6 w-6" />
             <span className="font-medium">Hareketler</span>
           </button>
 
