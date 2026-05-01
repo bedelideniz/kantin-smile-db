@@ -206,7 +206,7 @@ export default function KasiyerPanel() {
     setSubmitting(true);
     try {
       const r = await callCashierApi<{
-        balance_after: number; total_amount: number;
+        balance_after: number; total_amount: number; stock_warnings?: string[];
       }>("create_sale", {
         student_id: student.id,
         items: cart.map((c) => ({ product_id: c.product_id, qty: c.qty })),
@@ -215,6 +215,13 @@ export default function KasiyerPanel() {
         title: "✓ Satış tamamlandı",
         description: `${fmt(Number(r.total_amount))} ₺ düşüldü. Kalan: ${fmt(Number(r.balance_after))} ₺`,
       });
+      if (r.stock_warnings && r.stock_warnings.length > 0) {
+        toast({
+          title: "⚠️ Malzeme stoğu uyarısı",
+          description: r.stock_warnings.join(" • "),
+          variant: "destructive",
+        });
+      }
       setCart([]);
       setStudent(null);
       try {

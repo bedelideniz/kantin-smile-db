@@ -224,6 +224,54 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_tx_items_tx ON transaction_items(transaction_id);
     `,
   },
+  {
+    version: "0006_recipes",
+    description: "Recipes: ingredients (raw stock items) + product_recipes (BOM)",
+    sql: `
+      -- Raw materials / ingredients used by recipes (e.g. ekmek, köfte, kaşar)
+      CREATE TABLE IF NOT EXISTS ingredients (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        unit TEXT NOT NULL DEFAULT 'adet', -- 'adet','gr','ml','kg','lt'
+        stock_qty NUMERIC(12,3) NOT NULL DEFAULT 0,
+        low_stock_threshold NUMERIC(12,3),
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_ingredients_school ON ingredients(school_id, is_active);
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_ingredients_school_name ON ingredients(school_id, lower(name));
+
+      -- Product recipe lines (BOM): which ingredients & how much per 1 product unit
+      CREATE TABLE IF NOT EXISTS product_recipes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        ingredient_id UUID NOT NULL REFERENCES ingredients(id) ON DELETE RESTRICT,
+        qty NUMERIC(12,3) NOT NULL CHECK (qty > 0),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (product_id, ingredient_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_product_recipes_product ON product_recipes(product_id);
+      CREATE INDEX IF NOT EXISTS idx_product_recipes_ingredient ON product_recipes(ingredient_id);
+
+      -- Per-sale ingredient consumption log (audit + analytics)
+      CREATE TABLE IF NOT EXISTS ingredient_movements (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        ingredient_id UUID NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+        delta NUMERIC(12,3) NOT NULL,             -- negative = consumption, positive = restock
+        reason TEXT NOT NULL,                      -- 'sale','restock','adjustment'
+        transaction_id UUID REFERENCES transactions(id) ON DELETE SET NULL,
+        product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+        balance_after NUMERIC(12,3) NOT NULL,
+        note TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_ing_mov_school_date ON ingredient_movements(school_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_ing_mov_ingredient ON ingredient_movements(ingredient_id, created_at DESC);
+    `,
+  },
 ];
 
 

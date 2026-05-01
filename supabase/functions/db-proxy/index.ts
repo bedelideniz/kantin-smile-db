@@ -566,7 +566,184 @@ const HANDLERS: Record<string, Handler> = {
     if (r.rowCount === 0) throw new HttpError(404, "Ürün bulunamadı");
     return { id: p.id, deleted: true };
   },
+
+  /* ============== INGREDIENTS ============== */
+  list_ingredients: async (ctx) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const r = await query(
+      `SELECT i.id, i.name, i.unit, i.stock_qty, i.low_stock_threshold, i.is_active, i.created_at,
+              (SELECT count(*) FROM product_recipes pr WHERE pr.ingredient_id = i.id)::int AS used_in_count
+         FROM ingredients i
+        WHERE i.school_id = $1
+        ORDER BY i.name ASC`,
+      [schoolId],
+    );
+    return r.rows;
+  },
+  create_ingredient: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = IngredientInputSchema.parse(params);
+    try {
+      const r = await query(
+        `INSERT INTO ingredients (school_id, name, unit, stock_qty, low_stock_threshold)
+         VALUES ($1,$2,$3,$4,$5)
+         RETURNING id, name, unit, stock_qty, low_stock_threshold, is_active, created_at`,
+        [schoolId, p.name, p.unit, p.stock_qty ?? 0, p.low_stock_threshold ?? null],
+      );
+      return r.rows[0];
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("uq_ingredients_school_name") || msg.includes("duplicate")) {
+        throw new HttpError(409, "Bu isimde bir malzeme zaten var");
+      }
+      throw e;
+    }
+  },
+  update_ingredient: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = IngredientUpdateSchema.parse(params);
+    const r = await query(
+      `UPDATE ingredients
+          SET name=$3, unit=$4, low_stock_threshold=$5, is_active=$6, updated_at=now()
+        WHERE id=$1 AND school_id=$2
+        RETURNING id, name, unit, stock_qty, low_stock_threshold, is_active, created_at`,
+      [p.id, schoolId, p.name, p.unit, p.low_stock_threshold ?? null, p.is_active],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Malzeme bulunamadı");
+    return r.rows[0];
+  },
+  adjust_ingredient_stock: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({
+      id: z.string().uuid(),
+      delta: z.number().refine((n) => n !== 0 && Math.abs(n) <= 1_000_000, "Geçersiz miktar"),
+      note: z.string().trim().max(200).optional(),
+    }).parse(params);
+    return await withTransaction(async (client) => {
+      const ir = await client.query(
+        `SELECT id, stock_qty FROM ingredients WHERE id=$1 AND school_id=$2 FOR UPDATE`,
+        [p.id, schoolId],
+      );
+      if (ir.rowCount === 0) throw new HttpError(404, "Malzeme bulunamadı");
+      const before = Number(ir.rows[0].stock_qty);
+      const after = +(before + p.delta).toFixed(3);
+      await client.query("UPDATE ingredients SET stock_qty=$1, updated_at=now() WHERE id=$2", [after, p.id]);
+      await client.query(
+        `INSERT INTO ingredient_movements (school_id, ingredient_id, delta, reason, balance_after, note)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [schoolId, p.id, p.delta, p.delta > 0 ? "restock" : "adjustment", after, p.note ?? null],
+      );
+      return { id: p.id, stock_before: before, stock_after: after };
+    });
+  },
+  delete_ingredient: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ id: z.string().uuid() }).parse(params);
+    try {
+      const r = await query("DELETE FROM ingredients WHERE id=$1 AND school_id=$2", [p.id, schoolId]);
+      if (r.rowCount === 0) throw new HttpError(404, "Malzeme bulunamadı");
+      return { id: p.id, deleted: true };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("foreign key") || msg.includes("violates")) {
+        throw new HttpError(409, "Bu malzeme bir reçetede kullanılıyor. Önce reçetelerden çıkarın.");
+      }
+      throw e;
+    }
+  },
+
+  /* ============== PRODUCT RECIPES ============== */
+  get_product_recipe: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ product_id: z.string().uuid() }).parse(params);
+    const pr = await query("SELECT id, name FROM products WHERE id=$1 AND school_id=$2", [p.product_id, schoolId]);
+    if (pr.rowCount === 0) throw new HttpError(404, "Ürün bulunamadı");
+    const r = await query(
+      `SELECT pr.id, pr.ingredient_id, pr.qty,
+              i.name AS ingredient_name, i.unit, i.stock_qty
+         FROM product_recipes pr
+         JOIN ingredients i ON i.id = pr.ingredient_id
+        WHERE pr.product_id = $1
+        ORDER BY i.name ASC`,
+      [p.product_id],
+    );
+    return { product: pr.rows[0], lines: r.rows };
+  },
+  set_product_recipe: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({
+      product_id: z.string().uuid(),
+      lines: z.array(z.object({
+        ingredient_id: z.string().uuid(),
+        qty: z.number().positive().max(1_000_000),
+      })).max(50),
+    }).parse(params);
+    return await withTransaction(async (client) => {
+      const pr = await client.query("SELECT id FROM products WHERE id=$1 AND school_id=$2", [p.product_id, schoolId]);
+      if (pr.rowCount === 0) throw new HttpError(404, "Ürün bulunamadı");
+      if (p.lines.length > 0) {
+        const ingIds = p.lines.map((l) => l.ingredient_id);
+        const ir = await client.query(
+          "SELECT id FROM ingredients WHERE school_id=$1 AND id = ANY($2::uuid[])",
+          [schoolId, ingIds],
+        );
+        if (ir.rowCount !== ingIds.length) throw new HttpError(400, "Geçersiz malzeme referansı");
+      }
+      await client.query("DELETE FROM product_recipes WHERE product_id=$1", [p.product_id]);
+      for (const l of p.lines) {
+        await client.query(
+          "INSERT INTO product_recipes (product_id, ingredient_id, qty) VALUES ($1,$2,$3)",
+          [p.product_id, l.ingredient_id, l.qty],
+        );
+      }
+      return { product_id: p.product_id, line_count: p.lines.length };
+    });
+  },
+  list_products_with_recipes: async (ctx) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const r = await query(
+      `SELECT p.id, p.name, p.image_url, p.is_active,
+              count(pr.id)::int AS recipe_line_count
+         FROM products p
+         LEFT JOIN product_recipes pr ON pr.product_id = p.id
+        WHERE p.school_id = $1
+        GROUP BY p.id
+        ORDER BY p.name ASC`,
+      [schoolId],
+    );
+    return r.rows;
+  },
+  recent_ingredient_movements: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ limit: z.number().int().min(1).max(100).default(20) }).parse(params ?? {});
+    const r = await query(
+      `SELECT m.id, m.delta, m.reason, m.balance_after, m.note, m.created_at,
+              i.name AS ingredient_name, i.unit
+         FROM ingredient_movements m
+         JOIN ingredients i ON i.id = m.ingredient_id
+        WHERE m.school_id = $1
+        ORDER BY m.created_at DESC
+        LIMIT $2`,
+      [schoolId, p.limit],
+    );
+    return r.rows;
+  },
 };
+
+const INGREDIENT_UNITS = ["adet", "gr", "kg", "ml", "lt"] as const;
+const IngredientInputSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  unit: z.enum(INGREDIENT_UNITS),
+  stock_qty: z.number().min(0).max(1_000_000).optional(),
+  low_stock_threshold: z.number().min(0).max(1_000_000).nullable().optional(),
+});
+const IngredientUpdateSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().trim().min(1).max(100),
+  unit: z.enum(INGREDIENT_UNITS),
+  low_stock_threshold: z.number().min(0).max(1_000_000).nullable().optional(),
+  is_active: z.boolean(),
+});
 
 const CategoryInputSchema = z.object({
   name: z.string().trim().min(1).max(100),
