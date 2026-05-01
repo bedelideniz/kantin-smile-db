@@ -42,6 +42,16 @@ export function requireRole(ctx: AuthContext, role: AppRole): void {
   }
 }
 
+/**
+ * Returns the school_id of the calling school_admin. Throws 403 if the user
+ * does not hold the school_admin role or has no school assigned.
+ */
+export function requireSchoolAdminSchool(ctx: AuthContext): string {
+  const r = ctx.roles.find((r) => r.role === "school_admin" && r.school_id);
+  if (!r || !r.school_id) throw new HttpError(403, "Requires school_admin");
+  return r.school_id;
+}
+
 export class HttpError extends Error {
   constructor(public status: number, message: string) {
     super(message);

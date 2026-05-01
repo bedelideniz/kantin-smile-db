@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CashiersManager from "@/components/yonetici/CashiersManager";
 
 export default function YoneticiPanel() {
   const { user, roles, loading, signOut } = useAuth();
@@ -25,25 +27,54 @@ export default function YoneticiPanel() {
 
   return (
     <main className="min-h-screen bg-background p-6">
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Okul Yönetici Paneli</h1>
+          <div>
+            <h1 className="text-2xl font-semibold">Okul Yönetici Paneli</h1>
+            <p className="text-sm text-muted-foreground">
+              {user.user_metadata?.full_name ?? user.email}
+            </p>
+          </div>
           <Button variant="outline" onClick={() => signOut().then(() => navigate("/yonetici-giris"))}>
             Çıkış Yap
           </Button>
         </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Hoş geldiniz</CardTitle>
-            <CardDescription>{user.user_metadata?.full_name ?? user.email}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Bu ekran şimdilik bir yer tutucudur. Sıradaki adımda kasiyer yönetimi, veli/öğrenci listesi
-              ve okul ayarları buraya eklenecektir.
-            </p>
-          </CardContent>
-        </Card>
+
+        <Tabs defaultValue="cashiers" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="cashiers">Kasiyerler</TabsTrigger>
+            <TabsTrigger value="users" disabled>
+              Veli & Öğrenci
+            </TabsTrigger>
+            <TabsTrigger value="settings" disabled>
+              Okul Ayarları
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="cashiers">
+            <CashiersManager />
+          </TabsContent>
+
+          <TabsContent value="users">
+            <Card>
+              <CardHeader>
+                <CardTitle>Veli & Öğrenci</CardTitle>
+                <CardDescription>Yakında eklenecek.</CardDescription>
+              </CardHeader>
+              <CardContent />
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Okul Ayarları</CardTitle>
+                <CardDescription>Yakında eklenecek.</CardDescription>
+              </CardHeader>
+              <CardContent />
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );
