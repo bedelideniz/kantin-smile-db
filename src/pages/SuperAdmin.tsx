@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import SchoolsManager from "@/components/admin/SchoolsManager";
+import NetgsmSettings from "@/components/admin/NetgsmSettings";
 
 export default function SuperAdmin() {
   const { user, roles, loading, hasRole, signOut } = useAuth();
