@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CashiersManager from "@/components/yonetici/CashiersManager";
 import StudentsManager from "@/components/yonetici/StudentsManager";
 import ProductsManager from "@/components/yonetici/ProductsManager";
+import RecipesManager from "@/components/yonetici/RecipesManager";
 
 export default function YoneticiPanel() {
   const { user, roles, loading, signOut } = useAuth();
@@ -47,6 +48,7 @@ export default function YoneticiPanel() {
             <TabsTrigger value="cashiers">Kasiyerler</TabsTrigger>
             <TabsTrigger value="users">Veli & Öğrenci</TabsTrigger>
             <TabsTrigger value="products">Ürünler</TabsTrigger>
+            <TabsTrigger value="recipes">Reçeteler</TabsTrigger>
             <TabsTrigger value="settings" disabled>
               Okul Ayarları
             </TabsTrigger>
@@ -62,6 +64,10 @@ export default function YoneticiPanel() {
 
           <TabsContent value="products">
             <ProductsManager />
+          </TabsContent>
+
+          <TabsContent value="recipes">
+            <RecipesManager />
           </TabsContent>
 
           <TabsContent value="settings">
