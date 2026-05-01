@@ -150,7 +150,8 @@ export default function KasiyerPanel() {
     try {
       const r = await callCashierApi<{ student: Student }>("lookup_student", { nfc_uid: uid });
       setStudent(r.student);
-      toast({ title: "Öğrenci tanındı", description: `${r.student.full_name} • Bakiye: ${fmt(Number(r.student.balance))} ₺` });
+      const t = toast({ title: "Öğrenci tanındı", description: `${r.student.full_name} • Bakiye: ${fmt(Number(r.student.balance))} ₺` });
+      setTimeout(() => t.dismiss(), 1000);
     } catch (e: any) {
       toast({ title: "Kart tanınmadı", description: `${e?.message ?? "Hata"} (UID: ${uid})`, variant: "destructive" });
     }
