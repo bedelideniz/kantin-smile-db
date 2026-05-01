@@ -236,6 +236,7 @@ export default function VeliPanel() {
           </Card>
         )}
       </div>
+      <BottomNav />
     </main>
   );
 }
