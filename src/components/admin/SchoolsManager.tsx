@@ -274,12 +274,16 @@ export default function SchoolsManager() {
                     <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
+                    <Button variant="ghost" size="icon" title="Yöneticiye SMS kodu gönder" onClick={() => resendOtp(s)}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" title="Düzenle" onClick={() => openEdit(s)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
+                      title="Sil"
                       onClick={() => setDeleteId(s.id)}
                     >
                       <Trash2 className="h-4 w-4" />
