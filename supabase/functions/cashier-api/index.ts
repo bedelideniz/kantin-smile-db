@@ -133,12 +133,22 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
     let where = "school_id=$1 AND is_active=TRUE";
     if (p.category_id) { args.push(p.category_id); where += ` AND category_id=$${args.length}`; }
     const r = await query(
-      `SELECT id, category_id, name, price, image_url, stock_tracking, stock_qty, sort_order
+      `SELECT id, category_id, name, price, image_url, barcode, stock_tracking, stock_qty, sort_order
          FROM products WHERE ${where}
         ORDER BY sort_order ASC, name ASC LIMIT 500`,
       args,
     );
     return r.rows;
+  },
+  find_product_by_barcode: async (ctx, params) => {
+    const p = z.object({ barcode: z.string().trim().min(4).max(32) }).parse(params ?? {});
+    const r = await query(
+      `SELECT id, category_id, name, price, image_url, barcode, stock_tracking, stock_qty, sort_order
+         FROM products WHERE school_id=$1 AND is_active=TRUE AND barcode=$2 LIMIT 1`,
+      [ctx.schoolId, p.barcode],
+    );
+    if (!r.rows[0]) throw new HttpError(404, "Bu barkoda ait ürün yok");
+    return r.rows[0];
   },
   lookup_student: async (ctx, params) => {
     const p = z.object({
