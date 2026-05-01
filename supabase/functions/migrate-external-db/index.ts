@@ -290,6 +290,20 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_students_parent_phone ON students(parent_phone) WHERE parent_phone IS NOT NULL;
     `,
   },
+  {
+    version: "0008_student_blocked_products",
+    description: "Parent-set product blocks per student (cashier must reject these at POS)",
+    sql: `
+      CREATE TABLE IF NOT EXISTS student_blocked_products (
+        student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (student_id, product_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_sbp_student ON student_blocked_products(student_id);
+      CREATE INDEX IF NOT EXISTS idx_sbp_product ON student_blocked_products(product_id);
+    `,
+  },
 ];
 
 
