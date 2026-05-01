@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import SchoolsManager from "@/components/admin/SchoolsManager";
+import NetgsmSettings from "@/components/admin/NetgsmSettings";
 
 export default function SuperAdmin() {
   const { user, roles, loading, hasRole, signOut } = useAuth();
@@ -81,6 +82,7 @@ export default function SuperAdmin() {
         <Tabs defaultValue="schools" className="space-y-4">
           <TabsList>
             <TabsTrigger value="schools">Okullar</TabsTrigger>
+            <TabsTrigger value="netgsm">SMS / NetGSM</TabsTrigger>
             <TabsTrigger value="infrastructure">Altyapı</TabsTrigger>
           </TabsList>
 
@@ -88,6 +90,14 @@ export default function SuperAdmin() {
             <Card>
               <CardContent className="pt-6">
                 <SchoolsManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="netgsm">
+            <Card>
+              <CardContent className="pt-6">
+                <NetgsmSettings />
               </CardContent>
             </Card>
           </TabsContent>

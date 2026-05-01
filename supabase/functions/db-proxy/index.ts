@@ -4,7 +4,8 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { z } from "npm:zod@3.23.8";
 import { authenticate, HttpError } from "../_shared/auth.ts";
-import { query } from "../_shared/external-db.ts";
+import { query, withTransaction } from "../_shared/external-db.ts";
+import { generateOtp, sendSms } from "../_shared/sms.ts";
 
 const BodySchema = z.object({
   op: z.string().min(1).max(64),
@@ -30,13 +31,41 @@ const HANDLERS: Record<string, Handler> = {
   create_school: async (ctx, params) => {
     requireSuperAdmin(ctx);
     const p = SchoolInputSchema.parse(params);
-    const r = await query(
-      `INSERT INTO schools (name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, is_active)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       RETURNING id, name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, is_active, created_at`,
-      [p.name, p.province ?? null, p.district ?? null, p.admin_full_name, p.admin_phone, p.min_topup_amount, p.commission_rate, p.commission_free_after_days, p.is_active],
-    );
-    return r.rows[0];
+    const school = await withTransaction(async (client) => {
+      const ins = await client.query(
+        `INSERT INTO schools (name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, is_active)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         RETURNING id, name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, is_active, created_at`,
+        [p.name, p.province ?? null, p.district ?? null, p.admin_full_name, p.admin_phone, p.min_topup_amount, p.commission_rate, p.commission_free_after_days, p.is_active],
+      );
+      const s = ins.rows[0];
+      // Create / upsert school_admin user record (OTP-only login).
+      await client.query(
+        `INSERT INTO app_users (school_id, full_name, phone, role, is_active)
+         VALUES ($1,$2,$3,'school_admin',TRUE)
+         ON CONFLICT (phone) DO UPDATE SET school_id = EXCLUDED.school_id,
+           full_name = EXCLUDED.full_name, role = 'school_admin', is_active = TRUE, updated_at = now()`,
+        [s.id, p.admin_full_name, p.admin_phone],
+      );
+      return s;
+    });
+
+    // Generate OTP, store it, and send welcome SMS (non-blocking on failure).
+    let smsResult: { ok: boolean; status: string } = { ok: false, status: "skipped" };
+    try {
+      const code = generateOtp();
+      await query(
+        `INSERT INTO otp_codes (phone, code, purpose, expires_at)
+         VALUES ($1, $2, 'login', now() + interval '10 minutes')`,
+        [p.admin_phone, code],
+      );
+      const message = `KantinPay'e hos geldiniz ${p.admin_full_name}. Giris kodunuz: ${code}`;
+      const r = await sendSms(p.admin_phone, message);
+      smsResult = { ok: r.ok, status: r.status };
+    } catch (e) {
+      smsResult = { ok: false, status: e instanceof Error ? e.message : "sms_error" };
+    }
+    return { ...school, sms: smsResult };
   },
   update_school: async (ctx, params) => {
     requireSuperAdmin(ctx);
@@ -49,6 +78,14 @@ const HANDLERS: Record<string, Handler> = {
       [p.id, p.name, p.province ?? null, p.district ?? null, p.admin_full_name, p.admin_phone, p.min_topup_amount, p.commission_rate, p.commission_free_after_days, p.is_active],
     );
     if (r.rowCount === 0) throw new HttpError(404, "Okul bulunamadı");
+    // Keep the school_admin user in sync (name/phone may have changed).
+    await query(
+      `INSERT INTO app_users (school_id, full_name, phone, role, is_active)
+       VALUES ($1,$2,$3,'school_admin',TRUE)
+       ON CONFLICT (phone) DO UPDATE SET school_id = EXCLUDED.school_id,
+         full_name = EXCLUDED.full_name, role = 'school_admin', updated_at = now()`,
+      [p.id, p.admin_full_name, p.admin_phone],
+    );
     return r.rows[0];
   },
   toggle_school_active: async (ctx, params) => {
@@ -67,6 +104,68 @@ const HANDLERS: Record<string, Handler> = {
     const r = await query("DELETE FROM schools WHERE id=$1", [p.id]);
     if (r.rowCount === 0) throw new HttpError(404, "Okul bulunamadı");
     return { id: p.id, deleted: true };
+  },
+  resend_admin_otp: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({ school_id: z.string().uuid() }).parse(params);
+    const sr = await query<{ admin_full_name: string; admin_phone: string }>(
+      "SELECT admin_full_name, admin_phone FROM schools WHERE id=$1",
+      [p.school_id],
+    );
+    if (sr.rowCount === 0) throw new HttpError(404, "Okul bulunamadı");
+    const { admin_full_name, admin_phone } = sr.rows[0];
+    const code = generateOtp();
+    await query(
+      `INSERT INTO otp_codes (phone, code, purpose, expires_at)
+       VALUES ($1, $2, 'login', now() + interval '10 minutes')`,
+      [admin_phone, code],
+    );
+    const message = `KantinPay'e hos geldiniz ${admin_full_name}. Giris kodunuz: ${code}`;
+    const r = await sendSms(admin_phone, message);
+    return { ok: r.ok, status: r.status, raw: r.raw };
+  },
+  // ---- NetGSM config ----
+  get_netgsm_config: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      "SELECT username, msgheader, is_active, updated_at, (password IS NOT NULL AND password <> '') AS has_password FROM netgsm_config WHERE id = 1",
+    );
+    return r.rows[0] ?? { username: null, msgheader: null, is_active: false, has_password: false };
+  },
+  save_netgsm_config: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      username: z.string().min(1).max(100),
+      password: z.string().max(200).optional(), // empty = keep existing
+      msgheader: z.string().min(1).max(20),
+      is_active: z.boolean(),
+    }).parse(params);
+    const updatePassword = p.password && p.password.length > 0;
+    if (updatePassword) {
+      await query(
+        `UPDATE netgsm_config SET username=$1, password=$2, msgheader=$3, is_active=$4, updated_at=now() WHERE id=1`,
+        [p.username, p.password, p.msgheader, p.is_active],
+      );
+    } else {
+      await query(
+        `UPDATE netgsm_config SET username=$1, msgheader=$2, is_active=$3, updated_at=now() WHERE id=1`,
+        [p.username, p.msgheader, p.is_active],
+      );
+    }
+    return { ok: true };
+  },
+  test_sms: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({ phone: z.string().min(5).max(32), message: z.string().min(1).max(500).optional() }).parse(params);
+    const r = await sendSms(p.phone, p.message ?? "KantinPay test mesajidir.");
+    return { ok: r.ok, status: r.status, raw: r.raw };
+  },
+  recent_sms_log: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      "SELECT id, phone, message, status, provider_response, created_at FROM sms_log ORDER BY created_at DESC LIMIT 20",
+    );
+    return r.rows;
   },
 };
 

@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Plus, Trash2, RefreshCw } from "lucide-react";
+import { Pencil, Plus, Trash2, RefreshCw, Send } from "lucide-react";
 
 interface School {
   id: string;
@@ -147,8 +147,15 @@ export default function SchoolsManager() {
         await callOp("update_school", { id: form.id, ...payload });
         toast({ title: "Okul güncellendi" });
       } else {
-        await callOp("create_school", payload);
-        toast({ title: "Okul oluşturuldu" });
+        const res = await callOp<{ sms?: { ok: boolean; status: string } }>("create_school", payload);
+        const sms = res?.sms;
+        toast({
+          title: "Okul oluşturuldu",
+          description: sms?.ok
+            ? "Yöneticiye SMS giriş kodu gönderildi."
+            : `SMS gönderilemedi (${sms?.status ?? "bilinmiyor"}). NetGSM ayarlarını kontrol edin.`,
+          variant: sms?.ok ? "default" : "destructive",
+        });
       }
       setDialogOpen(false);
       await load();
@@ -178,6 +185,19 @@ export default function SchoolsManager() {
       toast({ title: "Silme hatası", description: (e as Error).message, variant: "destructive" });
     } finally {
       setDeleteId(null);
+    }
+  };
+
+  const resendOtp = async (s: School) => {
+    try {
+      const r = await callOp<{ ok: boolean; status: string; raw: string }>("resend_admin_otp", { school_id: s.id });
+      toast({
+        title: r.ok ? "SMS gönderildi" : "SMS gönderilemedi",
+        description: `Durum: ${r.status}${r.raw ? ` — ${r.raw}` : ""}`,
+        variant: r.ok ? "default" : "destructive",
+      });
+    } catch (e) {
+      toast({ title: "Hata", description: (e as Error).message, variant: "destructive" });
     }
   };
 
@@ -254,12 +274,16 @@ export default function SchoolsManager() {
                     <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(s)}>
+                    <Button variant="ghost" size="icon" title="Yöneticiye SMS kodu gönder" onClick={() => resendOtp(s)}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" title="Düzenle" onClick={() => openEdit(s)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
+                      title="Sil"
                       onClick={() => setDeleteId(s.id)}
                     >
                       <Trash2 className="h-4 w-4" />
