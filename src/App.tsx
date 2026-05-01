@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import Login from "./pages/Login.tsx";
 import SuperAdmin from "./pages/SuperAdmin.tsx";
+import YoneticiGiris from "./pages/YoneticiGiris.tsx";
+import YoneticiPanel from "./pages/YoneticiPanel.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -20,6 +22,8 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/admin" element={<SuperAdmin />} />
+          <Route path="/yonetici-giris" element={<YoneticiGiris />} />
+          <Route path="/yonetici" element={<YoneticiPanel />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

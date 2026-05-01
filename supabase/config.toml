@@ -1,1 +1,7 @@
 project_id = "cwrlhyuwgoxsmqotnccs"
+
+[functions.school-admin-login]
+verify_jwt = false
+
+[functions.school-admin-verify]
+verify_jwt = false
