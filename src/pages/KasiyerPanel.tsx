@@ -264,7 +264,7 @@ export default function KasiyerPanel() {
             )}
           >
             <CircleDot className={cn("h-3 w-3", reader.status === "listening" && "animate-pulse")} />
-            {reader.status === "listening" ? "Kart okuyucu hazır" : "Okuyucu kapalı"}
+            {reader.status === "listening" ? "Kart & barkod okuyucu hazır" : "Okuyucu kapalı"}
           </div>
           <Button
             variant="outline"
