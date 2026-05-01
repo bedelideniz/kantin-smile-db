@@ -7,14 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, QrCode, Radio, Search, Trash2, X, Plus, Minus } from "lucide-react";
+import { LogOut, QrCode, Radio, Search, Trash2, X, Plus, Minus, AlertCircle, CheckCircle2 } from "lucide-react";
 import {
   callCashierApi,
   clearCashierSession,
   getCashierSession,
 } from "@/lib/cashierApi";
 import { QrScannerDialog } from "@/components/kasiyer/QrScannerDialog";
-import { NfcReaderDialog } from "@/components/kasiyer/NfcReaderDialog";
+import { useNfcReader } from "@/hooks/useNfcReader";
 
 interface Category { id: string; name: string; color: string | null; sort_order: number }
 interface Product {
@@ -44,7 +44,6 @@ export default function KasiyerPanel() {
   const [student, setStudent] = useState<Student | null>(null);
 
   const [qrOpen, setQrOpen] = useState(false);
-  const [nfcOpen, setNfcOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Student[]>([]);
@@ -124,15 +123,18 @@ export default function KasiyerPanel() {
   };
 
   const handleNfcResult = async (uid: string) => {
-    setNfcOpen(false);
     try {
       const r = await callCashierApi<{ student: Student }>("lookup_student", { nfc_uid: uid });
       setStudent(r.student);
-      toast({ title: "Öğrenci bulundu", description: r.student.full_name });
+      toast({ title: "Öğrenci tanındı", description: `${r.student.full_name} • Bakiye: ${fmt(Number(r.student.balance))} ₺` });
     } catch (e: any) {
-      toast({ title: "Bulunamadı", description: `${e?.message} (UID: ${uid})`, variant: "destructive" });
+      toast({ title: "Kart tanınmadı", description: `${e?.message ?? "Hata"} (UID: ${uid})`, variant: "destructive" });
     }
   };
+
+  // Continuously listen for NFC card taps in the background.
+  // Tapping a new card replaces the currently selected student.
+  const nfc = useNfcReader({ enabled: !!session, onScan: handleNfcResult });
 
   const doSearch = async () => {
     if (searchTerm.trim().length < 2) return;
@@ -191,9 +193,24 @@ export default function KasiyerPanel() {
           <h1 className="text-lg font-semibold">{session.school.name}</h1>
           <p className="text-xs text-muted-foreground">Kasiyer: {session.cashier.full_name}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={logout}>
-          <LogOut className="mr-2 h-4 w-4" /> Çıkış
-        </Button>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant={nfc.status === "listening" ? "default" : "secondary"}
+            className="gap-1"
+            title={nfc.error ?? undefined}
+          >
+            {nfc.status === "listening" ? (
+              <><CheckCircle2 className="h-3 w-3" /> NFC aktif</>
+            ) : nfc.status === "starting" ? (
+              <><Radio className="h-3 w-3 animate-pulse" /> NFC başlatılıyor</>
+            ) : (
+              <><AlertCircle className="h-3 w-3" /> NFC: {nfc.status === "unsupported" ? "desteklenmiyor" : nfc.status === "denied" ? "izin yok" : "hata"}</>
+            )}
+          </Badge>
+          <Button variant="outline" size="sm" onClick={logout}>
+            <LogOut className="mr-2 h-4 w-4" /> Çıkış
+          </Button>
+        </div>
       </header>
 
       <div className="grid flex-1 grid-cols-12 gap-0 overflow-hidden">
@@ -288,17 +305,41 @@ export default function KasiyerPanel() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Öğrenci tanıma</p>
-                <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-3">
+                {/* Big NFC waiting indicator */}
+                <div className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition ${
+                  nfc.status === "listening"
+                    ? "border-primary/50 bg-primary/5"
+                    : "border-muted bg-muted/30"
+                }`}>
+                  <div className={`flex h-16 w-16 items-center justify-center rounded-full ${
+                    nfc.status === "listening" ? "animate-pulse bg-primary/10" : "bg-muted"
+                  }`}>
+                    <Radio className={`h-8 w-8 ${nfc.status === "listening" ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <p className="mt-3 text-base font-semibold">
+                    {nfc.status === "listening" && "Kart Okutun"}
+                    {nfc.status === "starting" && "NFC başlatılıyor..."}
+                    {nfc.status === "unsupported" && "NFC desteklenmiyor"}
+                    {nfc.status === "denied" && "NFC izni reddedildi"}
+                    {nfc.status === "error" && "NFC hatası"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {nfc.status === "listening" && "Öğrenci kartını cihaza yaklaştırın"}
+                    {nfc.status === "starting" && "Lütfen bekleyin"}
+                    {nfc.status === "unsupported" && "Android Chrome gerekiyor. Aşağıdan QR veya arama kullanın."}
+                    {nfc.status === "denied" && "Sayfa ayarlarından NFC iznini verin"}
+                    {nfc.status === "error" && (nfc.error ?? "Bilinmeyen hata")}
+                  </p>
+                </div>
+
+                {/* Fallback options */}
+                <div className="grid grid-cols-2 gap-2">
                   <Button variant="outline" onClick={() => setQrOpen(true)}>
-                    <QrCode className="mr-1 h-4 w-4" /> QR
-                  </Button>
-                  <Button variant="outline" onClick={() => setNfcOpen(true)}>
-                    <Radio className="mr-1 h-4 w-4" /> NFC
+                    <QrCode className="mr-1 h-4 w-4" /> QR Okut
                   </Button>
                   <Button variant="outline" onClick={() => setSearchOpen((v) => !v)}>
-                    <Search className="mr-1 h-4 w-4" /> Ara
+                    <Search className="mr-1 h-4 w-4" /> İsim ile Ara
                   </Button>
                 </div>
                 {searchOpen && (
@@ -408,7 +449,6 @@ export default function KasiyerPanel() {
       </div>
 
       <QrScannerDialog open={qrOpen} onClose={() => setQrOpen(false)} onResult={handleQrResult} />
-      <NfcReaderDialog open={nfcOpen} onClose={() => setNfcOpen(false)} onResult={handleNfcResult} />
     </main>
   );
 }
