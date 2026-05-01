@@ -147,8 +147,15 @@ export default function SchoolsManager() {
         await callOp("update_school", { id: form.id, ...payload });
         toast({ title: "Okul güncellendi" });
       } else {
-        await callOp("create_school", payload);
-        toast({ title: "Okul oluşturuldu" });
+        const res = await callOp<{ sms?: { ok: boolean; status: string } }>("create_school", payload);
+        const sms = res?.sms;
+        toast({
+          title: "Okul oluşturuldu",
+          description: sms?.ok
+            ? "Yöneticiye SMS giriş kodu gönderildi."
+            : `SMS gönderilemedi (${sms?.status ?? "bilinmiyor"}). NetGSM ayarlarını kontrol edin.`,
+          variant: sms?.ok ? "default" : "destructive",
+        });
       }
       setDialogOpen(false);
       await load();
