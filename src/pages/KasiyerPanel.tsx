@@ -434,7 +434,6 @@ export default function KasiyerPanel() {
       </div>
 
       <QrScannerDialog open={qrOpen} onClose={() => setQrOpen(false)} onResult={handleQrResult} />
-      <NfcReaderDialog open={nfcOpen} onClose={() => setNfcOpen(false)} onResult={handleNfcResult} />
     </main>
   );
 }
