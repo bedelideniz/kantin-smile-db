@@ -28,12 +28,35 @@ export function getPool(): Pool {
     // Edge functions are short-lived & spawn many isolates concurrently.
     // Keep the pool tiny and aggressively close idle connections so we don't
     // exhaust the external DB's max_connections limit.
-    max: 2,
-    idleTimeoutMillis: 3_000,
-    connectionTimeoutMillis: 10_000,
+    max: 1,
+    idleTimeoutMillis: 1_500,
+    connectionTimeoutMillis: 8_000,
     allowExitOnIdle: true,
   });
+  // Swallow background pool errors so a dropped idle connection doesn't crash the isolate.
+  _pool.on("error", (err: unknown) => {
+    console.warn("pg pool error:", err instanceof Error ? err.message : err);
+  });
   return _pool;
+}
+
+const TRANSIENT_PATTERNS = [
+  /too many clients/i,
+  /remaining connection slots/i,
+  /connection terminated/i,
+  /Connection terminated unexpectedly/i,
+  /timeout exceeded when trying to connect/i,
+  /ECONNRESET/i,
+  /ETIMEDOUT/i,
+];
+
+function isTransient(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return TRANSIENT_PATTERNS.some((re) => re.test(msg));
+}
+
+async function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export async function query<T = any>(
@@ -41,24 +64,50 @@ export async function query<T = any>(
   params: unknown[] = [],
 ): Promise<{ rows: T[]; rowCount: number }> {
   const pool = getPool();
-  const res = await pool.query(text, params);
-  return { rows: res.rows as T[], rowCount: res.rowCount ?? 0 };
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await pool.query(text, params);
+      return { rows: res.rows as T[], rowCount: res.rowCount ?? 0 };
+    } catch (e) {
+      lastErr = e;
+      if (!isTransient(e)) throw e;
+      // Exponential backoff with jitter: ~150ms, ~400ms
+      await sleep(150 * Math.pow(2, attempt) + Math.floor(Math.random() * 100));
+    }
+  }
+  throw lastErr;
 }
 
 export async function withTransaction<T>(
   fn: (client: any) => Promise<T>,
 ): Promise<T> {
   const pool = getPool();
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const result = await fn(client);
-    await client.query("COMMIT");
-    return result;
-  } catch (e) {
-    await client.query("ROLLBACK");
-    throw e;
-  } finally {
-    client.release();
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let client: any = null;
+    try {
+      client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const result = await fn(client);
+        await client.query("COMMIT");
+        return result;
+      } catch (e) {
+        try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+        throw e;
+      } finally {
+        client.release();
+      }
+    } catch (e) {
+      lastErr = e;
+      // Only retry if we never got into the transaction body (i.e. connect failed).
+      if (!client && isTransient(e)) {
+        await sleep(150 * Math.pow(2, attempt) + Math.floor(Math.random() * 100));
+        continue;
+      }
+      throw e;
+    }
   }
+  throw lastErr;
 }
