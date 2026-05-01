@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { callParentApi, getParentSession, saveParentSession, type ParentSession } from "@/lib/parentApi";
 import logo from "@/assets/kantinpay-logo.png";
@@ -18,6 +19,7 @@ export default function VeliGiris() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [studentCount, setStudentCount] = useState(0);
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -50,7 +52,7 @@ export default function VeliGiris() {
     }
     setLoading(true);
     try {
-      const session = await callParentApi<Omit<ParentSession, "phone">>("login_verify", { phone: formatPhone(phone), code });
+      const session = await callParentApi<Omit<ParentSession, "phone">>("login_verify", { phone: formatPhone(phone), code, remember });
       saveParentSession({ ...session, phone: formatPhone(phone) });
       navigate("/veli", { replace: true });
     } catch (e: any) {
