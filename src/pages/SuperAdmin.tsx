@@ -96,6 +96,14 @@ export default function SuperAdmin() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="payments">
+            <Card>
+              <CardContent className="pt-6">
+                <PaymentSettings />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="netgsm">
             <Card>
               <CardContent className="pt-6">
