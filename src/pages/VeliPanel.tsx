@@ -15,6 +15,7 @@ import {
   setSelectedStudentId, updateParentStudents, type ParentSession, type ParentStudent,
 } from "@/lib/parentApi";
 import logo from "@/assets/kantinpay-logo.png";
+import BottomNav from "@/components/veli/BottomNav";
 
 interface TxItem { product_name: string; qty: number; unit_price: number; line_total: number; }
 interface Tx {
@@ -182,13 +183,6 @@ export default function VeliPanel() {
               </div>
               <div className="mt-2 text-4xl font-bold tracking-tight">{fmtTL(selected.balance)}</div>
               <div className="mt-1 text-sm text-muted-foreground">{selected.full_name}</div>
-              <Separator className="my-4" />
-              <Button disabled className="h-12 w-full text-base">
-                Bakiye Yükle (yakında)
-              </Button>
-              <p className="mt-2 text-center text-xs text-muted-foreground">
-                Online ödeme yakında eklenecek.
-              </p>
             </CardContent>
           </Card>
         )}
@@ -242,6 +236,7 @@ export default function VeliPanel() {
           </Card>
         )}
       </div>
+      <BottomNav />
     </main>
   );
 }

@@ -211,6 +211,19 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       const student = sr.rows[0];
       if (!student.is_active) throw new HttpError(403, "Öğrenci pasif");
 
+      // Parent-set blocked products check
+      const blockedRes = await client.query(
+        `SELECT sbp.product_id, pr.name
+           FROM student_blocked_products sbp
+           JOIN products pr ON pr.id = sbp.product_id
+          WHERE sbp.student_id = $1 AND sbp.product_id = ANY($2::uuid[])`,
+        [p.student_id, p.items.map((i) => i.product_id)],
+      );
+      if (blockedRes.rowCount > 0) {
+        const names = blockedRes.rows.map((r: any) => r.name).join(", ");
+        throw new HttpError(403, `Veli tarafından engellenen ürün(ler): ${names}`);
+      }
+
       // Fetch products with current price
       const ids = p.items.map((i) => i.product_id);
       const pr = await client.query(
