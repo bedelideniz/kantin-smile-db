@@ -132,9 +132,12 @@ export default function KasiyerPanel() {
     }
   };
 
-  // Continuously listen for NFC card taps in the background.
-  // Tapping a new card replaces the currently selected student.
-  const nfc = useNfcReader({ enabled: !!session, onScan: handleNfcResult });
+  const handleUsbScan = async (uid: string) => {
+    await handleNfcResult(uid);
+  };
+
+  // Listen for taps on the USB HID card reader (acts like a keyboard)
+  const reader = useUsbCardReader({ enabled: !!session, onScan: handleUsbScan });
 
   const doSearch = async () => {
     if (searchTerm.trim().length < 2) return;
