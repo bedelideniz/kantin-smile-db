@@ -7,14 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, QrCode, Radio, Search, Trash2, X, Plus, Minus, AlertCircle, CheckCircle2 } from "lucide-react";
+import { LogOut, QrCode, Radio, Search, Trash2, X, Plus, Minus, CheckCircle2, Usb } from "lucide-react";
 import {
   callCashierApi,
   clearCashierSession,
   getCashierSession,
 } from "@/lib/cashierApi";
 import { QrScannerDialog } from "@/components/kasiyer/QrScannerDialog";
-import { useNfcReader } from "@/hooks/useNfcReader";
+import { useUsbCardReader } from "@/hooks/useUsbCardReader";
 
 interface Category { id: string; name: string; color: string | null; sort_order: number }
 interface Product {
