@@ -56,6 +56,7 @@ export default function KasiyerPanel() {
   const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [manualBarcode, setManualBarcode] = useState("");
 
   // Auth gate
   useEffect(() => {
