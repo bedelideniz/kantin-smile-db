@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   LogOut, QrCode, Search, Trash2, X, Plus, Minus,
-  CreditCard, CircleDot, Wallet, ShoppingCart, AlertTriangle, GraduationCap, Sparkles,
+  CreditCard, CircleDot, Wallet, ShoppingCart, AlertTriangle, GraduationCap, Sparkles, Barcode,
 } from "lucide-react";
 import {
   callCashierApi,
