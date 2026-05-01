@@ -568,6 +568,32 @@ const HANDLERS: Record<string, Handler> = {
   },
 };
 
+const CategoryInputSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  color: z.string().trim().max(32).optional().nullable(),
+  sort_order: z.number().int().min(0).max(9999).optional(),
+});
+const CategoryUpdateSchema = CategoryInputSchema.extend({
+  id: z.string().uuid(),
+  is_active: z.boolean(),
+});
+
+const ProductInputSchema = z.object({
+  category_id: z.string().uuid().nullable().optional(),
+  name: z.string().trim().min(1).max(255),
+  price: z.number().min(0).max(100000),
+  image_url: z.string().trim().max(2048).nullable().optional(),
+  barcode: z.string().trim().min(4).max(32).nullable().optional(),
+  stock_tracking: z.boolean().optional(),
+  stock_qty: z.number().int().min(0).max(1_000_000).optional(),
+  sort_order: z.number().int().min(0).max(9999).optional(),
+});
+const ProductUpdateSchema = ProductInputSchema.extend({
+  id: z.string().uuid(),
+  stock_tracking: z.boolean(),
+  stock_qty: z.number().int().min(0).max(1_000_000),
+});
+
 const StudentInputSchema = z.object({
   full_name: z.string().trim().min(2).max(255),
   class_name: z.string().trim().max(50).optional().nullable(),
