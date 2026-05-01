@@ -425,6 +425,147 @@ const HANDLERS: Record<string, Handler> = {
       return { id: p.id, balance_before: before, balance_after: after };
     });
   },
+
+  /* ============== CATEGORIES ============== */
+  list_categories_admin: async (ctx) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const r = await query(
+      `SELECT c.id, c.name, c.color, c.sort_order, c.is_active, c.created_at,
+              (SELECT count(*) FROM products p WHERE p.category_id = c.id)::int AS product_count
+         FROM categories c
+        WHERE c.school_id=$1
+        ORDER BY c.sort_order ASC, c.name ASC`,
+      [schoolId],
+    );
+    return r.rows;
+  },
+  create_category: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = CategoryInputSchema.parse(params);
+    const r = await query(
+      `INSERT INTO categories (school_id, name, color, sort_order, is_active)
+       VALUES ($1,$2,$3,$4,TRUE)
+       RETURNING id, name, color, sort_order, is_active, created_at`,
+      [schoolId, p.name, p.color ?? null, p.sort_order ?? 0],
+    );
+    return r.rows[0];
+  },
+  update_category: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = CategoryUpdateSchema.parse(params);
+    const r = await query(
+      `UPDATE categories
+          SET name=$3, color=$4, sort_order=$5, is_active=$6, updated_at=now()
+        WHERE id=$1 AND school_id=$2
+        RETURNING id, name, color, sort_order, is_active, created_at`,
+      [p.id, schoolId, p.name, p.color ?? null, p.sort_order ?? 0, p.is_active],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Kategori bulunamadı");
+    return r.rows[0];
+  },
+  delete_category: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ id: z.string().uuid() }).parse(params);
+    const r = await query("DELETE FROM categories WHERE id=$1 AND school_id=$2", [p.id, schoolId]);
+    if (r.rowCount === 0) throw new HttpError(404, "Kategori bulunamadı");
+    return { id: p.id, deleted: true };
+  },
+
+  /* ============== PRODUCTS ============== */
+  list_products_admin: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({
+      query: z.string().trim().max(100).optional(),
+      category_id: z.string().uuid().nullable().optional(),
+    }).parse(params ?? {});
+    const args: any[] = [schoolId];
+    let where = "school_id = $1";
+    if (p.category_id) { args.push(p.category_id); where += ` AND category_id=$${args.length}`; }
+    if (p.query && p.query.length >= 1) {
+      args.push(`%${p.query}%`);
+      where += ` AND (name ILIKE $${args.length} OR barcode ILIKE $${args.length})`;
+    }
+    const r = await query(
+      `SELECT id, category_id, name, price, image_url, barcode,
+              stock_tracking, stock_qty, is_active, sort_order, created_at
+         FROM products WHERE ${where}
+        ORDER BY created_at DESC LIMIT 1000`,
+      args,
+    );
+    return r.rows;
+  },
+  find_product_by_barcode: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ barcode: z.string().trim().min(4).max(32) }).parse(params);
+    const r = await query(
+      `SELECT id, name, price, image_url, barcode, category_id, is_active
+         FROM products WHERE school_id=$1 AND barcode=$2 LIMIT 1`,
+      [schoolId, p.barcode],
+    );
+    return { product: r.rows[0] ?? null };
+  },
+  create_product: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = ProductInputSchema.parse(params);
+    try {
+      const r = await query(
+        `INSERT INTO products (school_id, category_id, name, price, image_url, barcode,
+                               stock_tracking, stock_qty, is_active, sort_order)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE,$9)
+         RETURNING id, category_id, name, price, image_url, barcode,
+                   stock_tracking, stock_qty, is_active, sort_order, created_at`,
+        [
+          schoolId, p.category_id ?? null, p.name, p.price,
+          p.image_url ?? null, p.barcode ?? null,
+          p.stock_tracking ?? false, p.stock_qty ?? 0, p.sort_order ?? 0,
+        ],
+      );
+      return r.rows[0];
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("unique") || msg.includes("duplicate")) {
+        throw new HttpError(409, "Bu barkod ile bir ürün zaten kayıtlı");
+      }
+      throw e;
+    }
+  },
+  update_product: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = ProductUpdateSchema.parse(params);
+    const r = await query(
+      `UPDATE products
+          SET category_id=$3, name=$4, price=$5, image_url=$6, barcode=$7,
+              stock_tracking=$8, stock_qty=$9, sort_order=$10, updated_at=now()
+        WHERE id=$1 AND school_id=$2
+        RETURNING id, category_id, name, price, image_url, barcode,
+                  stock_tracking, stock_qty, is_active, sort_order, created_at`,
+      [
+        p.id, schoolId, p.category_id ?? null, p.name, p.price,
+        p.image_url ?? null, p.barcode ?? null,
+        p.stock_tracking, p.stock_qty, p.sort_order ?? 0,
+      ],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Ürün bulunamadı");
+    return r.rows[0];
+  },
+  toggle_product_active: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(params);
+    const r = await query(
+      `UPDATE products SET is_active=$3, updated_at=now()
+        WHERE id=$1 AND school_id=$2 RETURNING id, is_active`,
+      [p.id, schoolId, p.is_active],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Ürün bulunamadı");
+    return r.rows[0];
+  },
+  delete_product: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ id: z.string().uuid() }).parse(params);
+    const r = await query("DELETE FROM products WHERE id=$1 AND school_id=$2", [p.id, schoolId]);
+    if (r.rowCount === 0) throw new HttpError(404, "Ürün bulunamadı");
+    return { id: p.id, deleted: true };
+  },
 };
 
 const StudentInputSchema = z.object({
