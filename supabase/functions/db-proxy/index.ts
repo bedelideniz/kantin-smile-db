@@ -225,6 +225,7 @@ const HANDLERS: Record<string, Handler> = {
   // ---- Cashier management (school_admin scoped) ----
   list_cashiers: async (ctx) => {
     const schoolId = requireSchoolAdminSchool(ctx);
+    await ensureCashierPinColumns();
     const r = await query(
       `SELECT id, full_name, phone, is_active, last_login_at, created_at,
               (pin_hash IS NOT NULL) AS has_pin, pin_updated_at
@@ -240,6 +241,7 @@ const HANDLERS: Record<string, Handler> = {
     const p = CashierCreateSchema.parse(params);
     const phone = normalizePhone(p.phone);
     const pinHash = await bcrypt.hash(p.pin, 10);
+    await ensureCashierPinColumns();
     try {
       const r = await query(
         `INSERT INTO app_users (school_id, full_name, phone, role, is_active, pin_hash, pin_updated_at)
@@ -260,6 +262,7 @@ const HANDLERS: Record<string, Handler> = {
     const schoolId = requireSchoolAdminSchool(ctx);
     const p = CashierUpdateSchema.parse(params);
     const phone = normalizePhone(p.phone);
+    await ensureCashierPinColumns();
     const r = await query(
       `UPDATE app_users
           SET full_name=$3, phone=$4, updated_at=now()
@@ -296,6 +299,7 @@ const HANDLERS: Record<string, Handler> = {
     const schoolId = requireSchoolAdminSchool(ctx);
     const p = z.object({ id: z.string().uuid(), pin: z.string().regex(/^\d{6}$/) }).parse(params);
     const pinHash = await bcrypt.hash(p.pin, 10);
+    await ensureCashierPinColumns();
     const r = await query(
       `UPDATE app_users SET pin_hash=$3, pin_updated_at=now(), updated_at=now()
         WHERE id=$1 AND school_id=$2 AND role='cashier'
@@ -313,6 +317,21 @@ function normalizePhone(input: string): string {
   if (digits.length === 10) return "0" + digits;
   if (digits.length === 12 && digits.startsWith("90")) return "0" + digits.slice(2);
   return digits;
+}
+
+let cashierPinColumnsReady: Promise<void> | null = null;
+
+function ensureCashierPinColumns(): Promise<void> {
+  if (!cashierPinColumnsReady) {
+    cashierPinColumnsReady = (async () => {
+      await query("ALTER TABLE app_users ADD COLUMN IF NOT EXISTS pin_hash TEXT");
+      await query("ALTER TABLE app_users ADD COLUMN IF NOT EXISTS pin_updated_at TIMESTAMPTZ");
+    })().catch((e) => {
+      cashierPinColumnsReady = null;
+      throw e;
+    });
+  }
+  return cashierPinColumnsReady;
 }
 
 const CashierCreateSchema = z.object({
