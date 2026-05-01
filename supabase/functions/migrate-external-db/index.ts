@@ -120,6 +120,16 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_app_users_auth_user ON app_users(auth_user_id);
     `,
   },
+  {
+    version: "0004_cashier_pin",
+    description: "Add PIN hash for cashier login",
+    sql: `
+      ALTER TABLE app_users ADD COLUMN IF NOT EXISTS pin_hash TEXT;
+      ALTER TABLE app_users ADD COLUMN IF NOT EXISTS pin_updated_at TIMESTAMPTZ;
+      -- Allow multiple cashiers per school to share a phone-less placeholder if needed.
+      -- Existing UNIQUE(phone) stays for school_admin/parent; cashiers must also have unique phones.
+    `,
+  },
 ];
 
 
