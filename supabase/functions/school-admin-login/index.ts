@@ -21,9 +21,12 @@ Deno.serve(async (req) => {
 
     // Tolerate legacy rows where phone may have been stored with a leading 0
     // or country code. Match against any common variant.
-    const variants = Array.from(new Set([phone, `0${phone}`, `90${phone}`, `+90${phone}`, parsed.data.phone]));
+    const inputDigits = parsed.data.phone.replace(/\D+/g, "");
+    const variants = Array.from(new Set([phone, `0${phone}`, `90${phone}`, inputDigits]));
     const r = await query<{ full_name: string }>(
-      "SELECT full_name FROM app_users WHERE phone = ANY($1::text[]) AND role = 'school_admin' AND is_active = TRUE LIMIT 1",
+      `SELECT full_name FROM app_users
+        WHERE (phone = ANY($1::text[]) OR regexp_replace(phone, '\\D', '', 'g') = ANY($1::text[]))
+          AND role = 'school_admin' AND is_active = TRUE LIMIT 1`,
       [variants],
     );
 
@@ -32,7 +35,9 @@ Deno.serve(async (req) => {
       // Older school records may not have been mirrored into app_users yet.
       // Fall back to the schools table, then create the OTP-login user row.
       const s = await query<{ id: string; admin_full_name: string }>(
-        "SELECT id, admin_full_name FROM schools WHERE admin_phone = ANY($1::text[]) AND is_active = TRUE LIMIT 1",
+        `SELECT id, admin_full_name FROM schools
+          WHERE (admin_phone = ANY($1::text[]) OR regexp_replace(admin_phone, '\\D', '', 'g') = ANY($1::text[]))
+            AND is_active = TRUE LIMIT 1`,
         [variants],
       );
       if (s.rowCount === 0) {
