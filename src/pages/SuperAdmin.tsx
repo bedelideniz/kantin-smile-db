@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import SchoolsManager from "@/components/admin/SchoolsManager";
 
 export default function SuperAdmin() {
   const { user, roles, loading, hasRole, signOut } = useAuth();
@@ -21,7 +23,6 @@ export default function SuperAdmin() {
     return <div className="flex min-h-screen items-center justify-center">Yükleniyor…</div>;
   }
 
-  // SüperAdmin değilse uyarı + rol atama yardımı
   if (roles !== null && !hasRole("super_admin")) {
     return (
       <main className="flex min-h-screen items-center justify-center p-4">
@@ -68,7 +69,7 @@ export default function SuperAdmin() {
 
   return (
     <main className="min-h-screen bg-background p-6">
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-6xl space-y-6">
         <header className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">SüperAdmin Paneli</h1>
@@ -77,26 +78,44 @@ export default function SuperAdmin() {
           <Button variant="outline" onClick={signOut}>Çıkış</Button>
         </header>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Faz 0 — Altyapı</CardTitle>
-            <CardDescription>
-              Kendi PostgreSQL sunucunuzdaki şemayı kurun ve bağlantıyı test edin.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={runMigration} disabled={running}>
-                {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
-              </Button>
-              <Button variant="secondary" onClick={pingDb}>DB Bağlantısını Test Et</Button>
-            </div>
-            {pingResult && (
-              <pre className="overflow-auto rounded bg-muted p-3 text-xs">{pingResult}</pre>
-            )}
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="schools" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="schools">Okullar</TabsTrigger>
+            <TabsTrigger value="infrastructure">Altyapı</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="schools">
+            <Card>
+              <CardContent className="pt-6">
+                <SchoolsManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="infrastructure">
+            <Card>
+              <CardHeader>
+                <CardTitle>Faz 0 — Altyapı</CardTitle>
+                <CardDescription>
+                  Kendi PostgreSQL sunucunuzdaki şemayı kurun ve bağlantıyı test edin.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={runMigration} disabled={running}>
+                    {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
+                  </Button>
+                  <Button variant="secondary" onClick={pingDb}>DB Bağlantısını Test Et</Button>
+                </div>
+                {pingResult && (
+                  <pre className="overflow-auto rounded bg-muted p-3 text-xs">{pingResult}</pre>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );
 }
+
