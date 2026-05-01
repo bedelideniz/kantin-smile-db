@@ -126,8 +126,102 @@ const MIGRATIONS: Migration[] = [
     sql: `
       ALTER TABLE app_users ADD COLUMN IF NOT EXISTS pin_hash TEXT;
       ALTER TABLE app_users ADD COLUMN IF NOT EXISTS pin_updated_at TIMESTAMPTZ;
-      -- Allow multiple cashiers per school to share a phone-less placeholder if needed.
-      -- Existing UNIQUE(phone) stays for school_admin/parent; cashiers must also have unique phones.
+    `,
+  },
+  {
+    version: "0005_pos_schema",
+    description: "POS: categories, products, students, cashier sessions, transactions",
+    sql: `
+      -- Cashier login sessions (opaque token -> cashier user)
+      CREATE TABLE IF NOT EXISTS cashier_sessions (
+        token TEXT PRIMARY KEY,
+        cashier_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_cashier_sessions_cashier ON cashier_sessions(cashier_id);
+      CREATE INDEX IF NOT EXISTS idx_cashier_sessions_expires ON cashier_sessions(expires_at);
+
+      -- Product categories
+      CREATE TABLE IF NOT EXISTS categories (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        color TEXT,
+        sort_order INT NOT NULL DEFAULT 0,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_categories_school ON categories(school_id, sort_order);
+
+      -- Products
+      CREATE TABLE IF NOT EXISTS products (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        category_id UUID REFERENCES categories(id) ON DELETE SET NULL,
+        name TEXT NOT NULL,
+        price NUMERIC(10,2) NOT NULL CHECK (price >= 0),
+        image_url TEXT,
+        barcode TEXT,
+        stock_tracking BOOLEAN NOT NULL DEFAULT FALSE,
+        stock_qty INT NOT NULL DEFAULT 0,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_products_school ON products(school_id, is_active);
+      CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+      CREATE INDEX IF NOT EXISTS idx_products_barcode ON products(barcode) WHERE barcode IS NOT NULL;
+
+      -- Students (canteen account holders)
+      CREATE TABLE IF NOT EXISTS students (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        full_name TEXT NOT NULL,
+        class_name TEXT,
+        student_no TEXT,
+        parent_phone TEXT,
+        balance NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (balance >= 0),
+        qr_token UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
+        nfc_uid TEXT UNIQUE,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_students_school ON students(school_id, is_active);
+      CREATE INDEX IF NOT EXISTS idx_students_name ON students(school_id, full_name);
+
+      -- Sales transactions
+      CREATE TABLE IF NOT EXISTS transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        cashier_id UUID NOT NULL REFERENCES app_users(id),
+        student_id UUID NOT NULL REFERENCES students(id),
+        total_amount NUMERIC(12,2) NOT NULL CHECK (total_amount >= 0),
+        balance_before NUMERIC(12,2) NOT NULL,
+        balance_after NUMERIC(12,2) NOT NULL,
+        payment_method TEXT NOT NULL DEFAULT 'balance',
+        status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed','refunded','voided')),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_transactions_school_date ON transactions(school_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_transactions_student ON transactions(student_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_transactions_cashier ON transactions(cashier_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS transaction_items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        transaction_id UUID NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+        product_id UUID NOT NULL REFERENCES products(id),
+        product_name TEXT NOT NULL,
+        unit_price NUMERIC(10,2) NOT NULL,
+        qty INT NOT NULL CHECK (qty > 0),
+        line_total NUMERIC(12,2) NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_tx_items_tx ON transaction_items(transaction_id);
     `,
   },
 ];
