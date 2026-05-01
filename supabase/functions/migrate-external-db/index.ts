@@ -68,7 +68,52 @@ const MIGRATIONS: Migration[] = [
       INSERT INTO netgsm_config (id) VALUES (1) ON CONFLICT DO NOTHING;
     `,
   },
+  {
+    version: "0002_users_and_otp",
+    description: "App users (school admin/cashier/parent) + OTP codes + SMS log",
+    sql: `
+      CREATE TABLE IF NOT EXISTS app_users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID REFERENCES schools(id) ON DELETE CASCADE,
+        full_name TEXT NOT NULL,
+        phone TEXT NOT NULL UNIQUE,
+        role TEXT NOT NULL CHECK (role IN ('school_admin','cashier','parent')),
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        last_login_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_app_users_school ON app_users(school_id);
+      CREATE INDEX IF NOT EXISTS idx_app_users_phone ON app_users(phone);
+
+      CREATE TABLE IF NOT EXISTS otp_codes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        phone TEXT NOT NULL,
+        code TEXT NOT NULL,
+        purpose TEXT NOT NULL DEFAULT 'login',
+        expires_at TIMESTAMPTZ NOT NULL,
+        consumed_at TIMESTAMPTZ,
+        attempts INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_otp_phone ON otp_codes(phone);
+      CREATE INDEX IF NOT EXISTS idx_otp_active ON otp_codes(phone, consumed_at, expires_at);
+
+      CREATE TABLE IF NOT EXISTS sms_log (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        phone TEXT NOT NULL,
+        message TEXT NOT NULL,
+        provider TEXT NOT NULL DEFAULT 'netgsm',
+        status TEXT NOT NULL,
+        provider_response TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_sms_log_phone ON sms_log(phone);
+      CREATE INDEX IF NOT EXISTS idx_sms_log_created ON sms_log(created_at DESC);
+    `,
+  },
 ];
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
