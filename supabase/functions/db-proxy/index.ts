@@ -222,7 +222,109 @@ const HANDLERS: Record<string, Handler> = {
     await query(`UPDATE payment_provider_config SET ${sets.join(", ")} WHERE id=1`, vals);
     return { ok: true };
   },
+  // ---- Cashier management (school_admin scoped) ----
+  list_cashiers: async (ctx) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const r = await query(
+      `SELECT id, full_name, phone, is_active, last_login_at, created_at,
+              (pin_hash IS NOT NULL) AS has_pin, pin_updated_at
+         FROM app_users
+        WHERE school_id = $1 AND role = 'cashier'
+        ORDER BY created_at DESC`,
+      [schoolId],
+    );
+    return r.rows;
+  },
+  create_cashier: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = CashierCreateSchema.parse(params);
+    const phone = normalizePhone(p.phone);
+    const pinHash = await bcrypt.hash(p.pin);
+    try {
+      const r = await query(
+        `INSERT INTO app_users (school_id, full_name, phone, role, is_active, pin_hash, pin_updated_at)
+         VALUES ($1,$2,$3,'cashier',TRUE,$4, now())
+         RETURNING id, full_name, phone, is_active, created_at, (pin_hash IS NOT NULL) AS has_pin, pin_updated_at`,
+        [schoolId, p.full_name, phone, pinHash],
+      );
+      return r.rows[0];
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("unique") || msg.includes("duplicate")) {
+        throw new HttpError(409, "Bu telefon numarası zaten kayıtlı");
+      }
+      throw e;
+    }
+  },
+  update_cashier: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = CashierUpdateSchema.parse(params);
+    const phone = normalizePhone(p.phone);
+    const r = await query(
+      `UPDATE app_users
+          SET full_name=$3, phone=$4, updated_at=now()
+        WHERE id=$1 AND school_id=$2 AND role='cashier'
+        RETURNING id, full_name, phone, is_active, created_at, (pin_hash IS NOT NULL) AS has_pin, pin_updated_at`,
+      [p.id, schoolId, p.full_name, phone],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Kasiyer bulunamadı");
+    return r.rows[0];
+  },
+  toggle_cashier_active: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(params);
+    const r = await query(
+      `UPDATE app_users SET is_active=$3, updated_at=now()
+        WHERE id=$1 AND school_id=$2 AND role='cashier'
+        RETURNING id, is_active`,
+      [p.id, schoolId, p.is_active],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Kasiyer bulunamadı");
+    return r.rows[0];
+  },
+  delete_cashier: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ id: z.string().uuid() }).parse(params);
+    const r = await query(
+      "DELETE FROM app_users WHERE id=$1 AND school_id=$2 AND role='cashier'",
+      [p.id, schoolId],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Kasiyer bulunamadı");
+    return { id: p.id, deleted: true };
+  },
+  reset_cashier_pin: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ id: z.string().uuid(), pin: z.string().regex(/^\d{6}$/) }).parse(params);
+    const pinHash = await bcrypt.hash(p.pin);
+    const r = await query(
+      `UPDATE app_users SET pin_hash=$3, pin_updated_at=now(), updated_at=now()
+        WHERE id=$1 AND school_id=$2 AND role='cashier'
+        RETURNING id`,
+      [p.id, schoolId, pinHash],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Kasiyer bulunamadı");
+    return { ok: true };
+  },
 };
+
+function normalizePhone(input: string): string {
+  const digits = input.replace(/\D+/g, "");
+  // Store with leading 0 for TR (e.g. 0542...) to stay consistent with existing data.
+  if (digits.length === 10) return "0" + digits;
+  if (digits.length === 12 && digits.startsWith("90")) return "0" + digits.slice(2);
+  return digits;
+}
+
+const CashierCreateSchema = z.object({
+  full_name: z.string().trim().min(2).max(255),
+  phone: z.string().trim().min(10).max(20),
+  pin: z.string().regex(/^\d{6}$/, "PIN 6 haneli olmalıdır"),
+});
+const CashierUpdateSchema = z.object({
+  id: z.string().uuid(),
+  full_name: z.string().trim().min(2).max(255),
+  phone: z.string().trim().min(10).max(20),
+});
 
 function requireSuperAdmin(ctx: Awaited<ReturnType<typeof authenticate>>) {
   if (!ctx.roles.some((r) => r.role === "super_admin")) {
