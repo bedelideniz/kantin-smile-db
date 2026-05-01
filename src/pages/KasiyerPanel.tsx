@@ -193,9 +193,24 @@ export default function KasiyerPanel() {
           <h1 className="text-lg font-semibold">{session.school.name}</h1>
           <p className="text-xs text-muted-foreground">Kasiyer: {session.cashier.full_name}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={logout}>
-          <LogOut className="mr-2 h-4 w-4" /> Çıkış
-        </Button>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant={nfc.status === "listening" ? "default" : "secondary"}
+            className="gap-1"
+            title={nfc.error ?? undefined}
+          >
+            {nfc.status === "listening" ? (
+              <><CheckCircle2 className="h-3 w-3" /> NFC aktif</>
+            ) : nfc.status === "starting" ? (
+              <><Radio className="h-3 w-3 animate-pulse" /> NFC başlatılıyor</>
+            ) : (
+              <><AlertCircle className="h-3 w-3" /> NFC: {nfc.status === "unsupported" ? "desteklenmiyor" : nfc.status === "denied" ? "izin yok" : "hata"}</>
+            )}
+          </Badge>
+          <Button variant="outline" size="sm" onClick={logout}>
+            <LogOut className="mr-2 h-4 w-4" /> Çıkış
+          </Button>
+        </div>
       </header>
 
       <div className="grid flex-1 grid-cols-12 gap-0 overflow-hidden">
