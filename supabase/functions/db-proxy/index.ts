@@ -167,6 +167,60 @@ const HANDLERS: Record<string, Handler> = {
     );
     return r.rows;
   },
+  // ---- Payment provider config ----
+  get_payment_config: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      `SELECT active_provider, iyzico_api_key, iyzico_base_url,
+              paytr_merchant_id, updated_at,
+              (iyzico_secret_key IS NOT NULL AND iyzico_secret_key <> '') AS has_iyzico_secret,
+              (paytr_merchant_key IS NOT NULL AND paytr_merchant_key <> '') AS has_paytr_key,
+              (paytr_merchant_salt IS NOT NULL AND paytr_merchant_salt <> '') AS has_paytr_salt
+         FROM payment_provider_config WHERE id = 1`,
+    );
+    return r.rows[0] ?? {
+      active_provider: null, iyzico_api_key: null, iyzico_base_url: "https://api.iyzipay.com",
+      paytr_merchant_id: null, has_iyzico_secret: false, has_paytr_key: false, has_paytr_salt: false,
+    };
+  },
+  save_payment_config: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      active_provider: z.enum(["iyzico", "paytr"]).nullable(),
+      iyzico_api_key: z.string().max(200).optional().nullable(),
+      iyzico_secret_key: z.string().max(200).optional(), // empty = keep existing
+      iyzico_base_url: z.string().max(200).optional().nullable(),
+      paytr_merchant_id: z.string().max(100).optional().nullable(),
+      paytr_merchant_key: z.string().max(200).optional(), // empty = keep existing
+      paytr_merchant_salt: z.string().max(200).optional(), // empty = keep existing
+    }).parse(params);
+
+    const sets: string[] = [
+      "active_provider=$1",
+      "iyzico_api_key=$2",
+      "iyzico_base_url=$3",
+      "paytr_merchant_id=$4",
+    ];
+    const vals: unknown[] = [
+      p.active_provider,
+      p.iyzico_api_key ?? null,
+      p.iyzico_base_url ?? "https://api.iyzipay.com",
+      p.paytr_merchant_id ?? null,
+    ];
+    let i = 5;
+    if (p.iyzico_secret_key && p.iyzico_secret_key.length > 0) {
+      sets.push(`iyzico_secret_key=$${i++}`); vals.push(p.iyzico_secret_key);
+    }
+    if (p.paytr_merchant_key && p.paytr_merchant_key.length > 0) {
+      sets.push(`paytr_merchant_key=$${i++}`); vals.push(p.paytr_merchant_key);
+    }
+    if (p.paytr_merchant_salt && p.paytr_merchant_salt.length > 0) {
+      sets.push(`paytr_merchant_salt=$${i++}`); vals.push(p.paytr_merchant_salt);
+    }
+    sets.push("updated_at=now()");
+    await query(`UPDATE payment_provider_config SET ${sets.join(", ")} WHERE id=1`, vals);
+    return { ok: true };
+  },
 };
 
 function requireSuperAdmin(ctx: Awaited<ReturnType<typeof authenticate>>) {
