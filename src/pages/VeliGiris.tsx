@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { callParentApi, getParentSession, saveParentSession, type ParentSession } from "@/lib/parentApi";
+import logo from "@/assets/kantinpay-logo.png";
 
 type Step = "phone" | "otp";
 
@@ -60,9 +61,13 @@ export default function VeliGiris() {
   return (
     <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm">
-        <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold">KantinPay</h1>
-          <p className="text-sm text-muted-foreground">Veli Paneli</p>
+        <div className="mb-6 flex flex-col items-center text-center">
+          <img
+            src={logo}
+            alt="KantinPay — Okulun Dijital Cüzdanı"
+            className="h-32 w-auto object-contain"
+          />
+          <p className="mt-1 text-sm font-medium text-primary/70">Veli Paneli</p>
         </div>
         <Card>
           <CardHeader>

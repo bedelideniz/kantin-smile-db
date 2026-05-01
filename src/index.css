@@ -17,19 +17,22 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 30% 12%;
 
-    /* Vibrant indigo for primary actions / brand */
-    --primary: 244 75% 58%;
+    /* KantinPay brand: deep navy + gold */
+    --primary: 218 65% 18%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 256 90% 70%;
+    --primary-glow: 218 55% 32%;
 
     --secondary: 220 25% 94%;
-    --secondary-foreground: 222 30% 18%;
+    --secondary-foreground: 218 65% 18%;
 
     --muted: 220 25% 94%;
     --muted-foreground: 220 12% 42%;
 
-    --accent: 256 90% 96%;
-    --accent-foreground: 244 75% 30%;
+    /* Gold accent (matches the chip/stripe in the logo) */
+    --accent: 41 60% 55%;
+    --accent-foreground: 218 65% 14%;
+    --gold: 41 60% 55%;
+    --gold-foreground: 218 65% 14%;
 
     --destructive: 0 78% 56%;
     --destructive-foreground: 0 0% 100%;
@@ -42,34 +45,35 @@ All colors MUST be HSL.
 
     --border: 220 20% 88%;
     --input: 220 20% 88%;
-    --ring: 244 75% 58%;
+    --ring: 218 65% 18%;
 
     --radius: 1rem;
 
     /* POS surfaces */
-    --pos-sidebar: 222 35% 14%;
-    --pos-sidebar-foreground: 220 15% 88%;
+    --pos-sidebar: 218 65% 14%;
+    --pos-sidebar-foreground: 220 15% 92%;
     --pos-canvas: 220 30% 97%;
     --pos-panel: 0 0% 100%;
 
     /* Category accent palette (rotates) */
-    --cat-1: 244 75% 58%;
-    --cat-2: 14 90% 60%;
-    --cat-3: 152 65% 45%;
-    --cat-4: 38 95% 55%;
-    --cat-5: 280 75% 60%;
-    --cat-6: 195 85% 50%;
+    --cat-1: 218 65% 30%;
+    --cat-2: 14 80% 55%;
+    --cat-3: 152 55% 40%;
+    --cat-4: 41 60% 50%;
+    --cat-5: 280 55% 50%;
+    --cat-6: 195 75% 42%;
 
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-gold: linear-gradient(135deg, hsl(41 60% 55%), hsl(38 70% 62%));
     --gradient-success: linear-gradient(135deg, hsl(152 65% 42%), hsl(170 70% 45%));
-    --gradient-balance: linear-gradient(135deg, hsl(244 75% 58%), hsl(280 75% 62%));
+    --gradient-balance: linear-gradient(135deg, hsl(218 65% 22%), hsl(218 50% 38%));
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px 0 hsl(222 30% 12% / 0.04);
-    --shadow-md: 0 4px 16px -4px hsl(222 30% 12% / 0.08);
-    --shadow-lg: 0 12px 32px -8px hsl(222 30% 12% / 0.14);
-    --shadow-glow: 0 8px 32px -4px hsl(244 75% 58% / 0.35);
+    --shadow-sm: 0 1px 2px 0 hsl(218 65% 14% / 0.05);
+    --shadow-md: 0 4px 16px -4px hsl(218 65% 14% / 0.10);
+    --shadow-lg: 0 12px 32px -8px hsl(218 65% 14% / 0.18);
+    --shadow-glow: 0 8px 32px -4px hsl(218 65% 18% / 0.30);
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;

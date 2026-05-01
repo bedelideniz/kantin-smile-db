@@ -14,6 +14,7 @@ import {
   callParentApi, clearParentSession, getParentSession, getSelectedStudentId,
   setSelectedStudentId, updateParentStudents, type ParentSession, type ParentStudent,
 } from "@/lib/parentApi";
+import logo from "@/assets/kantinpay-logo.png";
 
 interface TxItem { product_name: string; qty: number; unit_price: number; line_total: number; }
 interface Tx {
@@ -103,9 +104,12 @@ export default function VeliPanel() {
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto flex max-w-md items-center justify-between gap-2">
-          <div>
-            <h1 className="text-lg font-semibold leading-tight">Veli Paneli</h1>
-            <p className="text-xs text-muted-foreground">{session.phone}</p>
+          <div className="flex items-center gap-2 min-w-0">
+            <img src={logo} alt="KantinPay" className="h-9 w-9 shrink-0 object-contain" />
+            <div className="min-w-0">
+              <h1 className="text-base font-semibold leading-tight">Veli Paneli</h1>
+              <p className="truncate text-xs text-muted-foreground">{session.phone}</p>
+            </div>
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" onClick={refresh} disabled={refreshing} aria-label="Yenile">
