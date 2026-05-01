@@ -8,6 +8,8 @@ import Login from "./pages/Login.tsx";
 import SuperAdmin from "./pages/SuperAdmin.tsx";
 import YoneticiGiris from "./pages/YoneticiGiris.tsx";
 import YoneticiPanel from "./pages/YoneticiPanel.tsx";
+import KasiyerGiris from "./pages/KasiyerGiris.tsx";
+import KasiyerPanel from "./pages/KasiyerPanel.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -24,6 +26,8 @@ const App = () => (
           <Route path="/admin" element={<SuperAdmin />} />
           <Route path="/yonetici-giris" element={<YoneticiGiris />} />
           <Route path="/yonetici" element={<YoneticiPanel />} />
+          <Route path="/kasiyer-giris" element={<KasiyerGiris />} />
+          <Route path="/kasiyer" element={<KasiyerPanel />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

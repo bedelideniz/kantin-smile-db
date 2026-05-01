@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.school-admin-verify]
 verify_jwt = false
+
+[functions.cashier-api]
+verify_jwt = false
