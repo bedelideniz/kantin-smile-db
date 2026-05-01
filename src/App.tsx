@@ -8,6 +8,8 @@ import Login from "./pages/Login.tsx";
 import SuperAdmin from "./pages/SuperAdmin.tsx";
 import YoneticiGiris from "./pages/YoneticiGiris.tsx";
 import YoneticiPanel from "./pages/YoneticiPanel.tsx";
+import KasiyerGiris from "./pages/KasiyerGiris.tsx";
+import KasiyerPanel from "./pages/KasiyerPanel.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
