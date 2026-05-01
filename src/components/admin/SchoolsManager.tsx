@@ -188,6 +188,19 @@ export default function SchoolsManager() {
     }
   };
 
+  const resendOtp = async (s: School) => {
+    try {
+      const r = await callOp<{ ok: boolean; status: string; raw: string }>("resend_admin_otp", { school_id: s.id });
+      toast({
+        title: r.ok ? "SMS gönderildi" : "SMS gönderilemedi",
+        description: `Durum: ${r.status}${r.raw ? ` — ${r.raw}` : ""}`,
+        variant: r.ok ? "default" : "destructive",
+      });
+    } catch (e) {
+      toast({ title: "Hata", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
