@@ -83,6 +83,7 @@ export default function SuperAdmin() {
         <Tabs defaultValue="schools" className="space-y-4">
           <TabsList>
             <TabsTrigger value="schools">Okullar</TabsTrigger>
+            <TabsTrigger value="payments">Ödeme</TabsTrigger>
             <TabsTrigger value="netgsm">SMS / NetGSM</TabsTrigger>
             <TabsTrigger value="infrastructure">Altyapı</TabsTrigger>
           </TabsList>
