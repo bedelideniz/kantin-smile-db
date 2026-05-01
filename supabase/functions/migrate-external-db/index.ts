@@ -272,6 +272,24 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_ing_mov_ingredient ON ingredient_movements(ingredient_id, created_at DESC);
     `,
   },
+  {
+    version: "0007_parent_sessions",
+    description: "Parent panel: opaque session tokens (parents auth via OTP, no signup)",
+    sql: `
+      CREATE TABLE IF NOT EXISTS parent_sessions (
+        token TEXT PRIMARY KEY,
+        phone TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_parent_sessions_phone ON parent_sessions(phone);
+      CREATE INDEX IF NOT EXISTS idx_parent_sessions_expires ON parent_sessions(expires_at);
+
+      -- Useful index to look students up by parent phone (digits only) for OTP eligibility check.
+      CREATE INDEX IF NOT EXISTS idx_students_parent_phone ON students(parent_phone) WHERE parent_phone IS NOT NULL;
+    `,
+  },
 ];
 
 
