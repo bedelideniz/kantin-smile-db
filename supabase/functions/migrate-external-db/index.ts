@@ -112,6 +112,14 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_sms_log_created ON sms_log(created_at DESC);
     `,
   },
+  {
+    version: "0003_app_users_auth_link",
+    description: "Link app_users to Supabase auth user id for OTP login",
+    sql: `
+      ALTER TABLE app_users ADD COLUMN IF NOT EXISTS auth_user_id UUID UNIQUE;
+      CREATE INDEX IF NOT EXISTS idx_app_users_auth_user ON app_users(auth_user_id);
+    `,
+  },
 ];
 
 
