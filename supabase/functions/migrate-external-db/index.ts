@@ -155,7 +155,16 @@ Deno.serve(async (req) => {
 
     for (const m of MIGRATIONS) {
       if (appliedSet.has(m.version)) {
-        results.push({ version: m.version, status: "skipped" });
+        try {
+          await withTransaction(async (client) => {
+            await client.query(m.sql);
+          });
+          results.push({ version: m.version, status: "verified" });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          results.push({ version: m.version, status: "failed", error: msg });
+          break;
+        }
         continue;
       }
       try {
