@@ -26,6 +26,8 @@ const App = () => (
           <Route path="/admin" element={<SuperAdmin />} />
           <Route path="/yonetici-giris" element={<YoneticiGiris />} />
           <Route path="/yonetici" element={<YoneticiPanel />} />
+          <Route path="/kasiyer-giris" element={<KasiyerGiris />} />
+          <Route path="/kasiyer" element={<KasiyerPanel />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
