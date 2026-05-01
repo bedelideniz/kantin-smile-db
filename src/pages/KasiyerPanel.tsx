@@ -57,6 +57,7 @@ export default function KasiyerPanel() {
   const [submitting, setSubmitting] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [manualBarcode, setManualBarcode] = useState("");
+  const [saleError, setSaleError] = useState<string | null>(null);
 
   // Auth gate
   useEffect(() => {
@@ -230,7 +231,7 @@ export default function KasiyerPanel() {
         setProducts(prods);
       } catch { /* ignore */ }
     } catch (e: any) {
-      toast({ title: "Satış başarısız", description: e?.message, variant: "destructive" });
+      setSaleError(e?.message ?? "Satış tamamlanamadı.");
     } finally {
       setSubmitting(false);
     }
