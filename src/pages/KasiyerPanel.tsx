@@ -7,14 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, QrCode, Radio, Search, Trash2, X, Plus, Minus } from "lucide-react";
+import { LogOut, QrCode, Radio, Search, Trash2, X, Plus, Minus, AlertCircle, CheckCircle2 } from "lucide-react";
 import {
   callCashierApi,
   clearCashierSession,
   getCashierSession,
 } from "@/lib/cashierApi";
 import { QrScannerDialog } from "@/components/kasiyer/QrScannerDialog";
-import { NfcReaderDialog } from "@/components/kasiyer/NfcReaderDialog";
+import { useNfcReader } from "@/hooks/useNfcReader";
 
 interface Category { id: string; name: string; color: string | null; sort_order: number }
 interface Product {
@@ -44,7 +44,6 @@ export default function KasiyerPanel() {
   const [student, setStudent] = useState<Student | null>(null);
 
   const [qrOpen, setQrOpen] = useState(false);
-  const [nfcOpen, setNfcOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Student[]>([]);
@@ -124,15 +123,18 @@ export default function KasiyerPanel() {
   };
 
   const handleNfcResult = async (uid: string) => {
-    setNfcOpen(false);
     try {
       const r = await callCashierApi<{ student: Student }>("lookup_student", { nfc_uid: uid });
       setStudent(r.student);
-      toast({ title: "Öğrenci bulundu", description: r.student.full_name });
+      toast({ title: "Öğrenci tanındı", description: `${r.student.full_name} • Bakiye: ${fmt(Number(r.student.balance))} ₺` });
     } catch (e: any) {
-      toast({ title: "Bulunamadı", description: `${e?.message} (UID: ${uid})`, variant: "destructive" });
+      toast({ title: "Kart tanınmadı", description: `${e?.message ?? "Hata"} (UID: ${uid})`, variant: "destructive" });
     }
   };
+
+  // Continuously listen for NFC card taps in the background.
+  // Tapping a new card replaces the currently selected student.
+  const nfc = useNfcReader({ enabled: !!session, onScan: handleNfcResult });
 
   const doSearch = async () => {
     if (searchTerm.trim().length < 2) return;
