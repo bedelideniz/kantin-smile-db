@@ -17,7 +17,8 @@ class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-const SESSION_TTL_HOURS = 24 * 14; // 2 weeks
+const SESSION_TTL_HOURS = 24 * 14; // 2 weeks (default)
+const SESSION_TTL_HOURS_REMEMBER = 24 * 30; // 30 days (remember me)
 
 function generateToken(): string {
   const bytes = new Uint8Array(32);
@@ -110,6 +111,7 @@ const PUBLIC_OPS: Record<string, Handler> = {
     const p = z.object({
       phone: z.string().trim().min(10).max(20),
       code: z.string().regex(/^\d{6}$/, "Kod 6 haneli olmalıdır"),
+      remember: z.boolean().optional().default(false),
     }).parse(params);
     const { canonical, variants } = phoneVariants(p.phone);
 
@@ -138,7 +140,8 @@ const PUBLIC_OPS: Record<string, Handler> = {
     if (students.length === 0) throw new HttpError(403, "Bu telefona ait aktif öğrenci yok");
 
     const token = generateToken();
-    const expires = new Date(Date.now() + SESSION_TTL_HOURS * 3600 * 1000);
+    const ttlHours = p.remember ? SESSION_TTL_HOURS_REMEMBER : SESSION_TTL_HOURS;
+    const expires = new Date(Date.now() + ttlHours * 3600 * 1000);
     await query(
       "INSERT INTO parent_sessions (token, phone, expires_at) VALUES ($1,$2,$3)",
       [token, canonical, expires.toISOString()],
