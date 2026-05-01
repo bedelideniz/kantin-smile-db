@@ -12,8 +12,15 @@ export function getPool(): Pool {
   if (!connectionString) {
     throw new Error("EXTERNAL_DB_URL secret is not configured");
   }
+  // Parse connection string manually so we can fully control SSL behavior
+  // (pg driver's connectionString sslmode parsing can override ssl object).
+  const url = new URL(connectionString);
   _pool = new Pool({
-    connectionString,
+    host: url.hostname,
+    port: url.port ? Number(url.port) : 5432,
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: url.pathname.replace(/^\//, ""),
     ssl: { rejectUnauthorized: false },
     max: 5,
     idleTimeoutMillis: 30_000,
