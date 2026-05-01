@@ -309,7 +309,132 @@ const HANDLERS: Record<string, Handler> = {
     if (r.rowCount === 0) throw new HttpError(404, "Kasiyer bulunamadı");
     return { ok: true };
   },
+  // ---- Student management (school_admin scoped) ----
+  list_students: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ query: z.string().trim().max(100).optional() }).parse(params ?? {});
+    const args: any[] = [schoolId];
+    let where = "school_id = $1";
+    if (p.query && p.query.length >= 1) {
+      args.push(`%${p.query}%`);
+      where += ` AND (full_name ILIKE $${args.length} OR student_no ILIKE $${args.length} OR parent_phone ILIKE $${args.length})`;
+    }
+    const r = await query(
+      `SELECT id, full_name, class_name, student_no, parent_phone, balance,
+              qr_token, nfc_uid, is_active, created_at
+         FROM students WHERE ${where}
+        ORDER BY created_at DESC LIMIT 500`,
+      args,
+    );
+    return r.rows;
+  },
+  create_student: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = StudentInputSchema.parse(params);
+    const parentPhone = p.parent_phone ? normalizePhone(p.parent_phone) : null;
+    const r = await query(
+      `INSERT INTO students (school_id, full_name, class_name, student_no, parent_phone, balance, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6,TRUE)
+       RETURNING id, full_name, class_name, student_no, parent_phone, balance,
+                 qr_token, nfc_uid, is_active, created_at`,
+      [schoolId, p.full_name, p.class_name ?? null, p.student_no ?? null, parentPhone, p.balance ?? 0],
+    );
+    return r.rows[0];
+  },
+  update_student: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = StudentUpdateSchema.parse(params);
+    const parentPhone = p.parent_phone ? normalizePhone(p.parent_phone) : null;
+    const r = await query(
+      `UPDATE students
+          SET full_name=$3, class_name=$4, student_no=$5, parent_phone=$6, updated_at=now()
+        WHERE id=$1 AND school_id=$2
+        RETURNING id, full_name, class_name, student_no, parent_phone, balance,
+                  qr_token, nfc_uid, is_active, created_at`,
+      [p.id, schoolId, p.full_name, p.class_name ?? null, p.student_no ?? null, parentPhone],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+    return r.rows[0];
+  },
+  toggle_student_active: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(params);
+    const r = await query(
+      `UPDATE students SET is_active=$3, updated_at=now()
+        WHERE id=$1 AND school_id=$2
+        RETURNING id, is_active`,
+      [p.id, schoolId, p.is_active],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+    return r.rows[0];
+  },
+  delete_student: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({ id: z.string().uuid() }).parse(params);
+    const r = await query(
+      "DELETE FROM students WHERE id=$1 AND school_id=$2",
+      [p.id, schoolId],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+    return { id: p.id, deleted: true };
+  },
+  set_student_nfc: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({
+      id: z.string().uuid(),
+      nfc_uid: z.string().trim().min(1).max(64).nullable(),
+    }).parse(params);
+    const uid = p.nfc_uid ? p.nfc_uid.toUpperCase().replace(/[^A-Z0-9]/g, "") : null;
+    if (uid !== null && uid.length < 4) throw new HttpError(400, "Geçersiz kart UID");
+    try {
+      const r = await query(
+        `UPDATE students SET nfc_uid=$3, updated_at=now()
+          WHERE id=$1 AND school_id=$2
+          RETURNING id, nfc_uid`,
+        [p.id, schoolId, uid],
+      );
+      if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+      return r.rows[0];
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("unique") || msg.includes("duplicate")) {
+        throw new HttpError(409, "Bu kart başka bir öğrenciye atanmış");
+      }
+      throw e;
+    }
+  },
+  adjust_student_balance: async (ctx, params) => {
+    const schoolId = requireSchoolAdminSchool(ctx);
+    const p = z.object({
+      id: z.string().uuid(),
+      delta: z.number().refine((n) => Math.abs(n) > 0 && Math.abs(n) <= 10000, "Tutar 0-10000 ₺ aralığında olmalı"),
+    }).parse(params);
+    return await withTransaction(async (client) => {
+      const sr = await client.query(
+        `SELECT id, balance FROM students WHERE id=$1 AND school_id=$2 FOR UPDATE`,
+        [p.id, schoolId],
+      );
+      if (sr.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+      const before = Number(sr.rows[0].balance);
+      const after = +(before + p.delta).toFixed(2);
+      if (after < 0) throw new HttpError(400, "Bakiye negatif olamaz");
+      await client.query(
+        "UPDATE students SET balance=$1, updated_at=now() WHERE id=$2",
+        [after, p.id],
+      );
+      return { id: p.id, balance_before: before, balance_after: after };
+    });
+  },
 };
+
+const StudentInputSchema = z.object({
+  full_name: z.string().trim().min(2).max(255),
+  class_name: z.string().trim().max(50).optional().nullable(),
+  student_no: z.string().trim().max(50).optional().nullable(),
+  parent_phone: z.string().trim().max(20).optional().nullable(),
+  balance: z.number().min(0).max(10000).optional(),
+});
+const StudentUpdateSchema = StudentInputSchema.extend({ id: z.string().uuid() });
 
 function normalizePhone(input: string): string {
   const digits = input.replace(/\D+/g, "");

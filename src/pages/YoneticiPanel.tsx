@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CashiersManager from "@/components/yonetici/CashiersManager";
+import StudentsManager from "@/components/yonetici/StudentsManager";
 
 export default function YoneticiPanel() {
   const { user, roles, loading, signOut } = useAuth();
@@ -43,9 +44,7 @@ export default function YoneticiPanel() {
         <Tabs defaultValue="cashiers" className="space-y-4">
           <TabsList>
             <TabsTrigger value="cashiers">Kasiyerler</TabsTrigger>
-            <TabsTrigger value="users" disabled>
-              Veli & Öğrenci
-            </TabsTrigger>
+            <TabsTrigger value="users">Veli & Öğrenci</TabsTrigger>
             <TabsTrigger value="settings" disabled>
               Okul Ayarları
             </TabsTrigger>
@@ -56,13 +55,7 @@ export default function YoneticiPanel() {
           </TabsContent>
 
           <TabsContent value="users">
-            <Card>
-              <CardHeader>
-                <CardTitle>Veli & Öğrenci</CardTitle>
-                <CardDescription>Yakında eklenecek.</CardDescription>
-              </CardHeader>
-              <CardContent />
-            </Card>
+            <StudentsManager />
           </TabsContent>
 
           <TabsContent value="settings">
