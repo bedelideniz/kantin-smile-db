@@ -94,6 +94,14 @@ export default function SuperAdmin() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="netgsm">
+            <Card>
+              <CardContent className="pt-6">
+                <NetgsmSettings />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="infrastructure">
             <Card>
               <CardHeader>
