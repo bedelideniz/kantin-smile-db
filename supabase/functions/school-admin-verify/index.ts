@@ -59,13 +59,34 @@ Deno.serve(async (req) => {
     }
 
     // Load the school admin record (tolerate legacy phone formats).
-    const variants = Array.from(new Set([phone, `0${phone}`, `90${phone}`, `+90${phone}`, parsed.data.phone]));
+    const inputDigits = parsed.data.phone.replace(/\D+/g, "");
+    const variants = Array.from(new Set([phone, `0${phone}`, `90${phone}`, inputDigits]));
     const u = await query<{ id: string; school_id: string; full_name: string; auth_user_id: string | null }>(
-      "SELECT id, school_id, full_name, auth_user_id FROM app_users WHERE phone = ANY($1::text[]) AND role = 'school_admin' AND is_active = TRUE LIMIT 1",
+      `SELECT id, school_id, full_name, auth_user_id FROM app_users
+        WHERE (phone = ANY($1::text[]) OR regexp_replace(phone, '\\D', '', 'g') = ANY($1::text[]))
+          AND role = 'school_admin' AND is_active = TRUE LIMIT 1`,
       [variants],
     );
-    if (u.rowCount === 0) return json({ error: "Yönetici bulunamadı" }, 404);
-    const adminRow = u.rows[0];
+    let adminRow = u.rows[0];
+    if (u.rowCount === 0) {
+      const s = await query<{ id: string; admin_full_name: string }>(
+        `SELECT id, admin_full_name FROM schools
+          WHERE (admin_phone = ANY($1::text[]) OR regexp_replace(admin_phone, '\\D', '', 'g') = ANY($1::text[]))
+            AND is_active = TRUE LIMIT 1`,
+        [variants],
+      );
+      if (s.rowCount === 0) return json({ error: "Yönetici bulunamadı" }, 404);
+      const school = s.rows[0];
+      const created = await query<{ id: string; school_id: string; full_name: string; auth_user_id: string | null }>(
+        `INSERT INTO app_users (school_id, full_name, phone, role, is_active)
+         VALUES ($1,$2,$3,'school_admin',TRUE)
+         ON CONFLICT (phone) DO UPDATE SET school_id = EXCLUDED.school_id,
+           full_name = EXCLUDED.full_name, role = 'school_admin', is_active = TRUE, updated_at = now()
+         RETURNING id, school_id, full_name, auth_user_id`,
+        [school.id, school.admin_full_name, phone],
+      );
+      adminRow = created.rows[0];
+    }
 
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
