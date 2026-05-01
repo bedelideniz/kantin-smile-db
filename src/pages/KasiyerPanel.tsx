@@ -22,6 +22,7 @@ interface Category { id: string; name: string; color: string | null; sort_order:
 interface Product {
   id: string; category_id: string | null; name: string;
   price: number | string; image_url: string | null;
+  barcode?: string | null;
   stock_tracking: boolean; stock_qty: number;
 }
 interface Student {
