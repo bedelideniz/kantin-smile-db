@@ -1,6 +1,8 @@
 // Shared module: connects to the user's external PostgreSQL via `pg` driver.
 // Re-used by all edge functions that need to query the canteen DB.
-import { Pool } from "npm:pg@8.13.1";
+import pg from "npm:pg@8.13.1";
+const { Pool } = pg;
+type Pool = InstanceType<typeof pg.Pool>;
 
 let _pool: Pool | null = null;
 
