@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CashiersManager from "@/components/yonetici/CashiersManager";
 import StudentsManager from "@/components/yonetici/StudentsManager";
+import ProductsManager from "@/components/yonetici/ProductsManager";
 
 export default function YoneticiPanel() {
   const { user, roles, loading, signOut } = useAuth();
