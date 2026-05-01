@@ -429,9 +429,9 @@ export default function KasiyerPanel() {
                   <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-primary text-white shadow-glow animate-pulse-soft">
                     <CreditCard className="h-10 w-10" />
                   </div>
-                  <p className="relative mt-4 text-base font-bold">Kart Okutun</p>
+                  <p className="relative mt-4 text-base font-bold">Kart veya Barkod Okutun</p>
                   <p className="relative mt-1 text-xs text-muted-foreground">
-                    Öğrenci kartını USB okuyucuya yaklaştırın
+                    Öğrenci kartı için kartı, ürün eklemek için barkodu okuyucuya tutun
                   </p>
                 </div>
 
