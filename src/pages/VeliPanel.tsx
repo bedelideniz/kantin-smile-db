@@ -101,24 +101,42 @@ export default function VeliPanel() {
   if (!session) return <main className="flex min-h-[100dvh] items-center justify-center">Yükleniyor...</main>;
 
   return (
-    <main className="min-h-[100dvh] bg-muted/30 pb-12">
-      {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <main className="min-h-[100dvh] bg-gradient-to-b from-primary/5 via-background to-background pb-12">
+      {/* Top bar — vivid gradient */}
+      <header
+        className="sticky top-0 z-20 px-4 py-3 text-primary-foreground shadow-lg"
+        style={{ background: "var(--gradient-primary)" }}
+      >
         <div className="mx-auto flex max-w-md items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <img src={logo} alt="KantinPay" className="h-9 w-9 shrink-0 object-contain" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur ring-1 ring-white/20">
+              <img src={logo} alt="KantinPay" className="h-8 w-8 object-contain" />
+            </div>
             <div className="min-w-0">
               <h1 className="truncate text-base font-semibold leading-tight">
                 {selected?.school_name ?? "Veli Paneli"}
               </h1>
-              <p className="truncate text-xs text-muted-foreground">{session.phone}</p>
+              <p className="truncate text-xs text-primary-foreground/75">{session.phone}</p>
             </div>
           </div>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" onClick={refresh} disabled={refreshing} aria-label="Yenile">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={refresh}
+              disabled={refreshing}
+              aria-label="Yenile"
+              className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+            >
               <RefreshCcw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
             </Button>
-            <Button variant="ghost" size="icon" onClick={logout} aria-label="Çıkış">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={logout}
+              aria-label="Çıkış"
+              className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+            >
               <LogOut className="h-5 w-5" />
             </Button>
           </div>
@@ -139,13 +157,16 @@ export default function VeliPanel() {
         ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex w-full items-center justify-between rounded-xl border bg-background px-4 py-3 text-left shadow-sm transition hover:bg-accent">
+              <button className="flex w-full items-center justify-between rounded-2xl border border-accent/30 bg-card px-4 py-3 text-left shadow-md transition hover:shadow-lg">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <div
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-accent-foreground shadow-sm"
+                    style={{ background: "var(--gradient-gold)" }}
+                  >
                     <GraduationCap className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate font-medium">{selected?.full_name ?? "Öğrenci seçin"}</div>
+                    <div className="truncate font-semibold">{selected?.full_name ?? "Öğrenci seçin"}</div>
                     <div className="truncate text-xs text-muted-foreground">
                       {selected ? [selected.school_name, selected.class_name].filter(Boolean).join(" • ") : ""}
                     </div>
@@ -166,7 +187,7 @@ export default function VeliPanel() {
                         {[s.school_name, s.class_name, s.student_no].filter(Boolean).join(" • ")}
                       </div>
                     </div>
-                    <div className="text-right text-sm font-semibold">{fmtTL(s.balance)}</div>
+                    <div className="text-right text-sm font-semibold text-primary">{fmtTL(s.balance)}</div>
                   </div>
                 </DropdownMenuItem>
               ))}
@@ -174,25 +195,53 @@ export default function VeliPanel() {
           </DropdownMenu>
         )}
 
-        {/* Balance card */}
+        {/* Balance card — vivid balance gradient */}
         {selected && (
-          <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-background to-background">
-            <CardContent className="p-5">
-              <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
-                <Wallet className="h-3.5 w-3.5" /> Mevcut Bakiye
+          <Card
+            className="relative overflow-hidden border-0 text-primary-foreground shadow-xl"
+            style={{ background: "var(--gradient-balance)" }}
+          >
+            {/* Decorative blobs */}
+            <div
+              className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full opacity-30 blur-2xl"
+              style={{ background: "hsl(var(--gold))" }}
+            />
+            <div
+              className="pointer-events-none absolute -bottom-12 -left-8 h-36 w-36 rounded-full opacity-20 blur-2xl"
+              style={{ background: "hsl(var(--primary-glow))" }}
+            />
+            <CardContent className="relative p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-primary-foreground/80">
+                  <Wallet className="h-3.5 w-3.5" /> Mevcut Bakiye
+                </div>
+                <Badge
+                  className="border-0 text-[10px] font-semibold uppercase tracking-wider text-accent-foreground"
+                  style={{ background: "hsl(var(--gold))" }}
+                >
+                  KantinPay
+                </Badge>
               </div>
-              <div className="mt-2 text-4xl font-bold tracking-tight">{fmtTL(selected.balance)}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{selected.full_name}</div>
+              <div className="mt-2 text-4xl font-bold tracking-tight drop-shadow-sm">
+                {fmtTL(selected.balance)}
+              </div>
+              <div className="mt-1 text-sm text-primary-foreground/80">{selected.full_name}</div>
             </CardContent>
           </Card>
         )}
 
         {/* Transactions */}
         {selected && (
-          <Card>
+          <Card className="border-border/60 shadow-md">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Receipt className="h-4 w-4" /> Son Hareketler
+                <span
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-primary-foreground"
+                  style={{ background: "var(--gradient-primary)" }}
+                >
+                  <Receipt className="h-4 w-4" />
+                </span>
+                Son Hareketler
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 pt-0">
@@ -201,15 +250,18 @@ export default function VeliPanel() {
               ) : transactions.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">Henüz harcama yok.</p>
               ) : transactions.map((t) => (
-                <div key={t.id} className="rounded-lg border bg-card p-3">
+                <div
+                  key={t.id}
+                  className="rounded-xl border border-border/60 bg-card p-3 shadow-sm transition hover:border-accent/40 hover:shadow-md"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs text-muted-foreground">{fmtDate(t.created_at)}</div>
+                      <div className="text-xs font-medium text-primary/70">{fmtDate(t.created_at)}</div>
                       <div className="mt-1 space-y-0.5">
                         {t.items.map((it, i) => (
                           <div key={i} className="flex justify-between gap-2 text-sm">
                             <span className="truncate">
-                              {it.qty > 1 && <span className="text-muted-foreground">{it.qty}× </span>}
+                              {it.qty > 1 && <span className="font-semibold text-accent-foreground">{it.qty}× </span>}
                               {it.product_name}
                             </span>
                             <span className="shrink-0 tabular-nums text-muted-foreground">
@@ -220,15 +272,18 @@ export default function VeliPanel() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold tabular-nums text-destructive">−{fmtTL(t.total_amount)}</div>
+                      <div className="rounded-lg bg-destructive/10 px-2 py-1 font-bold tabular-nums text-destructive">
+                        −{fmtTL(t.total_amount)}
+                      </div>
                       {t.status !== "completed" && (
                         <Badge variant="outline" className="mt-1 text-[10px]">{t.status}</Badge>
                       )}
                     </div>
                   </div>
-                  <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
-                    <span>Önce: {fmtTL(t.balance_before)}</span>
-                    <span>Sonra: {fmtTL(t.balance_after)}</span>
+                  <Separator className="my-2" />
+                  <div className="flex justify-between text-[11px] text-muted-foreground">
+                    <span>Önce: <span className="font-medium text-foreground/70">{fmtTL(t.balance_before)}</span></span>
+                    <span>Sonra: <span className="font-medium text-foreground/70">{fmtTL(t.balance_after)}</span></span>
                   </div>
                 </div>
               ))}
