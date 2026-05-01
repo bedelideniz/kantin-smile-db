@@ -131,6 +131,16 @@ export default function VeliGiris() {
                     </p>
                   )}
                 </div>
+                <label className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-3 cursor-pointer select-none">
+                  <Checkbox
+                    checked={remember}
+                    onCheckedChange={(v) => setRemember(v === true)}
+                    disabled={loading}
+                  />
+                  <span className="text-sm">
+                    Beni hatırla <span className="text-muted-foreground">(30 gün tekrar kod istemesin)</span>
+                  </span>
+                </label>
                 <Button onClick={verifyOtp} disabled={loading || code.length !== 6} className="h-12 w-full text-base bg-gradient-primary">
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Giriş Yap
