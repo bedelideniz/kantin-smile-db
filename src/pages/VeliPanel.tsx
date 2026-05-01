@@ -109,8 +109,8 @@ export default function VeliPanel() {
       >
         <div className="mx-auto flex max-w-md items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur ring-1 ring-white/20">
-              <img src={logo} alt="KantinPay" className="h-8 w-8 object-contain" />
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white p-1.5 shadow-md ring-2 ring-white/40">
+              <img src={logo} alt="KantinPay" className="h-full w-full object-contain" />
             </div>
             <div className="min-w-0">
               <h1 className="truncate text-base font-semibold leading-tight">
