@@ -22,6 +22,7 @@ interface Category { id: string; name: string; color: string | null; sort_order:
 interface Product {
   id: string; category_id: string | null; name: string;
   price: number | string; image_url: string | null;
+  barcode?: string | null;
   stock_tracking: boolean; stock_qty: number;
 }
 interface Student {
@@ -154,8 +155,37 @@ export default function KasiyerPanel() {
     }
   };
 
-  const handleUsbScan = async (uid: string) => {
-    await handleNfcResult(uid);
+  const handleUsbScan = async (code: string) => {
+    // 1) Try to match a product barcode locally first (fast path)
+    const local = products.find((p) => (p.barcode ?? "").toUpperCase() === code);
+    if (local) {
+      if (local.stock_tracking && local.stock_qty <= 0) {
+        toast({ title: "Stok yok", description: local.name, variant: "destructive" });
+        return;
+      }
+      addToCart(local);
+      toast({ title: "Sepete eklendi", description: local.name });
+      return;
+    }
+    // 2) Try server-side product barcode lookup (in case product list is stale)
+    try {
+      const prod = await callCashierApi<Product>("find_product_by_barcode", { barcode: code });
+      if (prod.stock_tracking && prod.stock_qty <= 0) {
+        toast({ title: "Stok yok", description: prod.name, variant: "destructive" });
+        return;
+      }
+      addToCart(prod);
+      toast({ title: "Sepete eklendi", description: prod.name });
+      return;
+    } catch (e: any) {
+      // Not a known product barcode → treat as student card UID
+      if (e?.status && e.status !== 404) {
+        toast({ title: "Hata", description: e?.message, variant: "destructive" });
+        return;
+      }
+    }
+    // 3) Fallback: student card lookup
+    await handleNfcResult(code);
   };
 
   const reader = useUsbCardReader({ enabled: !!session, onScan: handleUsbScan });
@@ -234,7 +264,7 @@ export default function KasiyerPanel() {
             )}
           >
             <CircleDot className={cn("h-3 w-3", reader.status === "listening" && "animate-pulse")} />
-            {reader.status === "listening" ? "Kart okuyucu hazır" : "Okuyucu kapalı"}
+            {reader.status === "listening" ? "Kart & barkod okuyucu hazır" : "Okuyucu kapalı"}
           </div>
           <Button
             variant="outline"
@@ -399,9 +429,9 @@ export default function KasiyerPanel() {
                   <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-primary text-white shadow-glow animate-pulse-soft">
                     <CreditCard className="h-10 w-10" />
                   </div>
-                  <p className="relative mt-4 text-base font-bold">Kart Okutun</p>
+                  <p className="relative mt-4 text-base font-bold">Kart veya Barkod Okutun</p>
                   <p className="relative mt-1 text-xs text-muted-foreground">
-                    Öğrenci kartını USB okuyucuya yaklaştırın
+                    Öğrenci kartı için kartı, ürün eklemek için barkodu okuyucuya tutun
                   </p>
                 </div>
 
