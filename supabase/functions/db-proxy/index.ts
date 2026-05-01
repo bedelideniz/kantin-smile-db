@@ -4,7 +4,8 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { z } from "npm:zod@3.23.8";
 import { authenticate, HttpError } from "../_shared/auth.ts";
-import { query } from "../_shared/external-db.ts";
+import { query, withTransaction } from "../_shared/external-db.ts";
+import { generateOtp, sendSms } from "../_shared/sms.ts";
 
 const BodySchema = z.object({
   op: z.string().min(1).max(64),
