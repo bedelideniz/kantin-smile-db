@@ -290,17 +290,41 @@ export default function KasiyerPanel() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Öğrenci tanıma</p>
-                <div className="grid grid-cols-3 gap-2">
+              <div className="space-y-3">
+                {/* Big NFC waiting indicator */}
+                <div className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition ${
+                  nfc.status === "listening"
+                    ? "border-primary/50 bg-primary/5"
+                    : "border-muted bg-muted/30"
+                }`}>
+                  <div className={`flex h-16 w-16 items-center justify-center rounded-full ${
+                    nfc.status === "listening" ? "animate-pulse bg-primary/10" : "bg-muted"
+                  }`}>
+                    <Radio className={`h-8 w-8 ${nfc.status === "listening" ? "text-primary" : "text-muted-foreground"}`} />
+                  </div>
+                  <p className="mt-3 text-base font-semibold">
+                    {nfc.status === "listening" && "Kart Okutun"}
+                    {nfc.status === "starting" && "NFC başlatılıyor..."}
+                    {nfc.status === "unsupported" && "NFC desteklenmiyor"}
+                    {nfc.status === "denied" && "NFC izni reddedildi"}
+                    {nfc.status === "error" && "NFC hatası"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {nfc.status === "listening" && "Öğrenci kartını cihaza yaklaştırın"}
+                    {nfc.status === "starting" && "Lütfen bekleyin"}
+                    {nfc.status === "unsupported" && "Android Chrome gerekiyor. Aşağıdan QR veya arama kullanın."}
+                    {nfc.status === "denied" && "Sayfa ayarlarından NFC iznini verin"}
+                    {nfc.status === "error" && (nfc.error ?? "Bilinmeyen hata")}
+                  </p>
+                </div>
+
+                {/* Fallback options */}
+                <div className="grid grid-cols-2 gap-2">
                   <Button variant="outline" onClick={() => setQrOpen(true)}>
-                    <QrCode className="mr-1 h-4 w-4" /> QR
-                  </Button>
-                  <Button variant="outline" onClick={() => setNfcOpen(true)}>
-                    <Radio className="mr-1 h-4 w-4" /> NFC
+                    <QrCode className="mr-1 h-4 w-4" /> QR Okut
                   </Button>
                   <Button variant="outline" onClick={() => setSearchOpen((v) => !v)}>
-                    <Search className="mr-1 h-4 w-4" /> Ara
+                    <Search className="mr-1 h-4 w-4" /> İsim ile Ara
                   </Button>
                 </div>
                 {searchOpen && (
