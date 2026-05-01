@@ -230,6 +230,79 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     );
     return tx.rows;
   },
+  // List all active products of the student's school, grouped by category on the client.
+  list_school_products: async (ctx, params) => {
+    const p = z.object({ student_id: z.string().uuid() }).parse(params);
+    const { variants } = phoneVariants(ctx.phone);
+    const own = await query<{ school_id: string }>(
+      `SELECT school_id FROM students WHERE id=$1 AND is_active=TRUE
+        AND (parent_phone = ANY($2::text[])
+             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+      [p.student_id, variants],
+    );
+    if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
+    const schoolId = own.rows[0].school_id;
+    const r = await query(
+      `SELECT p.id, p.name, p.price, p.image_url,
+              p.category_id, c.name AS category_name, c.color AS category_color, c.sort_order AS category_sort
+         FROM products p
+         LEFT JOIN categories c ON c.id = p.category_id AND c.is_active = TRUE
+        WHERE p.school_id = $1 AND p.is_active = TRUE
+        ORDER BY COALESCE(c.sort_order, 9999), c.name NULLS LAST, p.sort_order, p.name`,
+      [schoolId],
+    );
+    return r.rows;
+  },
+  list_blocked_products: async (ctx, params) => {
+    const p = z.object({ student_id: z.string().uuid() }).parse(params);
+    const { variants } = phoneVariants(ctx.phone);
+    const own = await query<{ id: string }>(
+      `SELECT id FROM students WHERE id=$1 AND is_active=TRUE
+        AND (parent_phone = ANY($2::text[])
+             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+      [p.student_id, variants],
+    );
+    if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
+    const r = await query<{ product_id: string }>(
+      "SELECT product_id FROM student_blocked_products WHERE student_id=$1",
+      [p.student_id],
+    );
+    return r.rows.map((x) => x.product_id);
+  },
+  set_product_block: async (ctx, params) => {
+    const p = z.object({
+      student_id: z.string().uuid(),
+      product_id: z.string().uuid(),
+      blocked: z.boolean(),
+    }).parse(params);
+    const { variants } = phoneVariants(ctx.phone);
+    const own = await query<{ school_id: string }>(
+      `SELECT school_id FROM students WHERE id=$1 AND is_active=TRUE
+        AND (parent_phone = ANY($2::text[])
+             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+      [p.student_id, variants],
+    );
+    if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
+    // Ensure product belongs to student's school
+    const prod = await query<{ id: string }>(
+      "SELECT id FROM products WHERE id=$1 AND school_id=$2 AND is_active=TRUE",
+      [p.product_id, own.rows[0].school_id],
+    );
+    if (prod.rowCount === 0) throw new HttpError(404, "Ürün bulunamadı");
+    if (p.blocked) {
+      await query(
+        `INSERT INTO student_blocked_products (student_id, product_id) VALUES ($1,$2)
+         ON CONFLICT DO NOTHING`,
+        [p.student_id, p.product_id],
+      );
+    } else {
+      await query(
+        "DELETE FROM student_blocked_products WHERE student_id=$1 AND product_id=$2",
+        [p.student_id, p.product_id],
+      );
+    }
+    return { ok: true };
+  },
 };
 
 const BodySchema = z.object({
