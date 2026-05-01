@@ -7,14 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, QrCode, Radio, Search, Trash2, X, Plus, Minus, AlertCircle, CheckCircle2 } from "lucide-react";
+import { LogOut, QrCode, Radio, Search, Trash2, X, Plus, Minus, CheckCircle2, Usb } from "lucide-react";
 import {
   callCashierApi,
   clearCashierSession,
   getCashierSession,
 } from "@/lib/cashierApi";
 import { QrScannerDialog } from "@/components/kasiyer/QrScannerDialog";
-import { useNfcReader } from "@/hooks/useNfcReader";
+import { useUsbCardReader } from "@/hooks/useUsbCardReader";
 
 interface Category { id: string; name: string; color: string | null; sort_order: number }
 interface Product {
@@ -132,9 +132,12 @@ export default function KasiyerPanel() {
     }
   };
 
-  // Continuously listen for NFC card taps in the background.
-  // Tapping a new card replaces the currently selected student.
-  const nfc = useNfcReader({ enabled: !!session, onScan: handleNfcResult });
+  const handleUsbScan = async (uid: string) => {
+    await handleNfcResult(uid);
+  };
+
+  // Listen for taps on the USB HID card reader (acts like a keyboard)
+  const reader = useUsbCardReader({ enabled: !!session, onScan: handleUsbScan });
 
   const doSearch = async () => {
     if (searchTerm.trim().length < 2) return;
@@ -194,19 +197,18 @@ export default function KasiyerPanel() {
           <p className="text-xs text-muted-foreground">Kasiyer: {session.cashier.full_name}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge
-            variant={nfc.status === "listening" ? "default" : "secondary"}
-            className="gap-1"
-            title={nfc.error ?? undefined}
-          >
-            {nfc.status === "listening" ? (
-              <><CheckCircle2 className="h-3 w-3" /> NFC aktif</>
-            ) : nfc.status === "starting" ? (
-              <><Radio className="h-3 w-3 animate-pulse" /> NFC başlatılıyor</>
+          <Badge variant="default" className="gap-1">
+            {reader.status === "listening" ? (
+              <><CheckCircle2 className="h-3 w-3" /> Kart okuyucu aktif</>
             ) : (
-              <><AlertCircle className="h-3 w-3" /> NFC: {nfc.status === "unsupported" ? "desteklenmiyor" : nfc.status === "denied" ? "izin yok" : "hata"}</>
+              <><Usb className="h-3 w-3" /> Kart okuyucu kapalı</>
             )}
           </Badge>
+          {reader.lastUid && (
+            <Badge variant="secondary" className="font-mono text-[10px]">
+              Son: {reader.lastUid}
+            </Badge>
+          )}
           <Button variant="outline" size="sm" onClick={logout}>
             <LogOut className="mr-2 h-4 w-4" /> Çıkış
           </Button>
@@ -306,30 +308,14 @@ export default function KasiyerPanel() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {/* Big NFC waiting indicator */}
-                <div className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition ${
-                  nfc.status === "listening"
-                    ? "border-primary/50 bg-primary/5"
-                    : "border-muted bg-muted/30"
-                }`}>
-                  <div className={`flex h-16 w-16 items-center justify-center rounded-full ${
-                    nfc.status === "listening" ? "animate-pulse bg-primary/10" : "bg-muted"
-                  }`}>
-                    <Radio className={`h-8 w-8 ${nfc.status === "listening" ? "text-primary" : "text-muted-foreground"}`} />
+                {/* Big card-reader waiting indicator */}
+                <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 p-6 text-center transition">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 animate-pulse">
+                    <Radio className="h-8 w-8 text-primary" />
                   </div>
-                  <p className="mt-3 text-base font-semibold">
-                    {nfc.status === "listening" && "Kart Okutun"}
-                    {nfc.status === "starting" && "NFC başlatılıyor..."}
-                    {nfc.status === "unsupported" && "NFC desteklenmiyor"}
-                    {nfc.status === "denied" && "NFC izni reddedildi"}
-                    {nfc.status === "error" && "NFC hatası"}
-                  </p>
+                  <p className="mt-3 text-base font-semibold">Kart Okutun</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {nfc.status === "listening" && "Öğrenci kartını cihaza yaklaştırın"}
-                    {nfc.status === "starting" && "Lütfen bekleyin"}
-                    {nfc.status === "unsupported" && "Android Chrome gerekiyor. Aşağıdan QR veya arama kullanın."}
-                    {nfc.status === "denied" && "Sayfa ayarlarından NFC iznini verin"}
-                    {nfc.status === "error" && (nfc.error ?? "Bilinmeyen hata")}
+                    Öğrenci kartını USB okuyucuya yaklaştırın
                   </p>
                 </div>
 
