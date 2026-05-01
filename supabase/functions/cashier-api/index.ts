@@ -257,6 +257,59 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
         }
       }
 
+      // ===== RECIPE: decrement ingredient stock for any product that has a recipe =====
+      // Aggregate consumption per ingredient across all line items.
+      const recipeRes = await client.query(
+        `SELECT pr.product_id, pr.ingredient_id, pr.qty,
+                i.name AS ingredient_name, i.unit, i.stock_qty
+           FROM product_recipes pr
+           JOIN ingredients i ON i.id = pr.ingredient_id AND i.is_active = TRUE
+          WHERE pr.product_id = ANY($1::uuid[])
+          ORDER BY pr.ingredient_id`,
+        [ids],
+      );
+      const ingConsumption = new Map<string, { name: string; unit: string; stock: number; consume: number }>();
+      for (const row of recipeRes.rows) {
+        const item = p.items.find((i) => i.product_id === row.product_id);
+        if (!item) continue;
+        const need = Number(row.qty) * item.qty;
+        const prev = ingConsumption.get(row.ingredient_id);
+        if (prev) {
+          prev.consume += need;
+        } else {
+          ingConsumption.set(row.ingredient_id, {
+            name: row.ingredient_name,
+            unit: row.unit,
+            stock: Number(row.stock_qty),
+            consume: need,
+          });
+        }
+      }
+
+      const stockWarnings: string[] = [];
+      if (ingConsumption.size > 0) {
+        // Lock ingredient rows for update
+        const lockIds = Array.from(ingConsumption.keys());
+        const lr = await client.query(
+          "SELECT id, stock_qty FROM ingredients WHERE id = ANY($1::uuid[]) FOR UPDATE",
+          [lockIds],
+        );
+        const stockMap = new Map<string, number>(lr.rows.map((r: any) => [r.id, Number(r.stock_qty)]));
+        for (const [ingId, info] of ingConsumption.entries()) {
+          const before = stockMap.get(ingId) ?? info.stock;
+          const after = +(before - info.consume).toFixed(3);
+          if (after < 0) {
+            stockWarnings.push(`${info.name}: ${after.toFixed(2)} ${info.unit} (eksiye düştü)`);
+          } else if (after < info.consume) {
+            // already low — informational only when stock close to zero is handled below
+          }
+          await client.query(
+            "UPDATE ingredients SET stock_qty=$1, updated_at=now() WHERE id=$2",
+            [after, ingId],
+          );
+        }
+      }
+
       // Insert transaction
       const tx = await client.query(
         `INSERT INTO transactions (school_id, cashier_id, student_id, total_amount, balance_before, balance_after, payment_method, status)
@@ -274,6 +327,16 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
         );
       }
 
+      // Log ingredient movements (linked to the transaction)
+      for (const [ingId, info] of ingConsumption.entries()) {
+        const newBalance = +(info.stock - info.consume).toFixed(3);
+        await client.query(
+          `INSERT INTO ingredient_movements (school_id, ingredient_id, delta, reason, transaction_id, balance_after)
+           VALUES ($1,$2,$3,'sale',$4,$5)`,
+          [ctx.schoolId, ingId, -info.consume, txId, newBalance],
+        );
+      }
+
       return {
         transaction_id: txId,
         created_at: tx.rows[0].created_at,
@@ -282,6 +345,7 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
         balance_before: balanceBefore,
         balance_after: balanceAfter,
         items: lines,
+        stock_warnings: stockWarnings,
       };
     });
   },
