@@ -107,7 +107,9 @@ export default function VeliPanel() {
           <div className="flex items-center gap-2 min-w-0">
             <img src={logo} alt="KantinPay" className="h-9 w-9 shrink-0 object-contain" />
             <div className="min-w-0">
-              <h1 className="text-base font-semibold leading-tight">Veli Paneli</h1>
+              <h1 className="truncate text-base font-semibold leading-tight">
+                {selected?.school_name ?? "Veli Paneli"}
+              </h1>
               <p className="truncate text-xs text-muted-foreground">{session.phone}</p>
             </div>
           </div>
