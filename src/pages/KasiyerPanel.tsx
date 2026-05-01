@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   LogOut, QrCode, Search, Trash2, X, Plus, Minus,
-  CreditCard, CircleDot, Wallet, ShoppingCart, AlertTriangle, GraduationCap, Sparkles,
+  CreditCard, CircleDot, Wallet, ShoppingCart, AlertTriangle, GraduationCap, Sparkles, Barcode,
 } from "lucide-react";
 import {
   callCashierApi,
@@ -56,6 +56,7 @@ export default function KasiyerPanel() {
   const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [manualBarcode, setManualBarcode] = useState("");
 
   // Auth gate
   useEffect(() => {
@@ -313,8 +314,43 @@ export default function KasiyerPanel() {
         </aside>
 
         {/* PRODUCTS */}
-        <section className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full">
+        <section className="flex flex-1 flex-col overflow-hidden">
+          {/* Manual barcode input — fallback when USB reader is unavailable */}
+          <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-pos-panel/60 px-5 py-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <Barcode className="h-5 w-5" />
+            </div>
+            <form
+              className="flex flex-1 items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const code = manualBarcode.trim().toUpperCase();
+                if (!/^[A-Z0-9]{4,32}$/.test(code)) {
+                  toast({
+                    title: "Geçersiz barkod",
+                    description: "Barkod 4-32 karakter olmalı (harf/rakam).",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                setManualBarcode("");
+                handleUsbScan(code);
+              }}
+            >
+              <Input
+                value={manualBarcode}
+                onChange={(e) => setManualBarcode(e.target.value)}
+                placeholder="Barkod numarasını elle girin (cihaz arızalıysa)"
+                inputMode="numeric"
+                maxLength={32}
+                className="h-11 flex-1 rounded-xl"
+              />
+              <Button type="submit" className="h-11 rounded-xl px-5" disabled={!manualBarcode.trim()}>
+                Ekle
+              </Button>
+            </form>
+          </div>
+          <ScrollArea className="flex-1">
             <div className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
               {loading && (
                 <div className="col-span-full flex items-center justify-center p-12 text-muted-foreground">
