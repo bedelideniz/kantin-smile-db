@@ -19,11 +19,12 @@ Deno.serve(async (req) => {
     }
     const phone = normalizePhone(parsed.data.phone);
 
-    // Verify the phone belongs to an active school admin (avoid leaking which
-    // numbers exist — always return ok=true after a small delay).
+    // Tolerate legacy rows where phone may have been stored with a leading 0
+    // or country code. Match against any common variant.
+    const variants = Array.from(new Set([phone, `0${phone}`, `90${phone}`, `+90${phone}`, parsed.data.phone]));
     const r = await query<{ full_name: string }>(
-      "SELECT full_name FROM app_users WHERE phone = $1 AND role = 'school_admin' AND is_active = TRUE LIMIT 1",
-      [phone],
+      "SELECT full_name FROM app_users WHERE phone = ANY($1::text[]) AND role = 'school_admin' AND is_active = TRUE LIMIT 1",
+      [variants],
     );
 
     if (r.rowCount === 0) {
