@@ -46,6 +46,7 @@ export default function YoneticiPanel() {
           <TabsList>
             <TabsTrigger value="cashiers">Kasiyerler</TabsTrigger>
             <TabsTrigger value="users">Veli & Öğrenci</TabsTrigger>
+            <TabsTrigger value="products">Ürünler</TabsTrigger>
             <TabsTrigger value="settings" disabled>
               Okul Ayarları
             </TabsTrigger>
@@ -57,6 +58,10 @@ export default function YoneticiPanel() {
 
           <TabsContent value="users">
             <StudentsManager />
+          </TabsContent>
+
+          <TabsContent value="products">
+            <ProductsManager />
           </TabsContent>
 
           <TabsContent value="settings">
