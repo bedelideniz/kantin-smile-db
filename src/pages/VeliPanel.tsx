@@ -14,6 +14,7 @@ import {
   callParentApi, clearParentSession, getParentSession, getSelectedStudentId,
   setSelectedStudentId, updateParentStudents, type ParentSession, type ParentStudent,
 } from "@/lib/parentApi";
+import logo from "@/assets/kantinpay-logo.png";
 
 interface TxItem { product_name: string; qty: number; unit_price: number; line_total: number; }
 interface Tx {
