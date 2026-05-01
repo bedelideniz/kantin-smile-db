@@ -15,6 +15,9 @@ import {
   getCashierSession,
 } from "@/lib/cashierApi";
 import { QrScannerDialog } from "@/components/kasiyer/QrScannerDialog";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { useUsbCardReader } from "@/hooks/useUsbCardReader";
 import { cn } from "@/lib/utils";
 
@@ -673,6 +676,31 @@ export default function KasiyerPanel() {
       </div>
 
       <QrScannerDialog open={qrOpen} onClose={() => setQrOpen(false)} onResult={handleQrResult} />
+
+      <Dialog open={!!saleError} onOpenChange={(o) => !o && setSaleError(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader className="items-center text-center">
+            <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+              <AlertTriangle className="h-9 w-9 text-destructive" />
+            </div>
+            <DialogTitle className="text-2xl text-destructive">Satış başarısız</DialogTitle>
+            <DialogDescription className="text-center text-base text-foreground">
+              {saleError}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="sm:justify-center">
+            <Button
+              size="lg"
+              variant="destructive"
+              className="min-w-32"
+              onClick={() => setSaleError(null)}
+              autoFocus
+            >
+              Tamam
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
