@@ -27,13 +27,29 @@ Deno.serve(async (req) => {
       [variants],
     );
 
+    let fullName = r.rows[0]?.full_name;
     if (r.rowCount === 0) {
-      // Don't reveal absence; pretend success.
-      await new Promise((res) => setTimeout(res, 400));
-      return json({ ok: true });
+      // Older school records may not have been mirrored into app_users yet.
+      // Fall back to the schools table, then create the OTP-login user row.
+      const s = await query<{ id: string; admin_full_name: string }>(
+        "SELECT id, admin_full_name FROM schools WHERE admin_phone = ANY($1::text[]) AND is_active = TRUE LIMIT 1",
+        [variants],
+      );
+      if (s.rowCount === 0) {
+        // Don't reveal absence; pretend success.
+        await new Promise((res) => setTimeout(res, 400));
+        return json({ ok: true });
+      }
+      const school = s.rows[0];
+      fullName = school.admin_full_name;
+      await query(
+        `INSERT INTO app_users (school_id, full_name, phone, role, is_active)
+         VALUES ($1,$2,$3,'school_admin',TRUE)
+         ON CONFLICT (phone) DO UPDATE SET school_id = EXCLUDED.school_id,
+           full_name = EXCLUDED.full_name, role = 'school_admin', is_active = TRUE, updated_at = now()`,
+        [school.id, fullName, phone],
+      );
     }
-
-    const fullName = r.rows[0].full_name;
 
     // Throttle: max 3 OTPs per phone in the last 5 minutes.
     const recent = await query<{ c: number }>(
