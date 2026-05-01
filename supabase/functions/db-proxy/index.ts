@@ -239,7 +239,7 @@ const HANDLERS: Record<string, Handler> = {
     const schoolId = requireSchoolAdminSchool(ctx);
     const p = CashierCreateSchema.parse(params);
     const phone = normalizePhone(p.phone);
-    const pinHash = await bcrypt.hash(p.pin);
+    const pinHash = await bcrypt.hash(p.pin, 10);
     try {
       const r = await query(
         `INSERT INTO app_users (school_id, full_name, phone, role, is_active, pin_hash, pin_updated_at)
@@ -295,7 +295,7 @@ const HANDLERS: Record<string, Handler> = {
   reset_cashier_pin: async (ctx, params) => {
     const schoolId = requireSchoolAdminSchool(ctx);
     const p = z.object({ id: z.string().uuid(), pin: z.string().regex(/^\d{6}$/) }).parse(params);
-    const pinHash = await bcrypt.hash(p.pin);
+    const pinHash = await bcrypt.hash(p.pin, 10);
     const r = await query(
       `UPDATE app_users SET pin_hash=$3, pin_updated_at=now(), updated_at=now()
         WHERE id=$1 AND school_id=$2 AND role='cashier'
