@@ -308,30 +308,14 @@ export default function KasiyerPanel() {
               </Card>
             ) : (
               <div className="space-y-3">
-                {/* Big NFC waiting indicator */}
-                <div className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition ${
-                  nfc.status === "listening"
-                    ? "border-primary/50 bg-primary/5"
-                    : "border-muted bg-muted/30"
-                }`}>
-                  <div className={`flex h-16 w-16 items-center justify-center rounded-full ${
-                    nfc.status === "listening" ? "animate-pulse bg-primary/10" : "bg-muted"
-                  }`}>
-                    <Radio className={`h-8 w-8 ${nfc.status === "listening" ? "text-primary" : "text-muted-foreground"}`} />
+                {/* Big card-reader waiting indicator */}
+                <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-primary/50 bg-primary/5 p-6 text-center transition">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 animate-pulse">
+                    <Radio className="h-8 w-8 text-primary" />
                   </div>
-                  <p className="mt-3 text-base font-semibold">
-                    {nfc.status === "listening" && "Kart Okutun"}
-                    {nfc.status === "starting" && "NFC başlatılıyor..."}
-                    {nfc.status === "unsupported" && "NFC desteklenmiyor"}
-                    {nfc.status === "denied" && "NFC izni reddedildi"}
-                    {nfc.status === "error" && "NFC hatası"}
-                  </p>
+                  <p className="mt-3 text-base font-semibold">Kart Okutun</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {nfc.status === "listening" && "Öğrenci kartını cihaza yaklaştırın"}
-                    {nfc.status === "starting" && "Lütfen bekleyin"}
-                    {nfc.status === "unsupported" && "Android Chrome gerekiyor. Aşağıdan QR veya arama kullanın."}
-                    {nfc.status === "denied" && "Sayfa ayarlarından NFC iznini verin"}
-                    {nfc.status === "error" && (nfc.error ?? "Bilinmeyen hata")}
+                    Öğrenci kartını USB okuyucuya yaklaştırın
                   </p>
                 </div>
 
