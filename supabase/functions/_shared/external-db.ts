@@ -25,9 +25,13 @@ export function getPool(): Pool {
     // does not honor rejectUnauthorized:false reliably. Requires `host` (not
     // `hostssl`) entry in pg_hba.conf.
     ssl: false,
-    max: 5,
-    idleTimeoutMillis: 30_000,
+    // Edge functions are short-lived & spawn many isolates concurrently.
+    // Keep the pool tiny and aggressively close idle connections so we don't
+    // exhaust the external DB's max_connections limit.
+    max: 2,
+    idleTimeoutMillis: 3_000,
     connectionTimeoutMillis: 10_000,
+    allowExitOnIdle: true,
   });
   return _pool;
 }
