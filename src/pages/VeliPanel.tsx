@@ -253,6 +253,20 @@ export default function VeliPanel() {
           </DropdownMenu>
         )}
 
+        {selected?.card_lost && (
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="flex w-full items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-left text-sm text-destructive shadow-sm"
+          >
+            <ShieldAlert className="h-4 w-4 shrink-0" />
+            <span className="flex-1">
+              Kart <strong>kayıp</strong> olarak işaretli — kantinde satış engelli.
+            </span>
+            <span className="text-xs underline">Ayarlar</span>
+          </button>
+        )}
+
         {/* Balance card — vivid balance gradient */}
         {selected && (
           <Card
