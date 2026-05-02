@@ -368,6 +368,17 @@ export default function VeliPanel() {
           />
         );
       })()}
+
+      <StudentSettingsModal
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        student={selected ?? null}
+        onUpdated={(next) => {
+          const updated = session.students.map((s) => (s.id === next.id ? next : s));
+          updateParentStudents(updated);
+          setSession({ ...session, students: updated });
+        }}
+      />
     </main>
   );
 }
