@@ -180,10 +180,18 @@ export default function VeliPanel() {
               <button className="flex w-full items-center justify-between rounded-2xl border border-accent/30 bg-card px-4 py-3 text-left shadow-md transition hover:shadow-lg">
                 <div className="flex items-center gap-3">
                   <div
-                    className="flex h-11 w-11 items-center justify-center rounded-full text-accent-foreground shadow-sm"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-accent-foreground shadow-sm"
                     style={{ background: "var(--gradient-gold)" }}
                   >
-                    <GraduationCap className="h-5 w-5" />
+                    {selected?.photo_url ? (
+                      <img
+                        src={selected.photo_url}
+                        alt={selected.full_name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <GraduationCap className="h-5 w-5" />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="truncate font-semibold">{selected?.full_name ?? "Öğrenci seçin"}</div>
@@ -201,10 +209,22 @@ export default function VeliPanel() {
               {session.students.map((s) => (
                 <DropdownMenuItem key={s.id} onClick={() => switchStudent(s.id)} className="py-3">
                   <div className="flex w-full items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">{s.full_name}</div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {[s.school_name, s.class_name, s.student_no].filter(Boolean).join(" • ")}
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-accent-foreground shadow-sm"
+                        style={{ background: "var(--gradient-gold)" }}
+                      >
+                        {s.photo_url ? (
+                          <img src={s.photo_url} alt={s.full_name} className="h-full w-full object-cover" />
+                        ) : (
+                          <GraduationCap className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">{s.full_name}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {[s.school_name, s.class_name, s.student_no].filter(Boolean).join(" • ")}
+                        </div>
                       </div>
                     </div>
                     <div className="text-right text-sm font-semibold text-primary">{fmtTL(s.balance)}</div>
