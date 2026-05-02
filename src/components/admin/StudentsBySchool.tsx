@@ -22,6 +22,7 @@ export default function StudentsBySchool() {
   const [loading, setLoading] = useState(true);
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
+  const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -43,6 +44,35 @@ export default function StudentsBySchool() {
       if (rows.length === 1) setSelectedId(rows[0].id);
     })();
   }, [toast]);
+
+  const selectedSchool = schools.find((s) => s.id === selectedId);
+
+  async function handlePrintCards() {
+    if (!selectedSchool) return;
+    setPrinting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("db-proxy", {
+        body: { op: "list_students", params: { school_id: selectedId } },
+      });
+      if (error) throw new Error(error.message);
+      if (data && (data as any).error) throw new Error((data as any).error);
+      const students = (((data as any)?.data ?? []) as CardStudent[]).filter((s) => s.full_name);
+      if (students.length === 0) {
+        toast({ title: "Öğrenci bulunamadı", variant: "destructive" });
+        return;
+      }
+      await generateStudentCardsPdf({ schoolName: selectedSchool.name, students });
+      toast({ title: "PDF hazır", description: `${students.length} kart oluşturuldu.` });
+    } catch (e) {
+      toast({
+        title: "PDF oluşturulamadı",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setPrinting(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -70,6 +100,19 @@ export default function StudentsBySchool() {
                 </Select>
               )}
             </div>
+            <Button
+              type="button"
+              onClick={handlePrintCards}
+              disabled={!selectedId || printing}
+              className="sm:w-auto"
+            >
+              {printing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="mr-2 h-4 w-4" />
+              )}
+              Kartları PDF indir
+            </Button>
           </div>
         </CardContent>
       </Card>
