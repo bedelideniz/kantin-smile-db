@@ -16,6 +16,7 @@ import {
 } from "@/lib/parentApi";
 import logo from "@/assets/kantinpay-logo.png";
 import BottomNav from "@/components/veli/BottomNav";
+import ParentSplash from "@/components/veli/ParentSplash";
 
 interface TxItem { product_name: string; qty: number; unit_price: number; line_total: number; }
 interface Tx {
@@ -292,6 +293,7 @@ export default function VeliPanel() {
         )}
       </div>
       <BottomNav />
+      <ParentSplash schoolId={selected?.school_id ?? null} />
     </main>
   );
 }

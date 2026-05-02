@@ -158,6 +158,15 @@ const PUBLIC_OPS: Record<string, Handler> = {
       })),
     };
   },
+  get_school_splash: async (_req, params) => {
+    const p = z.object({ school_id: z.string().uuid() }).parse(params);
+    const r = await query<{ image_url: string; link_url: string | null }>(
+      "SELECT image_url, link_url FROM school_splashes WHERE school_id=$1 AND is_active=TRUE",
+      [p.school_id],
+    );
+    if (r.rowCount === 0) return null;
+    return r.rows[0];
+  },
 };
 
 const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise<unknown>> = {

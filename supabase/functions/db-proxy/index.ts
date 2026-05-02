@@ -730,6 +730,45 @@ const HANDLERS: Record<string, Handler> = {
     );
     return r.rows;
   },
+  // ===== School splashes (super_admin manages per-school parent splash screen) =====
+  list_school_splashes: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      `SELECT s.id AS school_id, s.name AS school_name,
+              ss.image_url, ss.link_url, ss.is_active, ss.updated_at
+         FROM schools s
+         LEFT JOIN school_splashes ss ON ss.school_id = s.id
+        ORDER BY s.name ASC`,
+    );
+    return r.rows;
+  },
+  upsert_school_splash: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      school_id: z.string().uuid(),
+      image_url: z.string().trim().url().max(2048),
+      link_url: z.string().trim().url().max(2048).nullable().optional(),
+      is_active: z.boolean().optional().default(true),
+    }).parse(params);
+    const r = await query(
+      `INSERT INTO school_splashes (school_id, image_url, link_url, is_active, updated_at)
+       VALUES ($1,$2,$3,$4, now())
+       ON CONFLICT (school_id) DO UPDATE
+         SET image_url = EXCLUDED.image_url,
+             link_url  = EXCLUDED.link_url,
+             is_active = EXCLUDED.is_active,
+             updated_at = now()
+       RETURNING school_id, image_url, link_url, is_active, updated_at`,
+      [p.school_id, p.image_url, p.link_url ?? null, p.is_active],
+    );
+    return r.rows[0];
+  },
+  delete_school_splash: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({ school_id: z.string().uuid() }).parse(params);
+    await query("DELETE FROM school_splashes WHERE school_id=$1", [p.school_id]);
+    return { school_id: p.school_id, deleted: true };
+  },
 };
 
 const INGREDIENT_UNITS = ["adet", "gr", "kg", "ml", "lt"] as const;

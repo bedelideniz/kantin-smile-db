@@ -393,6 +393,20 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_mpayouts_marketer ON marketer_payouts(marketer_id);
     `,
   },
+  {
+    version: "0010_school_splashes",
+    description: "Per-school parent splash/ad screen (image + optional link, shown once per day after parent login)",
+    sql: `
+      CREATE TABLE IF NOT EXISTS school_splashes (
+        school_id UUID PRIMARY KEY REFERENCES schools(id) ON DELETE CASCADE,
+        image_url TEXT NOT NULL,
+        link_url TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `,
+  },
 ];
 
 
