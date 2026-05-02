@@ -293,6 +293,7 @@ export default function VeliPanel() {
         )}
       </div>
       <BottomNav />
+      <ParentSplash schoolId={selected?.school_id ?? null} />
     </main>
   );
 }
