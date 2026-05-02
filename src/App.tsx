@@ -29,7 +29,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/admin" element={<SuperAdmin />} />
+          <Route path="/staff" element={<SuperAdmin />} />
           <Route path="/yonetici-giris" element={<YoneticiGiris />} />
           <Route path="/yonetici" element={<YoneticiPanel />} />
           <Route path="/kasiyer-giris" element={<KasiyerGiris />} />
