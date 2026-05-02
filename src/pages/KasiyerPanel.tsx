@@ -146,6 +146,11 @@ export default function KasiyerPanel() {
     setQrOpen(false);
     try {
       const r = await callCashierApi<{ student: Student }>("lookup_student", { qr_token: text });
+      if (r.student.card_lost) {
+        setStudent(null);
+        setLostCardStudent(r.student);
+        return;
+      }
       setStudent(r.student);
       toast({ title: "Öğrenci bulundu", description: r.student.full_name });
     } catch (e: any) {
@@ -156,11 +161,35 @@ export default function KasiyerPanel() {
   const handleNfcResult = async (uid: string) => {
     try {
       const r = await callCashierApi<{ student: Student }>("lookup_student", { nfc_uid: uid });
+      if (r.student.card_lost) {
+        setStudent(null);
+        setLostCardStudent(r.student);
+        return;
+      }
       setStudent(r.student);
       const t = toast({ title: "Öğrenci tanındı", description: `${r.student.full_name} • Bakiye: ${fmt(Number(r.student.balance))} ₺` });
       setTimeout(() => t.dismiss(), 1000);
     } catch (e: any) {
       toast({ title: "Kart tanınmadı", description: `${e?.message ?? "Hata"} (UID: ${uid})`, variant: "destructive" });
+    }
+  };
+
+  const handleMarkCardFound = async () => {
+    if (!lostCardStudent) return;
+    setMarkingFound(true);
+    try {
+      await callCashierApi("mark_card_found", { student_id: lostCardStudent.id });
+      const restored: Student = { ...lostCardStudent, card_lost: false };
+      setStudent(restored);
+      setLostCardStudent(null);
+      toast({
+        title: "Kart bulundu olarak işaretlendi",
+        description: `${restored.full_name} için satış yapılabilir.`,
+      });
+    } catch (e: any) {
+      toast({ title: "İşlem başarısız", description: e?.message, variant: "destructive" });
+    } finally {
+      setMarkingFound(false);
     }
   };
 
