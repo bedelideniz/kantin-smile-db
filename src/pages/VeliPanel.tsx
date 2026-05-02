@@ -17,6 +17,7 @@ import {
 import logo from "@/assets/kantinpay-logo.png";
 import BottomNav from "@/components/veli/BottomNav";
 import ParentSplash from "@/components/veli/ParentSplash";
+import PhotoUploadModal from "@/components/veli/PhotoUploadModal";
 
 interface TxItem { product_name: string; qty: number; unit_price: number; line_total: number; }
 interface Tx {
@@ -294,6 +295,23 @@ export default function VeliPanel() {
       </div>
       <BottomNav />
       <ParentSplash schoolId={selected?.school_id ?? null} />
+      {(() => {
+        const needsPhoto = session.students.find((s) => !s.photo_url);
+        if (!needsPhoto) return null;
+        return (
+          <PhotoUploadModal
+            student={needsPhoto}
+            open
+            onUploaded={(url) => {
+              const updated = session.students.map((s) =>
+                s.id === needsPhoto.id ? { ...s, photo_url: url } : s,
+              );
+              updateParentStudents(updated);
+              setSession({ ...session, students: updated });
+            }}
+          />
+        );
+      })()}
     </main>
   );
 }

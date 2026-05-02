@@ -12,6 +12,7 @@ export interface ParentStudent {
   class_name: string | null;
   student_no: string | null;
   balance: number;
+  photo_url?: string | null;
 }
 
 export interface ParentSession {

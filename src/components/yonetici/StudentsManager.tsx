@@ -29,6 +29,7 @@ interface Student {
   balance: number | string;
   qr_token: string;
   nfc_uid: string | null;
+  photo_url: string | null;
   is_active: boolean;
   created_at: string;
 }
@@ -261,6 +262,7 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-14">Foto</TableHead>
                 <TableHead>Ad Soyad</TableHead>
                 <TableHead>Sınıf / No</TableHead>
                 <TableHead>Veli Telefonu</TableHead>
@@ -273,6 +275,22 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
             <TableBody>
               {rows.map((s) => (
                 <TableRow key={s.id}>
+                  <TableCell>
+                    {s.photo_url ? (
+                      <a href={s.photo_url} target="_blank" rel="noreferrer">
+                        <img
+                          src={s.photo_url}
+                          alt={s.full_name}
+                          className="h-10 w-10 rounded-full object-cover ring-1 ring-border"
+                          loading="lazy"
+                        />
+                      </a>
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-[10px] text-muted-foreground">
+                        Yok
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">{s.full_name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {s.class_name ?? "—"}{s.student_no ? ` • #${s.student_no}` : ""}

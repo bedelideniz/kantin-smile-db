@@ -508,6 +508,13 @@ const MIGRATIONS: Migration[] = [
       ON CONFLICT (key) DO NOTHING;
     `,
   },
+  {
+    version: "0013_student_photo",
+    description: "students.photo_url column for parent-uploaded student profile photos",
+    sql: `
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS photo_url TEXT;
+    `,
+  },
 ];
 
 
