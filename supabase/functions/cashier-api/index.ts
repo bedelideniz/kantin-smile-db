@@ -162,21 +162,21 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       const uuid = p.qr_token.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
       if (!uuid) throw new HttpError(400, "Geçersiz QR kod");
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active
+        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost
            FROM students WHERE school_id=$1 AND qr_token=$2`,
         [ctx.schoolId, uuid],
       );
       row = r.rows[0];
     } else if (p.nfc_uid) {
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active
+        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost
            FROM students WHERE school_id=$1 AND nfc_uid=$2`,
         [ctx.schoolId, p.nfc_uid.toUpperCase()],
       );
       row = r.rows[0];
     } else if (p.query) {
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active
+        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost
            FROM students
           WHERE school_id=$1 AND is_active=TRUE
             AND (full_name ILIKE $2 OR student_no ILIKE $2)
@@ -190,6 +190,18 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
     if (!row) throw new HttpError(404, "Öğrenci bulunamadı");
     if (!row.is_active) throw new HttpError(403, "Öğrenci hesabı pasif");
     return { student: row };
+  },
+  // Cashier marks a previously "lost" card as found again — re-enables sales.
+  mark_card_found: async (ctx, params) => {
+    const p = z.object({ student_id: z.string().uuid() }).parse(params);
+    const r = await query(
+      `UPDATE students SET card_lost = FALSE, updated_at = now()
+        WHERE id = $1 AND school_id = $2
+        RETURNING id, full_name, card_lost`,
+      [p.student_id, ctx.schoolId],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+    return { id: r.rows[0].id, full_name: r.rows[0].full_name, card_lost: false };
   },
   create_sale: async (ctx, params) => {
     const p = z.object({
