@@ -317,7 +317,9 @@ const HANDLERS: Record<string, Handler> = {
     let where = "school_id = $1";
     if (p.query && p.query.length >= 1) {
       args.push(`%${p.query}%`);
-      where += ` AND (full_name ILIKE $${args.length} OR student_no ILIKE $${args.length} OR parent_phone ILIKE $${args.length})`;
+      const normalizedUid = p.query.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      args.push(normalizedUid ? `%${normalizedUid}%` : `%${p.query}%`);
+      where += ` AND (full_name ILIKE $${args.length - 1} OR student_no ILIKE $${args.length - 1} OR parent_phone ILIKE $${args.length - 1} OR nfc_uid ILIKE $${args.length})`;
     }
     const r = await query(
       `SELECT id, full_name, class_name, student_no, parent_phone, balance,
