@@ -357,6 +357,20 @@ async function handleSuperAdmin(action: string, p: any, _adminId: string): Promi
       return json({ ok: true });
     }
 
+    case "list_bonuses_admin": {
+      const schema = z.object({ marketer_id: z.string().uuid() });
+      const v = schema.safeParse(p);
+      if (!v.success) return json({ error: "Geçersiz" }, 400);
+      const r = await query(`
+        SELECT b.id, b.school_id, b.amount, b.status, b.approved_at, b.paid_at, b.created_at,
+          s.name AS school_name
+        FROM marketer_bonuses b
+        JOIN schools s ON s.id = b.school_id
+        WHERE b.marketer_id = $1
+        ORDER BY b.created_at DESC`, [v.data.marketer_id]);
+      return json({ ok: true, bonuses: r.rows });
+    }
+
     case "list_payouts": {
       const schema = z.object({ marketer_id: z.string().uuid().optional() });
       const v = schema.safeParse(p);
