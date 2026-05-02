@@ -57,10 +57,11 @@ async function findStudentsForParent(phoneVariantsList: string[]) {
   const r = await query<{
     id: string; school_id: string; full_name: string; class_name: string | null;
     student_no: string | null; balance: string; is_active: boolean; school_name: string;
-    photo_url: string | null;
+    photo_url: string | null; card_lost: boolean; nfc_uid: string | null;
   }>(
     `SELECT s.id, s.school_id, s.full_name, s.class_name, s.student_no,
-            s.balance, s.is_active, s.photo_url, sc.name AS school_name
+            s.balance, s.is_active, s.photo_url, s.card_lost, s.nfc_uid,
+            sc.name AS school_name
        FROM students s
        JOIN schools sc ON sc.id = s.school_id
       WHERE s.is_active = TRUE
@@ -195,6 +196,7 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
         id: s.id, school_id: s.school_id, school_name: s.school_name,
         full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
         balance: Number(s.balance), photo_url: s.photo_url,
+        card_lost: !!s.card_lost, has_card: !!s.nfc_uid,
       })),
     };
   },
@@ -208,7 +210,7 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const { variants } = phoneVariants(ctx.phone);
     const r = await query(
       `SELECT s.id, s.school_id, s.full_name, s.class_name, s.student_no, s.balance, s.is_active,
-              s.photo_url, sc.name AS school_name
+              s.photo_url, s.card_lost, s.nfc_uid, sc.name AS school_name
          FROM students s
          JOIN schools sc ON sc.id = s.school_id
         WHERE s.id = $1 AND s.is_active = TRUE
@@ -222,7 +224,28 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       id: s.id, school_id: s.school_id, school_name: s.school_name,
       full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
       balance: Number(s.balance), photo_url: s.photo_url,
+      card_lost: !!s.card_lost, has_card: !!s.nfc_uid,
     };
+  },
+  // Parent toggles "card lost" flag for one of their own students.
+  // When true, cashier-side lookup will block sales until cashier marks it found
+  // (or parent re-enables it).
+  set_card_lost: async (ctx, params) => {
+    const p = z.object({
+      student_id: z.string().uuid(),
+      card_lost: z.boolean(),
+    }).parse(params);
+    const { variants } = phoneVariants(ctx.phone);
+    const r = await query(
+      `UPDATE students SET card_lost = $1, updated_at = now()
+        WHERE id = $2 AND is_active = TRUE
+          AND (parent_phone = ANY($3::text[])
+               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($3::text[]))
+        RETURNING id, card_lost`,
+      [p.card_lost, p.student_id, variants],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+    return { id: r.rows[0].id, card_lost: !!r.rows[0].card_lost };
   },
   // Upload (or replace) a student's profile photo. Body sends a base64-encoded JPEG
   // (already cropped & resized client-side). Stored in `student-photos` bucket.

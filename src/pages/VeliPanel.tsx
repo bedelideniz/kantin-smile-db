@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, LogOut, Wallet, ChevronDown, Receipt, GraduationCap, RefreshCcw, CircleAlert } from "lucide-react";
+import { Loader2, LogOut, Wallet, ChevronDown, Receipt, GraduationCap, RefreshCcw, CircleAlert, Settings, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import logo from "@/assets/kantinpay-logo.png";
 import BottomNav from "@/components/veli/BottomNav";
 import ParentSplash from "@/components/veli/ParentSplash";
 import PhotoUploadModal from "@/components/veli/PhotoUploadModal";
+import StudentSettingsModal from "@/components/veli/StudentSettingsModal";
 
 interface TxItem { product_name: string; qty: number; unit_price: number; line_total: number; }
 interface Tx {
@@ -42,6 +43,7 @@ export default function VeliPanel() {
   const [refreshing, setRefreshing] = useState(false);
   const [txLoading, setTxLoading] = useState(false);
   const [transactions, setTransactions] = useState<Tx[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Load session & validate, then refresh student list from backend
   useEffect(() => {
@@ -153,6 +155,22 @@ export default function VeliPanel() {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => setSettingsOpen(true)}
+              disabled={!selected}
+              aria-label="Ayarlar"
+              className="relative text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+            >
+              <Settings className="h-5 w-5" />
+              {selected?.card_lost && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive" />
+                </span>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={logout}
               aria-label="Çıkış"
               className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
@@ -233,6 +251,20 @@ export default function VeliPanel() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+        )}
+
+        {selected?.card_lost && (
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="flex w-full items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/10 px-3 py-2 text-left text-sm text-destructive shadow-sm"
+          >
+            <ShieldAlert className="h-4 w-4 shrink-0" />
+            <span className="flex-1">
+              Kart <strong>kayıp</strong> olarak işaretli — kantinde satış engelli.
+            </span>
+            <span className="text-xs underline">Ayarlar</span>
+          </button>
         )}
 
         {/* Balance card — vivid balance gradient */}
@@ -350,6 +382,17 @@ export default function VeliPanel() {
           />
         );
       })()}
+
+      <StudentSettingsModal
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        student={selected ?? null}
+        onUpdated={(next) => {
+          const updated = session.students.map((s) => (s.id === next.id ? next : s));
+          updateParentStudents(updated);
+          setSession({ ...session, students: updated });
+        }}
+      />
     </main>
   );
 }

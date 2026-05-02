@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   LogOut, QrCode, Search, Trash2, X, Plus, Minus,
-  CreditCard, CircleDot, Wallet, ShoppingCart, AlertTriangle, GraduationCap, Sparkles, Barcode,
+  CreditCard, CircleDot, Wallet, ShoppingCart, AlertTriangle, GraduationCap, Sparkles, Barcode, Loader2,
 } from "lucide-react";
 import {
   callCashierApi,
@@ -31,6 +31,7 @@ interface Product {
 interface Student {
   id: string; full_name: string; class_name: string | null;
   student_no: string | null; balance: number | string;
+  card_lost?: boolean;
 }
 interface CartItem { product_id: string; name: string; price: number; qty: number; catColor: string }
 
@@ -61,6 +62,8 @@ export default function KasiyerPanel() {
   const [now, setNow] = useState(() => new Date());
   const [manualBarcode, setManualBarcode] = useState("");
   const [saleError, setSaleError] = useState<string | null>(null);
+  const [lostCardStudent, setLostCardStudent] = useState<Student | null>(null);
+  const [markingFound, setMarkingFound] = useState(false);
 
   // Auth gate
   useEffect(() => {
@@ -143,6 +146,11 @@ export default function KasiyerPanel() {
     setQrOpen(false);
     try {
       const r = await callCashierApi<{ student: Student }>("lookup_student", { qr_token: text });
+      if (r.student.card_lost) {
+        setStudent(null);
+        setLostCardStudent(r.student);
+        return;
+      }
       setStudent(r.student);
       toast({ title: "Öğrenci bulundu", description: r.student.full_name });
     } catch (e: any) {
@@ -153,11 +161,35 @@ export default function KasiyerPanel() {
   const handleNfcResult = async (uid: string) => {
     try {
       const r = await callCashierApi<{ student: Student }>("lookup_student", { nfc_uid: uid });
+      if (r.student.card_lost) {
+        setStudent(null);
+        setLostCardStudent(r.student);
+        return;
+      }
       setStudent(r.student);
       const t = toast({ title: "Öğrenci tanındı", description: `${r.student.full_name} • Bakiye: ${fmt(Number(r.student.balance))} ₺` });
       setTimeout(() => t.dismiss(), 1000);
     } catch (e: any) {
       toast({ title: "Kart tanınmadı", description: `${e?.message ?? "Hata"} (UID: ${uid})`, variant: "destructive" });
+    }
+  };
+
+  const handleMarkCardFound = async () => {
+    if (!lostCardStudent) return;
+    setMarkingFound(true);
+    try {
+      await callCashierApi("mark_card_found", { student_id: lostCardStudent.id });
+      const restored: Student = { ...lostCardStudent, card_lost: false };
+      setStudent(restored);
+      setLostCardStudent(null);
+      toast({
+        title: "Kart bulundu olarak işaretlendi",
+        description: `${restored.full_name} için satış yapılabilir.`,
+      });
+    } catch (e: any) {
+      toast({ title: "İşlem başarısız", description: e?.message, variant: "destructive" });
+    } finally {
+      setMarkingFound(false);
     }
   };
 
@@ -524,10 +556,15 @@ export default function KasiyerPanel() {
                             key={s.id}
                             className="flex w-full items-center justify-between border-b px-3 py-3 text-left transition hover:bg-accent"
                             onClick={() => {
-                              setStudent(s);
                               setSearchOpen(false);
                               setSearchTerm("");
                               setSearchResults([]);
+                              if (s.card_lost) {
+                                setStudent(null);
+                                setLostCardStudent(s);
+                              } else {
+                                setStudent(s);
+                              }
                             }}
                           >
                             <div className="min-w-0">
@@ -697,6 +734,50 @@ export default function KasiyerPanel() {
               autoFocus
             >
               Tamam
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lost card warning + "Card Found" override */}
+      <Dialog open={!!lostCardStudent} onOpenChange={(o) => !o && setLostCardStudent(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader className="items-center text-center">
+            <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+              <AlertTriangle className="h-9 w-9 text-destructive" />
+            </div>
+            <DialogTitle className="text-2xl text-destructive">Kart kayıp olarak işaretli</DialogTitle>
+            <DialogDescription className="text-center text-base text-foreground">
+              <span className="block font-semibold">{lostCardStudent?.full_name}</span>
+              <span className="block text-sm text-muted-foreground">
+                {[lostCardStudent?.class_name, lostCardStudent?.student_no].filter(Boolean).join(" • ")}
+              </span>
+              <span className="mt-3 block text-sm">
+                Veli bu kartı kayıp olarak bildirmiş. Bu karta satış yapılamaz.
+                Kart sahibinin elinde olduğundan eminseniz <strong>"Kart Bulundu"</strong> diyerek
+                tekrar aktif edebilirsiniz.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-center">
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => setLostCardStudent(null)}
+              disabled={markingFound}
+            >
+              Vazgeç
+            </Button>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={handleMarkCardFound}
+              disabled={markingFound}
+            >
+              {markingFound ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> İşleniyor…</>
+              ) : (
+                <>Kart Bulundu — Aktif Et</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

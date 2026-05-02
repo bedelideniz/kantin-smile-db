@@ -323,7 +323,7 @@ const HANDLERS: Record<string, Handler> = {
     }
     const r = await query(
       `SELECT id, full_name, class_name, student_no, parent_phone, balance,
-              qr_token, nfc_uid, photo_url, is_active, created_at
+              qr_token, nfc_uid, photo_url, card_lost, is_active, created_at
          FROM students WHERE ${where}
         ORDER BY created_at DESC LIMIT 500`,
       args,
