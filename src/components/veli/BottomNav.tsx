@@ -1,4 +1,4 @@
-import { Ban, Wallet, ArrowUpDown } from "lucide-react";
+import { Ban, Wallet, ArrowUpDown, HandHeart } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 interface Props {
@@ -12,6 +12,9 @@ export default function BottomNav({ onTopUp }: Props) {
 
   const isActive = (p: string) => pathname === p;
 
+  const itemBase =
+    "flex flex-1 flex-col items-center gap-0.5 rounded-md py-2 text-[11px] transition-colors";
+
   return (
     <>
       {/* spacer so content isn't hidden behind the bar */}
@@ -20,37 +23,54 @@ export default function BottomNav({ onTopUp }: Props) {
         className="fixed inset-x-0 bottom-0 z-30 border-t border-accent/20 bg-background/95 shadow-[0_-4px_20px_-4px_hsl(var(--primary)/0.15)] backdrop-blur supports-[backdrop-filter]:bg-background/85"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="relative mx-auto flex max-w-md items-end justify-between px-6 pt-2 pb-2">
-          {/* Left: blocked products */}
+        <div className="relative mx-auto flex max-w-md items-end justify-between gap-1 px-3 pt-2 pb-2">
+          {/* Yasaklılar */}
           <button
             onClick={() => navigate("/veli/yasaklilar")}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-md py-2 text-xs transition-colors ${
+            className={`${itemBase} ${
               isActive("/veli/yasaklilar")
                 ? "text-destructive"
                 : "text-muted-foreground hover:text-destructive/80"
             }`}
             aria-label="Yasaklı ürünler"
           >
-            <Ban className="h-6 w-6" />
+            <Ban className="h-5 w-5" />
             <span className="font-medium">Yasaklılar</span>
           </button>
 
-          {/* Center spacer for the floating button */}
-          <div className="w-20 shrink-0" />
+          {/* Bağış */}
+          <button
+            onClick={() => navigate("/veli/bagis")}
+            className={`${itemBase} ${
+              isActive("/veli/bagis")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-primary/80"
+            }`}
+            aria-label="Bağış yap"
+          >
+            <HandHeart className="h-5 w-5" />
+            <span className="font-medium">Bağış</span>
+          </button>
 
-          {/* Right: transactions (panel) */}
+          {/* Center spacer for the floating button */}
+          <div className="w-16 shrink-0" />
+
+          {/* Hareketler */}
           <button
             onClick={() => navigate("/veli")}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-md py-2 text-xs transition-colors ${
+            className={`${itemBase} ${
               isActive("/veli") ? "text-primary" : "text-muted-foreground hover:text-primary/80"
             }`}
             aria-label="Hareketler"
           >
-            <ArrowUpDown className="h-6 w-6" />
+            <ArrowUpDown className="h-5 w-5" />
             <span className="font-medium">Hareketler</span>
           </button>
 
-          {/* Center floating ₺ top-up button — gold gradient */}
+          {/* spacer for symmetry on the right of FAB */}
+          <div className="w-0 shrink-0" />
+
+          {/* Center floating ₺ top-up button */}
           <button
             onClick={() => (onTopUp ? onTopUp() : navigate("/veli/yukle"))}
             aria-label="Bakiye yükle"
