@@ -19,6 +19,7 @@ import BottomNav from "@/components/veli/BottomNav";
 import ParentSplash from "@/components/veli/ParentSplash";
 import PhotoUploadModal from "@/components/veli/PhotoUploadModal";
 import StudentSettingsModal from "@/components/veli/StudentSettingsModal";
+import NotificationsBell from "@/components/veli/NotificationsBell";
 
 interface TxItem { product_name: string; qty: number; unit_price: number; line_total: number; }
 interface Tx {
