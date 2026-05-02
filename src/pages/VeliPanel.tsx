@@ -155,6 +155,22 @@ export default function VeliPanel() {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => setSettingsOpen(true)}
+              disabled={!selected}
+              aria-label="Ayarlar"
+              className="relative text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
+            >
+              <Settings className="h-5 w-5" />
+              {selected?.card_lost && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive" />
+                </span>
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={logout}
               aria-label="Çıkış"
               className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
