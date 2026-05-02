@@ -88,6 +88,7 @@ export default function SuperAdmin() {
             <TabsTrigger value="schools">Okullar</TabsTrigger>
             <TabsTrigger value="students">Veli & Öğrenci</TabsTrigger>
             <TabsTrigger value="marketers">Pazarlamacılar</TabsTrigger>
+            <TabsTrigger value="splashes">Veli Splash</TabsTrigger>
             <TabsTrigger value="payments">Ödeme</TabsTrigger>
             <TabsTrigger value="netgsm">SMS / NetGSM</TabsTrigger>
             <TabsTrigger value="infrastructure">Altyapı</TabsTrigger>
