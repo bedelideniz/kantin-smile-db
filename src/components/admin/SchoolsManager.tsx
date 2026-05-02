@@ -418,6 +418,15 @@ export default function SchoolsManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {importTarget && (
+        <StudentImportDialog
+          schoolId={importTarget.id}
+          schoolName={importTarget.name}
+          open={!!importTarget}
+          onOpenChange={(o) => !o && setImportTarget(null)}
+        />
+      )}
     </div>
   );
 }
