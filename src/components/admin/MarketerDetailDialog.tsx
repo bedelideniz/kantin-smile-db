@@ -66,40 +66,24 @@ export default function MarketerDetailDialog({
 
   const reload = async () => {
     try {
-      const [s, sch, all, earn, bon, pay] = await Promise.all([
+      const [s, all, earn, pay, bon] = await Promise.all([
         callMarketerApi<{ summary: MarketerSummary }>("get_marketer_summary", { marketer_id: marketerId }),
-        callMarketerApi<{ earnings: Earning[] }>("list_monthly_earnings", { marketer_id: marketerId }).then(
-          async () => callMarketerApi<{ schools: any[] }>("list_schools_for_assignment")
-            .then((r) => ({ schools: r.schools.filter((x) => x.marketer_id === marketerId)
-              .map((x) => ({ id: x.id, name: x.name })) }))
-        ),
         callMarketerApi<{ schools: AvailableSchool[] }>("list_schools_for_assignment"),
         callMarketerApi<{ earnings: Earning[] }>("list_monthly_earnings", { marketer_id: marketerId }),
-        callMarketerApi<{ bonuses: Bonus[] }>("my_bonuses_admin").catch(async () => {
-          // fallback: build from earnings list endpoint? Use dedicated:
-          return { bonuses: [] };
-        }),
         callMarketerApi<{ payouts: Payout[] }>("list_payouts", { marketer_id: marketerId }),
+        callMarketerApi<{ bonuses: Bonus[] }>("list_bonuses_admin", { marketer_id: marketerId }),
       ]);
       setSummary(s.summary);
-      setMySchools(sch.schools);
       setAllSchools(all.schools);
+      setMySchools(
+        all.schools.filter((x) => x.marketer_id === marketerId).map((x) => ({ id: x.id, name: x.name }))
+      );
       setEarnings(earn.earnings);
-      // bonuses fetched via separate call below
       setPayouts(pay.payouts);
+      setBonuses(bon.bonuses);
     } catch (e: any) {
       toast({ title: "Yükleme hatası", description: e.message, variant: "destructive" });
     }
-    // bonuses (admin view via dedicated query path) — reuse list_monthly via direct list
-    try {
-      // We expose bonuses to admin via list endpoint piggy-back: query list for this marketer.
-      // The marketer-api 'my_bonuses' is self-only, so admin uses a small SELECT through a generic call.
-      // For simplicity we re-derive from a dedicated server call we add (list via admin pseudo-action).
-      // Here we just request via update_bonus_status preview path -> not ideal. Instead, fetch via dedicated:
-      const r = await callMarketerApi<{ bonuses: Bonus[] }>("list_bonuses_admin", { marketer_id: marketerId })
-        .catch(() => ({ bonuses: [] as Bonus[] }));
-      setBonuses(r.bonuses);
-    } catch { /* ignore */ }
   };
 
   useEffect(() => { reload(); }, [marketerId]);
