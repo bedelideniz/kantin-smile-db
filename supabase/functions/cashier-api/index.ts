@@ -6,6 +6,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { z } from "npm:zod@3.23.8";
 import bcrypt from "npm:bcryptjs@2.4.3";
 import { query, withTransaction } from "../_shared/external-db.ts";
+import { sendSms } from "../_shared/sms.ts";
 
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
