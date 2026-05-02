@@ -777,10 +777,10 @@ export default function KasiyerPanel() {
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader className="items-center text-center">
             <div className="relative mx-auto mb-2">
-              <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-4 border-destructive/40 bg-muted shadow-lg">
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-destructive/40 bg-muted shadow-lg">
                 {lostCardStudent?.photo_url ? (
                   <img
                     src={lostCardStudent.photo_url}
@@ -834,7 +834,7 @@ export default function KasiyerPanel() {
             </div>
           )}
 
-          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-center">
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center">
             {seizeMode ? (
               <>
                 <Button
