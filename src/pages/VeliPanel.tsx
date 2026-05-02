@@ -153,6 +153,7 @@ export default function VeliPanel() {
             >
               <RefreshCcw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
             </Button>
+            <NotificationsBell />
             <Button
               variant="ghost"
               size="icon"
