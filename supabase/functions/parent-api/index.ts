@@ -57,9 +57,10 @@ async function findStudentsForParent(phoneVariantsList: string[]) {
   const r = await query<{
     id: string; school_id: string; full_name: string; class_name: string | null;
     student_no: string | null; balance: string; is_active: boolean; school_name: string;
+    photo_url: string | null;
   }>(
     `SELECT s.id, s.school_id, s.full_name, s.class_name, s.student_no,
-            s.balance, s.is_active, sc.name AS school_name
+            s.balance, s.is_active, s.photo_url, sc.name AS school_name
        FROM students s
        JOIN schools sc ON sc.id = s.school_id
       WHERE s.is_active = TRUE
