@@ -197,6 +197,28 @@ export default function KasiyerPanel() {
     }
   };
 
+  const handleSeizeCard = async () => {
+    if (!lostCardStudent) return;
+    setSeizing(true);
+    try {
+      await callCashierApi("seize_card", {
+        student_id: lostCardStudent.id,
+        ...(seizeNote.trim() ? { note: seizeNote.trim() } : {}),
+      });
+      toast({
+        title: "Karta el konuldu",
+        description: `${lostCardStudent.full_name} velisine bilgi gönderildi.`,
+      });
+      setLostCardStudent(null);
+      setSeizeMode(false);
+      setSeizeNote("");
+    } catch (e: any) {
+      toast({ title: "İşlem başarısız", description: e?.message, variant: "destructive" });
+    } finally {
+      setSeizing(false);
+    }
+  };
+
   const handleUsbScan = async (code: string) => {
     // 1) Try to match a product barcode locally first (fast path)
     const local = products.find((p) => (p.barcode ?? "").toUpperCase() === code);
