@@ -406,6 +406,101 @@ const HANDLERS: Record<string, Handler> = {
       throw e;
     }
   },
+  // Admin photo upload (super_admin or school_admin scoped). Accepts base64 JPEG.
+  set_student_photo: async (ctx, params) => {
+    const p = z.object({
+      id: z.string().uuid(),
+      image_base64: z.string().min(100).max(2_000_000),
+      school_id: z.string().uuid().optional(),
+    }).parse(params);
+    const schoolId = resolveSchoolScope(ctx, p.school_id);
+
+    // Verify ownership of student in this school + grab old photo
+    const sr = await query<{ id: string; photo_url: string | null }>(
+      "SELECT id, photo_url FROM students WHERE id=$1 AND school_id=$2",
+      [p.id, schoolId],
+    );
+    if (sr.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+    const oldUrl = sr.rows[0].photo_url;
+
+    // Decode base64 -> bytes
+    let b64 = p.image_base64;
+    const comma = b64.indexOf(",");
+    if (b64.startsWith("data:") && comma > 0) b64 = b64.slice(comma + 1);
+    let bytes: Uint8Array;
+    try {
+      const bin = atob(b64);
+      bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    } catch {
+      throw new HttpError(400, "Geçersiz görüntü verisi");
+    }
+    if (bytes.length > 1_500_000) throw new HttpError(413, "Görüntü çok büyük (max 1.5MB)");
+    if (bytes.length < 500) throw new HttpError(400, "Görüntü çok küçük");
+
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const storageHeaders: Record<string, string> = { apikey: SERVICE_KEY };
+    if (SERVICE_KEY.split(".").length === 3) storageHeaders.Authorization = `Bearer ${SERVICE_KEY}`;
+    const filename = `${p.id}-${Date.now()}.jpg`;
+    const objectKey = `${schoolId}/${filename}`;
+    const uploadRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/student-photos/${objectKey}`,
+      {
+        method: "POST",
+        headers: { ...storageHeaders, "Content-Type": "image/jpeg", "x-upsert": "true", "Cache-Control": "31536000" },
+        body: bytes,
+      },
+    );
+    if (!uploadRes.ok) {
+      const t = await uploadRes.text();
+      throw new HttpError(500, `Yükleme başarısız: ${t.slice(0, 200)}`);
+    }
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/student-photos/${objectKey}`;
+
+    await query("UPDATE students SET photo_url=$2, updated_at=now() WHERE id=$1", [p.id, publicUrl]);
+
+    if (oldUrl && oldUrl !== publicUrl) {
+      const prefix = `${SUPABASE_URL}/storage/v1/object/public/student-photos/`;
+      if (oldUrl.startsWith(prefix)) {
+        const oldKey = oldUrl.slice(prefix.length);
+        fetch(`${SUPABASE_URL}/storage/v1/object/student-photos/${oldKey}`, {
+          method: "DELETE",
+          headers: storageHeaders,
+        }).catch(() => {});
+      }
+    }
+    return { id: p.id, photo_url: publicUrl };
+  },
+  delete_student_photo: async (ctx, params) => {
+    const p = z.object({
+      id: z.string().uuid(),
+      school_id: z.string().uuid().optional(),
+    }).parse(params);
+    const schoolId = resolveSchoolScope(ctx, p.school_id);
+    const sr = await query<{ photo_url: string | null }>(
+      "SELECT photo_url FROM students WHERE id=$1 AND school_id=$2",
+      [p.id, schoolId],
+    );
+    if (sr.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+    const oldUrl = sr.rows[0].photo_url;
+    await query("UPDATE students SET photo_url=NULL, updated_at=now() WHERE id=$1", [p.id]);
+    if (oldUrl) {
+      const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+      const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const storageHeaders: Record<string, string> = { apikey: SERVICE_KEY };
+      if (SERVICE_KEY.split(".").length === 3) storageHeaders.Authorization = `Bearer ${SERVICE_KEY}`;
+      const prefix = `${SUPABASE_URL}/storage/v1/object/public/student-photos/`;
+      if (oldUrl.startsWith(prefix)) {
+        const oldKey = oldUrl.slice(prefix.length);
+        fetch(`${SUPABASE_URL}/storage/v1/object/student-photos/${oldKey}`, {
+          method: "DELETE",
+          headers: storageHeaders,
+        }).catch(() => {});
+      }
+    }
+    return { id: p.id, photo_url: null };
+  },
   adjust_student_balance: async (ctx, params) => {
     const p = z.object({
       id: z.string().uuid(),
