@@ -31,7 +31,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Plus, Trash2, RefreshCw, Send } from "lucide-react";
+import { Pencil, Plus, Trash2, RefreshCw, Send, Upload } from "lucide-react";
+import StudentImportDialog from "@/components/admin/StudentImportDialog";
 
 interface School {
   id: string;
