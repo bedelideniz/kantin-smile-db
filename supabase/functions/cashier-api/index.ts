@@ -215,13 +215,14 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
     return await withTransaction(async (client) => {
       // Lock student row
       const sr = await client.query(
-        `SELECT id, full_name, balance, is_active
+        `SELECT id, full_name, balance, is_active, card_lost
            FROM students WHERE id=$1 AND school_id=$2 FOR UPDATE`,
         [p.student_id, ctx.schoolId],
       );
       if (sr.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
       const student = sr.rows[0];
       if (!student.is_active) throw new HttpError(403, "Öğrenci pasif");
+      if (student.card_lost) throw new HttpError(423, "Kart kayıp olarak işaretli");
 
       // Parent-set blocked products check
       const blockedRes = await client.query(
