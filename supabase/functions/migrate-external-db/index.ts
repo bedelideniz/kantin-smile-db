@@ -304,6 +304,95 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_sbp_product ON student_blocked_products(product_id);
     `,
   },
+  {
+    version: "0009_marketers",
+    description: "Marketers (sales reps): per-marketer signup bonus + commission share, school assignments, monthly earnings, bonuses, payouts",
+    sql: `
+      -- Marketer (sales representative) accounts. Linked to a Supabase auth user
+      -- via auth_user_id once the marketer first signs in (or admin creates the
+      -- auth user). Each marketer has a per-marketer one-time bonus per school
+      -- and a per-marketer share rate over the platform commission of every
+      -- school they brought in.
+      CREATE TABLE IF NOT EXISTS marketers (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        full_name TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        phone TEXT,
+        -- One-time bonus (TRY) granted per school the marketer brings in.
+        signup_bonus NUMERIC(10,2) NOT NULL DEFAULT 0,
+        -- Share of OUR commission revenue this marketer earns (0..1, e.g. 0.20 = 20%).
+        commission_share_rate NUMERIC(5,4) NOT NULL DEFAULT 0,
+        auth_user_id UUID,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        notes TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_marketers_active ON marketers(is_active);
+      CREATE INDEX IF NOT EXISTS idx_marketers_auth_user ON marketers(auth_user_id);
+
+      -- A school can be attributed to AT MOST one marketer.
+      CREATE TABLE IF NOT EXISTS marketer_schools (
+        marketer_id UUID NOT NULL REFERENCES marketers(id) ON DELETE CASCADE,
+        school_id UUID NOT NULL UNIQUE REFERENCES schools(id) ON DELETE CASCADE,
+        assigned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (marketer_id, school_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_marketer_schools_marketer ON marketer_schools(marketer_id);
+
+      -- Per-school one-time signup bonus tracking. One row per (marketer, school).
+      -- Snapshot the amount at creation time (so rate edits don't retroactively change it).
+      CREATE TABLE IF NOT EXISTS marketer_bonuses (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        marketer_id UUID NOT NULL REFERENCES marketers(id) ON DELETE CASCADE,
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        amount NUMERIC(10,2) NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','paid','cancelled')),
+        approved_at TIMESTAMPTZ,
+        paid_at TIMESTAMPTZ,
+        note TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (marketer_id, school_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_mbonus_marketer ON marketer_bonuses(marketer_id);
+      CREATE INDEX IF NOT EXISTS idx_mbonus_status ON marketer_bonuses(status);
+
+      -- Monthly earnings per (marketer, school, period). Super admin enters
+      -- the platform commission revenue collected that month from the school;
+      -- the marketer share is computed = commission * share_rate (snapshotted).
+      CREATE TABLE IF NOT EXISTS marketer_monthly_earnings (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        marketer_id UUID NOT NULL REFERENCES marketers(id) ON DELETE CASCADE,
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        period_year INT NOT NULL,
+        period_month INT NOT NULL CHECK (period_month BETWEEN 1 AND 12),
+        commission_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+        share_rate NUMERIC(5,4) NOT NULL,
+        share_amount NUMERIC(12,2) NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','paid','cancelled')),
+        note TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (marketer_id, school_id, period_year, period_month)
+      );
+      CREATE INDEX IF NOT EXISTS idx_mme_marketer_period ON marketer_monthly_earnings(marketer_id, period_year, period_month);
+      CREATE INDEX IF NOT EXISTS idx_mme_status ON marketer_monthly_earnings(status);
+
+      -- Payouts: when super admin pays the marketer (cash, transfer, etc.).
+      -- Decreases what's owed to the marketer.
+      CREATE TABLE IF NOT EXISTS marketer_payouts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        marketer_id UUID NOT NULL REFERENCES marketers(id) ON DELETE CASCADE,
+        amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+        method TEXT,
+        reference TEXT,
+        note TEXT,
+        paid_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_mpayouts_marketer ON marketer_payouts(marketer_id);
+    `,
+  },
 ];
 
 
