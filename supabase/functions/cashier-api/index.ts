@@ -6,6 +6,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { z } from "npm:zod@3.23.8";
 import bcrypt from "npm:bcryptjs@2.4.3";
 import { query, withTransaction } from "../_shared/external-db.ts";
+import { sendSms } from "../_shared/sms.ts";
 
 class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -194,14 +195,101 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
   // Cashier marks a previously "lost" card as found again — re-enables sales.
   mark_card_found: async (ctx, params) => {
     const p = z.object({ student_id: z.string().uuid() }).parse(params);
-    const r = await query(
-      `UPDATE students SET card_lost = FALSE, updated_at = now()
+    const r = await query<{ id: string; full_name: string; parent_phone: string | null; school_id: string }>(
+      `UPDATE students
+          SET card_lost = FALSE,
+              card_seized_at = NULL,
+              card_seized_note = NULL,
+              updated_at = now()
         WHERE id = $1 AND school_id = $2
-        RETURNING id, full_name, card_lost`,
+        RETURNING id, full_name, parent_phone, school_id`,
       [p.student_id, ctx.schoolId],
     );
     if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
-    return { id: r.rows[0].id, full_name: r.rows[0].full_name, card_lost: false };
+    const s = r.rows[0];
+    if (s.parent_phone) {
+      await query(
+        `INSERT INTO parent_notifications
+            (school_id, student_id, parent_phone, kind, title, body)
+         VALUES ($1, $2, $3, 'card_found', $4, $5)`,
+        [
+          s.school_id, s.id, s.parent_phone,
+          "Kart tekrar aktif",
+          `${s.full_name} adına kayıtlı kart kantin tarafından tekrar aktif edildi.`,
+        ],
+      );
+    }
+    return { id: s.id, full_name: s.full_name, card_lost: false };
+  },
+  // Cashier seizes the physical card from someone misusing it.
+  // Detaches NFC from the student, keeps card_lost=TRUE, records a parent notification, sends SMS.
+  seize_card: async (ctx, params) => {
+    const p = z.object({
+      student_id: z.string().uuid(),
+      note: z.string().trim().max(300).optional(),
+    }).parse(params);
+
+    const sr = await query<{
+      id: string; full_name: string; parent_phone: string | null; school_id: string;
+    }>(
+      `SELECT id, full_name, parent_phone, school_id
+         FROM students WHERE id = $1 AND school_id = $2`,
+      [p.student_id, ctx.schoolId],
+    );
+    if (sr.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+    const student = sr.rows[0];
+
+    // Detach NFC + flag as lost so the card stays disabled even if reassigned by mistake
+    await query(
+      `UPDATE students
+          SET nfc_uid = NULL,
+              card_lost = TRUE,
+              card_seized_at = now(),
+              card_seized_note = $2,
+              updated_at = now()
+        WHERE id = $1`,
+      [p.student_id, p.note ?? null],
+    );
+
+    // Resolve school name for the notification body
+    const schName = await query<{ name: string }>(
+      "SELECT name FROM schools WHERE id = $1",
+      [student.school_id],
+    );
+    const schoolName = schName.rows[0]?.name ?? "Okul";
+
+    const title = "Kartınıza el konuldu";
+    const body = p.note && p.note.length > 0
+      ? `${student.full_name} adına çıkardığımız kart bir başkasının elinde kullanılmaya çalışıldığı için kantin tarafından alıkonuldu. Kantinci notu: ${p.note}`
+      : `${student.full_name} adına çıkardığımız kart bir başkasının elinde kullanılmaya çalışıldığı için kantin tarafından alıkonuldu. Lütfen kantine başvurun.`;
+
+    if (student.parent_phone) {
+      await query(
+        `INSERT INTO parent_notifications
+            (school_id, student_id, parent_phone, kind, title, body, meta)
+         VALUES ($1, $2, $3, 'card_seized', $4, $5, $6::jsonb)`,
+        [
+          student.school_id,
+          student.id,
+          student.parent_phone,
+          title,
+          body,
+          JSON.stringify({ note: p.note ?? null, school_name: schoolName }),
+        ],
+      );
+
+      // Best-effort SMS
+      try {
+        await sendSms(
+          student.parent_phone,
+          `${schoolName}: ${student.full_name} icin kantine kayitli kart alikonuldu. Detay icin veli panelini kontrol ediniz.`,
+        );
+      } catch (e) {
+        console.warn("seize_card SMS failed", (e as Error).message);
+      }
+    }
+
+    return { id: student.id, full_name: student.full_name, card_seized: true };
   },
   create_sale: async (ctx, params) => {
     const p = z.object({

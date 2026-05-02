@@ -522,6 +522,29 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE students ADD COLUMN IF NOT EXISTS card_lost BOOLEAN NOT NULL DEFAULT FALSE;
     `,
   },
+  {
+    version: "0015_parent_notifications",
+    description: "parent_notifications: messages from cashier/admin to a parent about their student (e.g. card seized).",
+    sql: `
+      CREATE TABLE IF NOT EXISTS parent_notifications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        parent_phone TEXT NOT NULL,
+        kind TEXT NOT NULL,                 -- e.g. 'card_seized', 'card_found'
+        title TEXT NOT NULL,
+        body TEXT,
+        meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+        read_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_parent_notif_phone ON parent_notifications(parent_phone, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_parent_notif_student ON parent_notifications(student_id, created_at DESC);
+
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS card_seized_at TIMESTAMPTZ;
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS card_seized_note TEXT;
+    `,
+  },
 ];
 
 

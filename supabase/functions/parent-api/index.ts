@@ -247,6 +247,57 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
     return { id: r.rows[0].id, card_lost: !!r.rows[0].card_lost };
   },
+  // List notifications for this parent (across all students sharing this phone).
+  list_notifications: async (ctx, params) => {
+    const p = z.object({
+      limit: z.number().int().min(1).max(100).default(50),
+      only_unread: z.boolean().optional(),
+    }).parse(params ?? {});
+    const { variants } = phoneVariants(ctx.phone);
+    const where = p.only_unread
+      ? "n.parent_phone = ANY($1::text[]) AND n.read_at IS NULL"
+      : "n.parent_phone = ANY($1::text[])";
+    const r = await query(
+      `SELECT n.id, n.student_id, n.kind, n.title, n.body, n.meta, n.read_at, n.created_at,
+              s.full_name AS student_name
+         FROM parent_notifications n
+         JOIN students s ON s.id = n.student_id
+        WHERE ${where}
+        ORDER BY n.created_at DESC
+        LIMIT $2`,
+      [variants, p.limit],
+    );
+    const cnt = await query<{ unread: string }>(
+      `SELECT COUNT(*)::text AS unread FROM parent_notifications
+        WHERE parent_phone = ANY($1::text[]) AND read_at IS NULL`,
+      [variants],
+    );
+    return {
+      notifications: r.rows,
+      unread_count: Number(cnt.rows[0]?.unread ?? 0),
+    };
+  },
+  mark_notifications_read: async (ctx, params) => {
+    const p = z.object({
+      ids: z.array(z.string().uuid()).optional(),
+      all: z.boolean().optional(),
+    }).parse(params ?? {});
+    const { variants } = phoneVariants(ctx.phone);
+    if (p.all) {
+      await query(
+        `UPDATE parent_notifications SET read_at = now()
+          WHERE parent_phone = ANY($1::text[]) AND read_at IS NULL`,
+        [variants],
+      );
+    } else if (p.ids && p.ids.length > 0) {
+      await query(
+        `UPDATE parent_notifications SET read_at = now()
+          WHERE id = ANY($1::uuid[]) AND parent_phone = ANY($2::text[]) AND read_at IS NULL`,
+        [p.ids, variants],
+      );
+    }
+    return { ok: true };
+  },
   // Upload (or replace) a student's profile photo. Body sends a base64-encoded JPEG
   // (already cropped & resized client-side). Stored in `student-photos` bucket.
   upload_student_photo: async (ctx, params) => {
