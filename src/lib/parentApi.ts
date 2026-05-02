@@ -13,6 +13,8 @@ export interface ParentStudent {
   student_no: string | null;
   balance: number;
   photo_url?: string | null;
+  card_lost?: boolean;
+  has_card?: boolean;
 }
 
 export interface ParentSession {
