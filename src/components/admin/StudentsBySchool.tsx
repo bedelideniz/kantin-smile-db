@@ -5,9 +5,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import StudentsManager from "@/components/yonetici/StudentsManager";
+import { generateStudentCardsPdf, type CardStudent } from "@/lib/cardPdf";
 
 interface School {
   id: string;
