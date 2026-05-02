@@ -93,7 +93,7 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [schoolId]);
 
   const openCreate = () => {
     setEditing(null);
