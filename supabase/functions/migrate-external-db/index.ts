@@ -407,6 +407,95 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: "0011_donations",
+    description: "Per-school donation pools, donation records, distributions to students, and donation manager accounts (phone+OTP login)",
+    sql: `
+      -- Per-school donation pool (single row per school).
+      CREATE TABLE IF NOT EXISTS school_donation_pools (
+        school_id UUID PRIMARY KEY REFERENCES schools(id) ON DELETE CASCADE,
+        balance NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (balance >= 0),
+        total_received NUMERIC(14,2) NOT NULL DEFAULT 0,
+        total_distributed NUMERIC(14,2) NOT NULL DEFAULT 0,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      -- Each donation made by a parent (no commission applied).
+      CREATE TABLE IF NOT EXISTS donations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        parent_phone TEXT NOT NULL,
+        student_id UUID REFERENCES students(id) ON DELETE SET NULL,
+        amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+        source TEXT NOT NULL CHECK (source IN ('balance','card')),
+        status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('pending','completed','failed','refunded')),
+        note TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_donations_school_date ON donations(school_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_donations_parent ON donations(parent_phone);
+
+      -- Distributions: donation manager moves money from pool to a specific student.
+      CREATE TABLE IF NOT EXISTS donation_distributions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        student_id UUID NOT NULL REFERENCES students(id) ON DELETE RESTRICT,
+        manager_id UUID NOT NULL,
+        amount NUMERIC(10,2) NOT NULL CHECK (amount > 0),
+        student_balance_before NUMERIC(12,2) NOT NULL,
+        student_balance_after NUMERIC(12,2) NOT NULL,
+        pool_balance_before NUMERIC(12,2) NOT NULL,
+        pool_balance_after NUMERIC(12,2) NOT NULL,
+        note TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_dist_school_date ON donation_distributions(school_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_dist_student ON donation_distributions(student_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_dist_manager ON donation_distributions(manager_id, created_at DESC);
+
+      -- Donation manager accounts (one or more per school). Login via phone + OTP.
+      CREATE TABLE IF NOT EXISTS donation_managers (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        full_name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        last_login_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (school_id, phone)
+      );
+      CREATE INDEX IF NOT EXISTS idx_donmgr_phone ON donation_managers(phone);
+      CREATE INDEX IF NOT EXISTS idx_donmgr_school ON donation_managers(school_id, is_active);
+
+      -- Opaque session tokens for donation managers.
+      CREATE TABLE IF NOT EXISTS donation_manager_sessions (
+        token TEXT PRIMARY KEY,
+        manager_id UUID NOT NULL REFERENCES donation_managers(id) ON DELETE CASCADE,
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        expires_at TIMESTAMPTZ NOT NULL,
+        last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_dmgr_sess_manager ON donation_manager_sessions(manager_id);
+      CREATE INDEX IF NOT EXISTS idx_dmgr_sess_expires ON donation_manager_sessions(expires_at);
+
+      -- Per-school donation presets (quick amounts shown to parent). Optional.
+      CREATE TABLE IF NOT EXISTS school_donation_settings (
+        school_id UUID PRIMARY KEY REFERENCES schools(id) ON DELETE CASCADE,
+        presets NUMERIC(10,2)[] NOT NULL DEFAULT ARRAY[10,25,50,100,250]::NUMERIC(10,2)[],
+        is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+        thank_you_message TEXT,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      -- Make sure every existing school has a pool row (idempotent).
+      INSERT INTO school_donation_pools (school_id)
+      SELECT id FROM schools
+      ON CONFLICT (school_id) DO NOTHING;
+    `,
+  },
 ];
 
 

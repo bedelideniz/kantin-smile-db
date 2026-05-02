@@ -769,6 +769,76 @@ const HANDLERS: Record<string, Handler> = {
     await query("DELETE FROM school_splashes WHERE school_id=$1", [p.school_id]);
     return { school_id: p.school_id, deleted: true };
   },
+  // ===== Donation managers (super_admin manages per-school donation operators) =====
+  list_donation_managers: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      `SELECT m.id, m.school_id, m.full_name, m.phone, m.is_active,
+              m.last_login_at, m.created_at, sc.name AS school_name
+         FROM donation_managers m
+         JOIN schools sc ON sc.id = m.school_id
+        ORDER BY sc.name, m.full_name`,
+    );
+    return r.rows;
+  },
+  list_donation_pools: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      `SELECT s.id AS school_id, s.name AS school_name,
+              COALESCE(p.balance,0) AS balance,
+              COALESCE(p.total_received,0) AS total_received,
+              COALESCE(p.total_distributed,0) AS total_distributed,
+              p.updated_at
+         FROM schools s
+         LEFT JOIN school_donation_pools p ON p.school_id = s.id
+        ORDER BY s.name`,
+    );
+    return r.rows;
+  },
+  upsert_donation_manager: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      id: z.string().uuid().optional(),
+      school_id: z.string().uuid(),
+      full_name: z.string().trim().min(2).max(120),
+      phone: z.string().trim().min(10).max(20),
+      is_active: z.boolean().optional().default(true),
+    }).parse(params);
+    const phone = p.phone.replace(/\D+/g, "").replace(/^90/, "").replace(/^0/, "");
+    if (phone.length !== 10) throw new HttpError(400, "Telefon 10 haneli olmalı (5XXXXXXXXX)");
+
+    if (p.id) {
+      const r = await query(
+        `UPDATE donation_managers
+            SET school_id=$2, full_name=$3, phone=$4, is_active=$5, updated_at=now()
+          WHERE id=$1
+          RETURNING id, school_id, full_name, phone, is_active`,
+        [p.id, p.school_id, p.full_name, phone, p.is_active],
+      );
+      if (r.rowCount === 0) throw new HttpError(404, "Yönetici bulunamadı");
+      return r.rows[0];
+    }
+    const r = await query(
+      `INSERT INTO donation_managers (school_id, full_name, phone, is_active)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (school_id, phone) DO UPDATE
+         SET full_name=EXCLUDED.full_name, is_active=EXCLUDED.is_active, updated_at=now()
+       RETURNING id, school_id, full_name, phone, is_active`,
+      [p.school_id, p.full_name, phone, p.is_active],
+    );
+    // Ensure pool row exists
+    await query(
+      "INSERT INTO school_donation_pools (school_id) VALUES ($1) ON CONFLICT DO NOTHING",
+      [p.school_id],
+    );
+    return r.rows[0];
+  },
+  delete_donation_manager: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({ id: z.string().uuid() }).parse(params);
+    await query("DELETE FROM donation_managers WHERE id=$1", [p.id]);
+    return { id: p.id, deleted: true };
+  },
 };
 
 const INGREDIENT_UNITS = ["adet", "gr", "kg", "ml", "lt"] as const;

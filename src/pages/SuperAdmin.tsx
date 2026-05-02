@@ -12,6 +12,7 @@ import PaymentSettings from "@/components/admin/PaymentSettings";
 import MarketersManager from "@/components/admin/MarketersManager";
 import StudentsBySchool from "@/components/admin/StudentsBySchool";
 import SchoolSplashesManager from "@/components/admin/SchoolSplashesManager";
+import DonationManagersManager from "@/components/admin/DonationManagersManager";
 
 export default function SuperAdmin() {
   const { user, roles, loading, hasRole, signOut } = useAuth();
@@ -89,6 +90,7 @@ export default function SuperAdmin() {
             <TabsTrigger value="students">Veli & Öğrenci</TabsTrigger>
             <TabsTrigger value="marketers">Pazarlamacılar</TabsTrigger>
             <TabsTrigger value="splashes">Veli Splash</TabsTrigger>
+            <TabsTrigger value="donations">Bağış</TabsTrigger>
             <TabsTrigger value="payments">Ödeme</TabsTrigger>
             <TabsTrigger value="netgsm">SMS / NetGSM</TabsTrigger>
             <TabsTrigger value="infrastructure">Altyapı</TabsTrigger>
@@ -118,6 +120,14 @@ export default function SuperAdmin() {
             <Card>
               <CardContent className="pt-6">
                 <SchoolSplashesManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="donations">
+            <Card>
+              <CardContent className="pt-6">
+                <DonationManagersManager />
               </CardContent>
             </Card>
           </TabsContent>

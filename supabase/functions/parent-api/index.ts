@@ -10,7 +10,7 @@
 // to operate on per-request via `student_id`.
 import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { z } from "npm:zod@3.23.8";
-import { query } from "../_shared/external-db.ts";
+import { query, withTransaction } from "../_shared/external-db.ts";
 import { generateOtp, normalizePhone, sendSms } from "../_shared/sms.ts";
 
 class HttpError extends Error {
@@ -167,6 +167,21 @@ const PUBLIC_OPS: Record<string, Handler> = {
     if (r.rowCount === 0) return null;
     return r.rows[0];
   },
+  get_school_donation_info: async (_req, params) => {
+    const p = z.object({ school_id: z.string().uuid() }).parse(params);
+    const r = await query<{ presets: string[] | null; is_enabled: boolean; thank_you_message: string | null }>(
+      "SELECT presets, is_enabled, thank_you_message FROM school_donation_settings WHERE school_id=$1",
+      [p.school_id],
+    );
+    if (r.rowCount === 0) {
+      return { presets: [10, 25, 50, 100, 250], is_enabled: true, thank_you_message: null };
+    }
+    return {
+      presets: (r.rows[0].presets ?? []).map((v) => Number(v)),
+      is_enabled: r.rows[0].is_enabled,
+      thank_you_message: r.rows[0].thank_you_message,
+    };
+  },
 };
 
 const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise<unknown>> = {
@@ -314,6 +329,76 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       );
     }
     return { ok: true };
+  },
+  // Donate from the selected student's balance directly into the school's donation pool.
+  // No commission is applied. Atomic: deduct student balance & credit pool.
+  donate_from_balance: async (ctx, params) => {
+    const p = z.object({
+      student_id: z.string().uuid(),
+      amount: z.number().positive().max(100000),
+    }).parse(params);
+    // Round to 2 decimals
+    const amount = Math.round(p.amount * 100) / 100;
+    if (amount < 1) throw new HttpError(400, "Bağış tutarı en az 1 ₺ olmalıdır");
+
+    const { variants } = phoneVariants(ctx.phone);
+
+    const result = await withTransaction(async (client) => {
+      // Lock the student row
+      const sRes = await client.query(
+        `SELECT id, school_id, balance, full_name FROM students
+          WHERE id=$1 AND is_active=TRUE
+            AND (parent_phone = ANY($2::text[])
+                 OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))
+          FOR UPDATE`,
+        [p.student_id, variants],
+      );
+      if (sRes.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
+      const student = sRes.rows[0];
+      const balanceBefore = Number(student.balance);
+      if (balanceBefore < amount) throw new HttpError(400, "Bakiye yetersiz");
+      const balanceAfter = Math.round((balanceBefore - amount) * 100) / 100;
+
+      // Deduct student balance
+      await client.query(
+        "UPDATE students SET balance=$1, updated_at=now() WHERE id=$2",
+        [balanceAfter, student.id],
+      );
+
+      // Ensure pool row exists & lock it
+      await client.query(
+        "INSERT INTO school_donation_pools (school_id) VALUES ($1) ON CONFLICT DO NOTHING",
+        [student.school_id],
+      );
+      const pRes = await client.query(
+        "SELECT balance FROM school_donation_pools WHERE school_id=$1 FOR UPDATE",
+        [student.school_id],
+      );
+      const poolBefore = Number(pRes.rows[0].balance);
+      const poolAfter = Math.round((poolBefore + amount) * 100) / 100;
+
+      await client.query(
+        `UPDATE school_donation_pools
+            SET balance=$1, total_received=total_received+$2, updated_at=now()
+          WHERE school_id=$3`,
+        [poolAfter, amount, student.school_id],
+      );
+
+      const dRes = await client.query(
+        `INSERT INTO donations (school_id, parent_phone, student_id, amount, source, status)
+         VALUES ($1,$2,$3,$4,'balance','completed')
+         RETURNING id`,
+        [student.school_id, ctx.phone, student.id, amount],
+      );
+
+      return {
+        donation_id: dRes.rows[0].id,
+        student_balance_after: balanceAfter,
+        pool_balance_after: poolAfter,
+      };
+    });
+
+    return { ok: true, ...result };
   },
 };
 
