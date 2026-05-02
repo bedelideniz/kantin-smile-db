@@ -35,6 +35,7 @@ const SuperAdminAction = z.enum([
   "delete_monthly_earning",
   "update_earning_status",
   "update_bonus_status",
+  "list_bonuses_admin",
   "list_payouts",
   "record_payout",
   "delete_payout",
