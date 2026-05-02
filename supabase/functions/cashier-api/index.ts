@@ -204,10 +204,76 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
     if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
     return { id: r.rows[0].id, full_name: r.rows[0].full_name, card_lost: false };
   },
-  create_sale: async (ctx, params) => {
+  // Cashier seizes the physical card from someone misusing it.
+  // Detaches NFC from the student, keeps card_lost=TRUE, records a parent notification, sends SMS.
+  seize_card: async (ctx, params) => {
     const p = z.object({
       student_id: z.string().uuid(),
-      items: z.array(z.object({
+      note: z.string().trim().max(300).optional(),
+    }).parse(params);
+
+    const sr = await query<{
+      id: string; full_name: string; parent_phone: string | null; school_id: string;
+    }>(
+      `SELECT id, full_name, parent_phone, school_id
+         FROM students WHERE id = $1 AND school_id = $2`,
+      [p.student_id, ctx.schoolId],
+    );
+    if (sr.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+    const student = sr.rows[0];
+
+    // Detach NFC + flag as lost so the card stays disabled even if reassigned by mistake
+    await query(
+      `UPDATE students
+          SET nfc_uid = NULL,
+              card_lost = TRUE,
+              card_seized_at = now(),
+              card_seized_note = $2,
+              updated_at = now()
+        WHERE id = $1`,
+      [p.student_id, p.note ?? null],
+    );
+
+    // Resolve school name for the notification body
+    const schName = await query<{ name: string }>(
+      "SELECT name FROM schools WHERE id = $1",
+      [student.school_id],
+    );
+    const schoolName = schName.rows[0]?.name ?? "Okul";
+
+    const title = "Kartınıza el konuldu";
+    const body = p.note && p.note.length > 0
+      ? `${student.full_name} adına çıkardığımız kart bir başkasının elinde kullanılmaya çalışıldığı için kantin tarafından alıkonuldu. Kantinci notu: ${p.note}`
+      : `${student.full_name} adına çıkardığımız kart bir başkasının elinde kullanılmaya çalışıldığı için kantin tarafından alıkonuldu. Lütfen kantine başvurun.`;
+
+    if (student.parent_phone) {
+      await query(
+        `INSERT INTO parent_notifications
+            (school_id, student_id, parent_phone, kind, title, body, meta)
+         VALUES ($1, $2, $3, 'card_seized', $4, $5, $6::jsonb)`,
+        [
+          student.school_id,
+          student.id,
+          student.parent_phone,
+          title,
+          body,
+          JSON.stringify({ note: p.note ?? null, school_name: schoolName }),
+        ],
+      );
+
+      // Best-effort SMS
+      try {
+        await sendSms(
+          student.parent_phone,
+          `${schoolName}: ${student.full_name} icin kantine kayitli kart alikonuldu. Detay icin veli panelini kontrol ediniz.`,
+        );
+      } catch (e) {
+        console.warn("seize_card SMS failed", (e as Error).message);
+      }
+    }
+
+    return { id: student.id, full_name: student.full_name, card_seized: true };
+  },
         product_id: z.string().uuid(),
         qty: z.number().int().min(1).max(99),
       })).min(1).max(50),
