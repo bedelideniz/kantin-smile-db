@@ -194,7 +194,7 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       students: students.map((s) => ({
         id: s.id, school_id: s.school_id, school_name: s.school_name,
         full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
-        balance: Number(s.balance),
+        balance: Number(s.balance), photo_url: s.photo_url,
       })),
     };
   },
@@ -208,7 +208,7 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const { variants } = phoneVariants(ctx.phone);
     const r = await query(
       `SELECT s.id, s.school_id, s.full_name, s.class_name, s.student_no, s.balance, s.is_active,
-              sc.name AS school_name
+              s.photo_url, sc.name AS school_name
          FROM students s
          JOIN schools sc ON sc.id = s.school_id
         WHERE s.id = $1 AND s.is_active = TRUE
@@ -221,8 +221,84 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     return {
       id: s.id, school_id: s.school_id, school_name: s.school_name,
       full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
-      balance: Number(s.balance),
+      balance: Number(s.balance), photo_url: s.photo_url,
     };
+  },
+  // Upload (or replace) a student's profile photo. Body sends a base64-encoded JPEG
+  // (already cropped & resized client-side). Stored in `student-photos` bucket.
+  upload_student_photo: async (ctx, params) => {
+    const p = z.object({
+      student_id: z.string().uuid(),
+      // data:image/jpeg;base64,XXXX OR raw base64
+      image_base64: z.string().min(100).max(2_000_000), // ~1.5MB encoded cap
+    }).parse(params);
+
+    // Verify ownership
+    const { variants } = phoneVariants(ctx.phone);
+    const own = await query<{ id: string; school_id: string; photo_url: string | null }>(
+      `SELECT id, school_id, photo_url FROM students
+        WHERE id=$1 AND is_active=TRUE
+          AND (parent_phone = ANY($2::text[])
+               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+      [p.student_id, variants],
+    );
+    if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
+    const { school_id, photo_url: oldUrl } = own.rows[0];
+
+    // Decode base64 -> bytes
+    let b64 = p.image_base64;
+    const comma = b64.indexOf(",");
+    if (b64.startsWith("data:") && comma > 0) b64 = b64.slice(comma + 1);
+    let bytes: Uint8Array;
+    try {
+      const bin = atob(b64);
+      bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    } catch {
+      throw new HttpError(400, "Geçersiz görüntü verisi");
+    }
+    if (bytes.length > 1_500_000) throw new HttpError(413, "Görüntü çok büyük (max 1.5MB)");
+    if (bytes.length < 1000) throw new HttpError(400, "Görüntü çok küçük");
+
+    // Upload to Lovable Cloud Storage via REST (service role)
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const filename = `${p.student_id}-${Date.now()}.jpg`;
+    const objectKey = `${school_id}/${filename}`;
+    const uploadRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/student-photos/${objectKey}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "image/jpeg",
+          "x-upsert": "true",
+          "Cache-Control": "31536000",
+        },
+        body: bytes,
+      },
+    );
+    if (!uploadRes.ok) {
+      const t = await uploadRes.text();
+      throw new HttpError(500, `Yükleme başarısız: ${t.slice(0, 200)}`);
+    }
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/student-photos/${objectKey}`;
+
+    await query("UPDATE students SET photo_url=$2, updated_at=now() WHERE id=$1", [p.student_id, publicUrl]);
+
+    // Best-effort: delete previous photo (don't fail request if cleanup fails)
+    if (oldUrl && oldUrl !== publicUrl) {
+      const prefix = `${SUPABASE_URL}/storage/v1/object/public/student-photos/`;
+      if (oldUrl.startsWith(prefix)) {
+        const oldKey = oldUrl.slice(prefix.length);
+        fetch(`${SUPABASE_URL}/storage/v1/object/student-photos/${oldKey}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${SERVICE_KEY}` },
+        }).catch(() => {});
+      }
+    }
+
+    return { photo_url: publicUrl };
   },
   list_transactions: async (ctx, params) => {
     const p = z.object({
