@@ -31,6 +31,7 @@ interface Product {
 interface Student {
   id: string; full_name: string; class_name: string | null;
   student_no: string | null; balance: number | string;
+  card_lost?: boolean;
 }
 interface CartItem { product_id: string; name: string; price: number; qty: number; catColor: string }
 
