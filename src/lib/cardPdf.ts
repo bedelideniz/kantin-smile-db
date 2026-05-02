@@ -3,6 +3,8 @@
 import jsPDF from "jspdf";
 import mebLogo from "@/assets/meb-logo.png";
 import kantinLogo from "@/assets/kantinpay-logo.png";
+import dmSansRegular from "@/assets/fonts/dmsans-regular.b64";
+import dmSansBold from "@/assets/fonts/dmsans-bold.b64";
 
 export interface CardStudent {
   id: string;
@@ -15,25 +17,32 @@ export interface CardStudent {
 export interface CardPdfOptions {
   schoolName: string;
   students: CardStudent[];
-  /** Cards per A4 page (portrait). Default: 2 cols x 5 rows = 10 */
   cols?: number;
   rows?: number;
 }
 
-const CARD_W = 85.6; // mm
-const CARD_H = 53.98; // mm
-const PAGE_W = 210; // A4 mm
+const CARD_W = 85.6;
+const CARD_H = 53.98;
+const PAGE_W = 210;
 const PAGE_H = 297;
 
-async function fetchAsDataUrl(url: string): Promise<{ data: string; format: "PNG" | "JPEG" } | null> {
+const FONT_FAMILY = "DMSans";
+
+function registerFonts(doc: jsPDF) {
+  doc.addFileToVFS("DMSans-Regular.ttf", dmSansRegular);
+  doc.addFont("DMSans-Regular.ttf", FONT_FAMILY, "normal");
+  doc.addFileToVFS("DMSans-Bold.ttf", dmSansBold);
+  doc.addFont("DMSans-Bold.ttf", FONT_FAMILY, "bold");
+}
+
+async function fetchAsDataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const blob = await res.blob();
-    const fmt = blob.type.includes("png") ? "PNG" : "JPEG";
     return await new Promise((resolve) => {
       const r = new FileReader();
-      r.onload = () => resolve({ data: r.result as string, format: fmt });
+      r.onload = () => resolve(r.result as string);
       r.onerror = () => resolve(null);
       r.readAsDataURL(blob);
     });
@@ -66,50 +75,50 @@ function drawCard(
   kantinData: string,
   photoData: string | null,
 ) {
-  // Card border + background
+  // Card background
   doc.setDrawColor(180);
   doc.setLineWidth(0.2);
   doc.setFillColor(255, 255, 255);
   doc.roundedRect(x, y, CARD_W, CARD_H, 2.5, 2.5, "FD");
 
-  // Top accent bar
-  doc.setFillColor(30, 58, 95); // navy
-  doc.roundedRect(x, y, CARD_W, 12, 2.5, 2.5, "F");
-  // square off bottom of bar
-  doc.rect(x, y + 8, CARD_W, 4, "F");
+  // Top navy bar
+  const barH = 13;
+  doc.setFillColor(30, 58, 95);
+  doc.roundedRect(x, y, CARD_W, barH, 2.5, 2.5, "F");
+  doc.rect(x, y + barH - 4, CARD_W, 4, "F");
 
-  // MEB logo top-left (on navy bar)
+  // MEB logo on both sides of the bar (white logo on navy)
+  const logoSize = 10;
   try {
-    doc.addImage(mebData, "PNG", x + 1.5, y + 1.5, 9, 9);
+    doc.addImage(mebData, "PNG", x + 1.5, y + 1.5, logoSize, logoSize);
+    doc.addImage(mebData, "PNG", x + CARD_W - logoSize - 1.5, y + 1.5, logoSize, logoSize);
   } catch { /* ignore */ }
 
-  // School name centered on top bar
+  // School name centered (Turkish-safe via DMSans)
   doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  const maxNameW = CARD_W - 22;
+  doc.setFont(FONT_FAMILY, "bold");
+  const maxNameW = CARD_W - 2 * (logoSize + 4);
   let nameSize = 9;
   doc.setFontSize(nameSize);
   while (doc.getTextWidth(schoolName) > maxNameW && nameSize > 6) {
     nameSize -= 0.5;
     doc.setFontSize(nameSize);
   }
-  // Truncate if still too long
   let displayName = schoolName;
   while (doc.getTextWidth(displayName) > maxNameW && displayName.length > 4) {
     displayName = displayName.slice(0, -2);
   }
   if (displayName !== schoolName) displayName = displayName.slice(0, -1) + "…";
-  doc.text(displayName, x + CARD_W / 2, y + 7.5, { align: "center", baseline: "middle" });
+  doc.text(displayName, x + CARD_W / 2, y + 6.5, { align: "center", baseline: "middle" });
 
-  // "ÖĞRENCİ KİMLİK KARTI" subtitle
-  doc.setFont("helvetica", "normal");
+  doc.setFont(FONT_FAMILY, "normal");
   doc.setFontSize(5.5);
   doc.setTextColor(220, 230, 245);
-  doc.text("ÖĞRENCİ KİMLİK KARTI", x + CARD_W / 2, y + 11, { align: "center", baseline: "middle" });
+  doc.text("ÖĞRENCİ KİMLİK KARTI", x + CARD_W / 2, y + 10.6, { align: "center", baseline: "middle" });
 
-  // Photo box (bottom-left)
+  // Photo box
   const photoX = x + 3;
-  const photoY = y + 15;
+  const photoY = y + barH + 2;
   const photoW = 22;
   const photoH = 28;
   doc.setDrawColor(200);
@@ -118,27 +127,32 @@ function drawCard(
   if (photoData) {
     try {
       doc.addImage(photoData, "JPEG", photoX + 0.4, photoY + 0.4, photoW - 0.8, photoH - 0.8);
-    } catch { /* ignore */ }
+    } catch {
+      try {
+        doc.addImage(photoData, "PNG", photoX + 0.4, photoY + 0.4, photoW - 0.8, photoH - 0.8);
+      } catch { /* ignore */ }
+    }
   } else {
     doc.setTextColor(160);
+    doc.setFont(FONT_FAMILY, "normal");
     doc.setFontSize(6);
     doc.text("FOTO", photoX + photoW / 2, photoY + photoH / 2, { align: "center", baseline: "middle" });
   }
 
-  // Student details (right of photo)
+  // Student details
   const dx = photoX + photoW + 3;
   const labelColor: [number, number, number] = [120, 120, 120];
   const valueColor: [number, number, number] = [25, 30, 45];
 
   const drawField = (label: string, value: string, yy: number, valueSize = 8) => {
-    doc.setFont("helvetica", "normal");
+    doc.setFont(FONT_FAMILY, "normal");
     doc.setFontSize(5.2);
     doc.setTextColor(...labelColor);
     doc.text(label, dx, yy);
-    doc.setFont("helvetica", "bold");
+    doc.setFont(FONT_FAMILY, "bold");
     doc.setFontSize(valueSize);
     doc.setTextColor(...valueColor);
-    const maxW = x + CARD_W - dx - 3;
+    const maxW = x + CARD_W - dx - 18; // leave room for kantin logo
     let v = value || "-";
     let vs = valueSize;
     doc.setFontSize(vs);
@@ -156,9 +170,18 @@ function drawCard(
   drawField("SINIFI", s.class_name || "-", photoY + 12, 7.5);
   drawField("OKUL NO", s.student_no || "-", photoY + 21, 7.5);
 
-  // KantinPay logo bottom-right corner
+  // KantinPay logo bottom-right (larger)
+  const kpW = 18;
+  const kpH = 12;
   try {
-    doc.addImage(kantinData, "PNG", x + CARD_W - 14, y + CARD_H - 6, 12, 4.5);
+    doc.addImage(
+      kantinData,
+      "PNG",
+      x + CARD_W - kpW - 2,
+      y + CARD_H - kpH - 1.5,
+      kpW,
+      kpH,
+    );
   } catch { /* ignore */ }
 }
 
@@ -169,22 +192,20 @@ export async function generateStudentCardsPdf(opts: CardPdfOptions): Promise<voi
   const perPage = cols * rows;
 
   const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+  registerFonts(doc);
 
-  // Compute layout
   const totalW = cols * CARD_W;
   const totalH = rows * CARD_H;
   const gapX = (PAGE_W - totalW) / (cols + 1);
   const gapY = (PAGE_H - totalH) / (rows + 1);
 
-  // Pre-load static logos
   const [mebData, kantinData] = await Promise.all([
     loadLocalImage(mebLogo),
     loadLocalImage(kantinLogo),
   ]);
 
-  // Pre-load student photos in parallel (cap concurrency simply)
   const photos = await Promise.all(
-    students.map((s) => (s.photo_url ? fetchAsDataUrl(s.photo_url).then((r) => r?.data ?? null) : Promise.resolve(null))),
+    students.map((s) => (s.photo_url ? fetchAsDataUrl(s.photo_url) : Promise.resolve(null))),
   );
 
   for (let i = 0; i < students.length; i++) {
