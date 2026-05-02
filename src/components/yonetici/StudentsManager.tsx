@@ -342,20 +342,28 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
               {rows.map((s) => (
                 <TableRow key={s.id}>
                   <TableCell>
-                    {s.photo_url ? (
-                      <a href={s.photo_url} target="_blank" rel="noreferrer">
+                    <button
+                      type="button"
+                      onClick={() => setPhotoTarget(s)}
+                      title="Fotoğrafı düzenle"
+                      className="group relative block h-10 w-10 overflow-hidden rounded-full ring-1 ring-border transition hover:ring-2 hover:ring-primary"
+                    >
+                      {s.photo_url ? (
                         <img
                           src={s.photo_url}
                           alt={s.full_name}
-                          className="h-10 w-10 rounded-full object-cover ring-1 ring-border"
+                          className="h-full w-full object-cover"
                           loading="lazy"
                         />
-                      </a>
-                    ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-[10px] text-muted-foreground">
-                        Yok
-                      </div>
-                    )}
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-muted text-[10px] text-muted-foreground">
+                          Yok
+                        </div>
+                      )}
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
+                        <Pencil className="h-3.5 w-3.5 text-white" />
+                      </span>
+                    </button>
                   </TableCell>
                   <TableCell className="font-medium">{s.full_name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
