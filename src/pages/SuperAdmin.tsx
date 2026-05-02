@@ -13,6 +13,7 @@ import MarketersManager from "@/components/admin/MarketersManager";
 import StudentsBySchool from "@/components/admin/StudentsBySchool";
 import SchoolSplashesManager from "@/components/admin/SchoolSplashesManager";
 import DonationManagersManager from "@/components/admin/DonationManagersManager";
+import ParentWelcomeSmsSettings from "@/components/admin/ParentWelcomeSmsSettings";
 
 export default function SuperAdmin() {
   const { user, roles, loading, hasRole, signOut } = useAuth();
