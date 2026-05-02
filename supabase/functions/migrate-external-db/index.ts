@@ -515,6 +515,13 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE students ADD COLUMN IF NOT EXISTS photo_url TEXT;
     `,
   },
+  {
+    version: "0014_student_card_lost",
+    description: "students.card_lost column to disable card usage at the cashier when reported lost by parent",
+    sql: `
+      ALTER TABLE students ADD COLUMN IF NOT EXISTS card_lost BOOLEAN NOT NULL DEFAULT FALSE;
+    `,
+  },
 ];
 
 
