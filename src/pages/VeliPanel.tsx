@@ -43,7 +43,7 @@ export default function VeliPanel() {
   const [txLoading, setTxLoading] = useState(false);
   const [transactions, setTransactions] = useState<Tx[]>([]);
 
-  // Load session & validate
+  // Load session & validate, then refresh student list from backend
   useEffect(() => {
     const s = getParentSession();
     if (!s) { navigate("/veli-giris", { replace: true }); return; }
@@ -52,6 +52,24 @@ export default function VeliPanel() {
     const initial = s.students.find((c) => c.id === stored)?.id ?? s.students[0]?.id ?? null;
     setSelectedIdState(initial);
     if (initial) setSelectedStudentId(initial);
+
+    // Always refresh from backend to pick up newly added siblings
+    (async () => {
+      try {
+        const r = await callParentApi<{ phone: string; students: ParentStudent[] }>("me");
+        updateParentStudents(r.students);
+        const fresh = getParentSession();
+        if (fresh) {
+          setSession(fresh);
+          const sid = getSelectedStudentId();
+          const pick = fresh.students.find((c) => c.id === sid)?.id ?? fresh.students[0]?.id ?? null;
+          setSelectedIdState(pick);
+          if (pick) setSelectedStudentId(pick);
+        }
+      } catch {
+        // silent — keep cached session
+      }
+    })();
   }, [navigate]);
 
   const selected: ParentStudent | null = useMemo(() => {
