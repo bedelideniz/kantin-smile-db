@@ -76,6 +76,11 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
 
+  // Photo upload (admin)
+  const [photoTarget, setPhotoTarget] = useState<Student | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoDeleting, setPhotoDeleting] = useState(false);
+
   // USB reader: only listens while the card-assign dialog is open
   useUsbCardReader({
     enabled: !!cardTarget,
