@@ -10,6 +10,7 @@ import SchoolsManager from "@/components/admin/SchoolsManager";
 import NetgsmSettings from "@/components/admin/NetgsmSettings";
 import PaymentSettings from "@/components/admin/PaymentSettings";
 import MarketersManager from "@/components/admin/MarketersManager";
+import StudentsBySchool from "@/components/admin/StudentsBySchool";
 
 export default function SuperAdmin() {
   const { user, roles, loading, hasRole, signOut } = useAuth();
@@ -84,6 +85,7 @@ export default function SuperAdmin() {
         <Tabs defaultValue="schools" className="space-y-4">
           <TabsList>
             <TabsTrigger value="schools">Okullar</TabsTrigger>
+            <TabsTrigger value="students">Veli & Öğrenci</TabsTrigger>
             <TabsTrigger value="marketers">Pazarlamacılar</TabsTrigger>
             <TabsTrigger value="payments">Ödeme</TabsTrigger>
             <TabsTrigger value="netgsm">SMS / NetGSM</TabsTrigger>
@@ -96,6 +98,10 @@ export default function SuperAdmin() {
                 <SchoolsManager />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="students">
+            <StudentsBySchool />
           </TabsContent>
 
           <TabsContent value="marketers">

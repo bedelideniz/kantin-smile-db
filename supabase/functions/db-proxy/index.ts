@@ -4,7 +4,7 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { z } from "npm:zod@3.23.8";
 import bcrypt from "npm:bcryptjs@2.4.3";
-import { authenticate, HttpError, requireSchoolAdminSchool } from "../_shared/auth.ts";
+import { authenticate, HttpError, requireSchoolAdminSchool, resolveSchoolScope } from "../_shared/auth.ts";
 import { query, withTransaction } from "../_shared/external-db.ts";
 import { generateOtp, sendSms } from "../_shared/sms.ts";
 
@@ -311,8 +311,8 @@ const HANDLERS: Record<string, Handler> = {
   },
   // ---- Student management (school_admin scoped) ----
   list_students: async (ctx, params) => {
-    const schoolId = requireSchoolAdminSchool(ctx);
-    const p = z.object({ query: z.string().trim().max(100).optional() }).parse(params ?? {});
+    const p = z.object({ query: z.string().trim().max(100).optional(), school_id: z.string().uuid().optional() }).parse(params ?? {});
+    const schoolId = resolveSchoolScope(ctx, p.school_id);
     const args: any[] = [schoolId];
     let where = "school_id = $1";
     if (p.query && p.query.length >= 1) {
@@ -329,8 +329,8 @@ const HANDLERS: Record<string, Handler> = {
     return r.rows;
   },
   create_student: async (ctx, params) => {
-    const schoolId = requireSchoolAdminSchool(ctx);
-    const p = StudentInputSchema.parse(params);
+    const p = StudentInputSchema.extend({ school_id: z.string().uuid().optional() }).parse(params);
+    const schoolId = resolveSchoolScope(ctx, p.school_id);
     const parentPhone = p.parent_phone ? normalizePhone(p.parent_phone) : null;
     const r = await query(
       `INSERT INTO students (school_id, full_name, class_name, student_no, parent_phone, balance, is_active)
@@ -342,8 +342,8 @@ const HANDLERS: Record<string, Handler> = {
     return r.rows[0];
   },
   update_student: async (ctx, params) => {
-    const schoolId = requireSchoolAdminSchool(ctx);
-    const p = StudentUpdateSchema.parse(params);
+    const p = StudentUpdateSchema.extend({ school_id: z.string().uuid().optional() }).parse(params);
+    const schoolId = resolveSchoolScope(ctx, p.school_id);
     const parentPhone = p.parent_phone ? normalizePhone(p.parent_phone) : null;
     const r = await query(
       `UPDATE students
@@ -357,8 +357,8 @@ const HANDLERS: Record<string, Handler> = {
     return r.rows[0];
   },
   toggle_student_active: async (ctx, params) => {
-    const schoolId = requireSchoolAdminSchool(ctx);
-    const p = z.object({ id: z.string().uuid(), is_active: z.boolean() }).parse(params);
+    const p = z.object({ id: z.string().uuid(), is_active: z.boolean(), school_id: z.string().uuid().optional() }).parse(params);
+    const schoolId = resolveSchoolScope(ctx, p.school_id);
     const r = await query(
       `UPDATE students SET is_active=$3, updated_at=now()
         WHERE id=$1 AND school_id=$2
@@ -369,8 +369,8 @@ const HANDLERS: Record<string, Handler> = {
     return r.rows[0];
   },
   delete_student: async (ctx, params) => {
-    const schoolId = requireSchoolAdminSchool(ctx);
-    const p = z.object({ id: z.string().uuid() }).parse(params);
+    const p = z.object({ id: z.string().uuid(), school_id: z.string().uuid().optional() }).parse(params);
+    const schoolId = resolveSchoolScope(ctx, p.school_id);
     const r = await query(
       "DELETE FROM students WHERE id=$1 AND school_id=$2",
       [p.id, schoolId],
@@ -379,11 +379,12 @@ const HANDLERS: Record<string, Handler> = {
     return { id: p.id, deleted: true };
   },
   set_student_nfc: async (ctx, params) => {
-    const schoolId = requireSchoolAdminSchool(ctx);
     const p = z.object({
       id: z.string().uuid(),
       nfc_uid: z.string().trim().min(1).max(64).nullable(),
+      school_id: z.string().uuid().optional(),
     }).parse(params);
+    const schoolId = resolveSchoolScope(ctx, p.school_id);
     const uid = p.nfc_uid ? p.nfc_uid.toUpperCase().replace(/[^A-Z0-9]/g, "") : null;
     if (uid !== null && uid.length < 4) throw new HttpError(400, "Geçersiz kart UID");
     try {
@@ -404,11 +405,12 @@ const HANDLERS: Record<string, Handler> = {
     }
   },
   adjust_student_balance: async (ctx, params) => {
-    const schoolId = requireSchoolAdminSchool(ctx);
     const p = z.object({
       id: z.string().uuid(),
       delta: z.number().refine((n) => Math.abs(n) > 0 && Math.abs(n) <= 10000, "Tutar 0-10000 ₺ aralığında olmalı"),
+      school_id: z.string().uuid().optional(),
     }).parse(params);
+    const schoolId = resolveSchoolScope(ctx, p.school_id);
     return await withTransaction(async (client) => {
       const sr = await client.query(
         `SELECT id, balance FROM students WHERE id=$1 AND school_id=$2 FOR UPDATE`,

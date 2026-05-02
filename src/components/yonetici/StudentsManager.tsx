@@ -45,7 +45,8 @@ async function callOp<T = unknown>(op: string, params?: Record<string, unknown>)
 const PHONE_RE = /^[0-9+\s()-]{10,20}$/;
 const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function StudentsManager() {
+export default function StudentsManager({ schoolId }: { schoolId?: string } = {}) {
+  const scope = schoolId ? { school_id: schoolId } : {};
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Student[]>([]);
@@ -83,7 +84,7 @@ export default function StudentsManager() {
   const load = async (q?: string) => {
     setLoading(true);
     try {
-      const data = await callOp<Student[]>("list_students", q ? { query: q } : {});
+      const data = await callOp<Student[]>("list_students", { ...scope, ...(q ? { query: q } : {}) });
       setRows(data ?? []);
     } catch (e) {
       toast({ title: "Yüklenemedi", description: (e as Error).message, variant: "destructive" });
@@ -92,7 +93,7 @@ export default function StudentsManager() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [schoolId]);
 
   const openCreate = () => {
     setEditing(null);
@@ -129,7 +130,7 @@ export default function StudentsManager() {
         parent_phone: parentPhone.trim() || null,
       };
       if (editing) {
-        await callOp("update_student", { id: editing.id, ...base });
+        await callOp("update_student", { ...scope, id: editing.id, ...base });
         toast({ title: "Güncellendi", description: "Öğrenci bilgileri kaydedildi." });
       } else {
         const balanceNum = initialBalance.trim() ? Number(initialBalance.replace(",", ".")) : 0;
@@ -138,7 +139,7 @@ export default function StudentsManager() {
           setSaving(false);
           return;
         }
-        await callOp("create_student", { ...base, balance: balanceNum });
+        await callOp("create_student", { ...scope, ...base, balance: balanceNum });
         toast({ title: "Öğrenci eklendi" });
       }
       setDialogOpen(false);
@@ -152,7 +153,7 @@ export default function StudentsManager() {
 
   const toggleActive = async (s: Student, next: boolean) => {
     try {
-      await callOp("toggle_student_active", { id: s.id, is_active: next });
+      await callOp("toggle_student_active", { ...scope, id: s.id, is_active: next });
       setRows((r) => r.map((x) => (x.id === s.id ? { ...x, is_active: next } : x)));
     } catch (e) {
       toast({ title: "Hata", description: (e as Error).message, variant: "destructive" });
@@ -168,7 +169,7 @@ export default function StudentsManager() {
     if (!cardTarget || !scannedUid) return;
     setAssigningCard(true);
     try {
-      await callOp("set_student_nfc", { id: cardTarget.id, nfc_uid: scannedUid });
+      await callOp("set_student_nfc", { ...scope, id: cardTarget.id, nfc_uid: scannedUid });
       toast({ title: "Kart atandı", description: `${cardTarget.full_name} → ${scannedUid}` });
       setCardTarget(null); setScannedUid("");
       await load(search);
@@ -181,7 +182,7 @@ export default function StudentsManager() {
 
   const removeCard = async (s: Student) => {
     try {
-      await callOp("set_student_nfc", { id: s.id, nfc_uid: null });
+      await callOp("set_student_nfc", { ...scope, id: s.id, nfc_uid: null });
       toast({ title: "Kart kaldırıldı" });
       await load(search);
     } catch (e) {
@@ -198,7 +199,7 @@ export default function StudentsManager() {
     }
     setToppingUp(true);
     try {
-      const r = await callOp<{ balance_after: number }>("adjust_student_balance", { id: topupTarget.id, delta: amt });
+      const r = await callOp<{ balance_after: number }>("adjust_student_balance", { ...scope, id: topupTarget.id, delta: amt });
       toast({ title: "Bakiye güncellendi", description: `Yeni bakiye: ${fmt(Number(r.balance_after))} ₺` });
       setTopupTarget(null); setTopupAmount("");
       await load(search);
@@ -212,7 +213,7 @@ export default function StudentsManager() {
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
-      await callOp("delete_student", { id: deleteTarget.id });
+      await callOp("delete_student", { ...scope, id: deleteTarget.id });
       toast({ title: "Silindi" });
       setDeleteTarget(null);
       await load(search);
