@@ -195,14 +195,31 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
   // Cashier marks a previously "lost" card as found again — re-enables sales.
   mark_card_found: async (ctx, params) => {
     const p = z.object({ student_id: z.string().uuid() }).parse(params);
-    const r = await query(
-      `UPDATE students SET card_lost = FALSE, updated_at = now()
+    const r = await query<{ id: string; full_name: string; parent_phone: string | null; school_id: string }>(
+      `UPDATE students
+          SET card_lost = FALSE,
+              card_seized_at = NULL,
+              card_seized_note = NULL,
+              updated_at = now()
         WHERE id = $1 AND school_id = $2
-        RETURNING id, full_name, card_lost`,
+        RETURNING id, full_name, parent_phone, school_id`,
       [p.student_id, ctx.schoolId],
     );
     if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
-    return { id: r.rows[0].id, full_name: r.rows[0].full_name, card_lost: false };
+    const s = r.rows[0];
+    if (s.parent_phone) {
+      await query(
+        `INSERT INTO parent_notifications
+            (school_id, student_id, parent_phone, kind, title, body)
+         VALUES ($1, $2, $3, 'card_found', $4, $5)`,
+        [
+          s.school_id, s.id, s.parent_phone,
+          "Kart tekrar aktif",
+          `${s.full_name} adına kayıtlı kart kantin tarafından tekrar aktif edildi.`,
+        ],
+      );
+    }
+    return { id: s.id, full_name: s.full_name, card_lost: false };
   },
   // Cashier seizes the physical card from someone misusing it.
   // Detaches NFC from the student, keeps card_lost=TRUE, records a parent notification, sends SMS.
