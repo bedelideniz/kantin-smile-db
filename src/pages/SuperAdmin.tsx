@@ -81,7 +81,12 @@ export default function SuperAdmin() {
             <h1 className="text-2xl font-semibold">SüperAdmin Paneli</h1>
             <p className="text-sm text-muted-foreground">{user.email}</p>
           </div>
-          <Button variant="outline" onClick={signOut}>Çıkış</Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={runMigration} disabled={running}>
+              {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
+            </Button>
+            <Button variant="outline" onClick={signOut}>Çıkış</Button>
+          </div>
         </header>
 
         <Tabs defaultValue="schools" className="space-y-4">
