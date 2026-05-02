@@ -262,6 +262,7 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-14">Foto</TableHead>
                 <TableHead>Ad Soyad</TableHead>
                 <TableHead>Sınıf / No</TableHead>
                 <TableHead>Veli Telefonu</TableHead>
