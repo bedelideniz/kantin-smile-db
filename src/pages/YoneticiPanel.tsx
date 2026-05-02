@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CashiersManager from "@/components/yonetici/CashiersManager";
-import StudentsManager from "@/components/yonetici/StudentsManager";
+
 import ProductsManager from "@/components/yonetici/ProductsManager";
 import RecipesManager from "@/components/yonetici/RecipesManager";
 import StockManager from "@/components/yonetici/StockManager";
@@ -47,7 +47,6 @@ export default function YoneticiPanel() {
         <Tabs defaultValue="cashiers" className="space-y-4">
           <TabsList>
             <TabsTrigger value="cashiers">Kasiyerler</TabsTrigger>
-            <TabsTrigger value="users">Veli & Öğrenci</TabsTrigger>
             <TabsTrigger value="products">Ürünler</TabsTrigger>
             <TabsTrigger value="recipes">Reçeteler</TabsTrigger>
             <TabsTrigger value="stock">Stoklar</TabsTrigger>
@@ -58,10 +57,6 @@ export default function YoneticiPanel() {
 
           <TabsContent value="cashiers">
             <CashiersManager />
-          </TabsContent>
-
-          <TabsContent value="users">
-            <StudentsManager />
           </TabsContent>
 
           <TabsContent value="products">
