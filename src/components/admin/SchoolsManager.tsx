@@ -31,7 +31,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Plus, Trash2, RefreshCw, Send } from "lucide-react";
+import { Pencil, Plus, Trash2, RefreshCw, Send, Upload } from "lucide-react";
+import StudentImportDialog from "@/components/admin/StudentImportDialog";
 
 interface School {
   id: string;
@@ -91,6 +92,7 @@ export default function SchoolsManager() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [importTarget, setImportTarget] = useState<School | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -274,6 +276,9 @@ export default function SchoolsManager() {
                     <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
                   </TableCell>
                   <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" title="Excel ile öğrenci yükle" onClick={() => setImportTarget(s)}>
+                      <Upload className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" title="Yöneticiye SMS kodu gönder" onClick={() => resendOtp(s)}>
                       <Send className="h-4 w-4" />
                     </Button>
@@ -413,6 +418,15 @@ export default function SchoolsManager() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {importTarget && (
+        <StudentImportDialog
+          schoolId={importTarget.id}
+          schoolName={importTarget.name}
+          open={!!importTarget}
+          onOpenChange={(o) => !o && setImportTarget(null)}
+        />
+      )}
     </div>
   );
 }

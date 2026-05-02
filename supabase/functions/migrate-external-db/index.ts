@@ -496,6 +496,18 @@ const MIGRATIONS: Migration[] = [
       ON CONFLICT (school_id) DO NOTHING;
     `,
   },
+  {
+    version: "0012_parent_welcome_sms",
+    description: "Default parent welcome SMS template stored in system_settings (key: parent_welcome_sms_template)",
+    sql: `
+      INSERT INTO system_settings (key, value)
+      VALUES (
+        'parent_welcome_sms_template',
+        '"Sayin {parent_name}, {school_name} kantin sisteminde hesabiniz aktiftir. Cocugunuzun bakiyesini yonetmek ve yukleme yapmak icin: kantinpay.com"'::jsonb
+      )
+      ON CONFLICT (key) DO NOTHING;
+    `,
+  },
 ];
 
 

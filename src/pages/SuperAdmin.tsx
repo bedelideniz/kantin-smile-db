@@ -13,6 +13,7 @@ import MarketersManager from "@/components/admin/MarketersManager";
 import StudentsBySchool from "@/components/admin/StudentsBySchool";
 import SchoolSplashesManager from "@/components/admin/SchoolSplashesManager";
 import DonationManagersManager from "@/components/admin/DonationManagersManager";
+import ParentWelcomeSmsSettings from "@/components/admin/ParentWelcomeSmsSettings";
 
 export default function SuperAdmin() {
   const { user, roles, loading, hasRole, signOut } = useAuth();
@@ -146,11 +147,18 @@ export default function SuperAdmin() {
           </TabsContent>
 
           <TabsContent value="netgsm">
-            <Card>
-              <CardContent className="pt-6">
-                <NetgsmSettings />
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <NetgsmSettings />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <ParentWelcomeSmsSettings />
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="infrastructure">
