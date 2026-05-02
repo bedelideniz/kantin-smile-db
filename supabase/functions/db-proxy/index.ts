@@ -839,6 +839,119 @@ const HANDLERS: Record<string, Handler> = {
     await query("DELETE FROM donation_managers WHERE id=$1", [p.id]);
     return { id: p.id, deleted: true };
   },
+  // ---- Parent welcome SMS template (super admin) ----
+  get_parent_welcome_template: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query<{ value: string }>(
+      "SELECT value FROM system_settings WHERE key = 'parent_welcome_sms_template'",
+    );
+    const tpl = r.rows[0]?.value
+      ?? "Sayin {parent_name}, {school_name} kantin sisteminde hesabiniz aktiftir. Cocugunuzun bakiyesini yonetmek ve yukleme yapmak icin: kantinpay.com";
+    return { template: typeof tpl === "string" ? tpl : String(tpl) };
+  },
+  save_parent_welcome_template: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({ template: z.string().trim().min(10).max(500) }).parse(params);
+    await query(
+      `INSERT INTO system_settings (key, value, updated_at)
+       VALUES ('parent_welcome_sms_template', to_jsonb($1::text), now())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+      [p.template],
+    );
+    return { ok: true };
+  },
+  // ---- Bulk student import (super admin) ----
+  bulk_import_students: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      school_id: z.string().uuid(),
+      send_welcome_sms: z.boolean().optional().default(true),
+      rows: z.array(z.object({
+        full_name: z.string().trim().min(2).max(255),
+        class_name: z.string().trim().max(50).optional().nullable(),
+        parent_full_name: z.string().trim().min(2).max(255),
+        parent_phone: z.string().trim().min(10).max(20),
+      })).min(1).max(2000),
+    }).parse(params);
+
+    const sr = await query<{ name: string }>("SELECT name FROM schools WHERE id=$1", [p.school_id]);
+    if (sr.rowCount === 0) throw new HttpError(404, "Okul bulunamadı");
+    const schoolName = sr.rows[0].name;
+    const tplRow = await query<{ value: string }>(
+      "SELECT value FROM system_settings WHERE key = 'parent_welcome_sms_template'",
+    );
+    const rawTpl = tplRow.rows[0]?.value;
+    const template = typeof rawTpl === "string" ? rawTpl
+      : "Sayin {parent_name}, {school_name} kantin sisteminde hesabiniz aktiftir.";
+
+    type RowResult = {
+      row: number; status: "created" | "failed";
+      student_id?: string; parent_phone?: string; error?: string;
+    };
+    const results: RowResult[] = [];
+    const newParentPhones = new Map<string, string>();
+
+    for (let i = 0; i < p.rows.length; i++) {
+      const row = p.rows[i];
+      try {
+        const phone = normalizePhone(row.parent_phone);
+        if (phone.length < 10) {
+          results.push({ row: i + 1, status: "failed", error: "Geçersiz telefon" });
+          continue;
+        }
+        const ins = await withTransaction(async (client) => {
+          const existing = await client.query(
+            "SELECT id FROM app_users WHERE phone=$1",
+            [phone],
+          );
+          const isNewParent = existing.rowCount === 0;
+          if (isNewParent) {
+            await client.query(
+              `INSERT INTO app_users (school_id, full_name, phone, role, is_active)
+               VALUES ($1,$2,$3,'parent',TRUE)
+               ON CONFLICT (phone) DO NOTHING`,
+              [p.school_id, row.parent_full_name, phone],
+            );
+          }
+          const sIns = await client.query(
+            `INSERT INTO students (school_id, full_name, class_name, parent_phone, balance, is_active)
+             VALUES ($1,$2,$3,$4,0,TRUE)
+             RETURNING id`,
+            [p.school_id, row.full_name, row.class_name ?? null, phone],
+          );
+          return { studentId: sIns.rows[0].id as string, isNewParent };
+        });
+        if (ins.isNewParent) newParentPhones.set(phone, row.parent_full_name);
+        results.push({ row: i + 1, status: "created", student_id: ins.studentId, parent_phone: phone });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        results.push({ row: i + 1, status: "failed", error: msg });
+      }
+    }
+
+    let smsSent = 0; let smsFailed = 0;
+    if (p.send_welcome_sms) {
+      for (const [phone, name] of newParentPhones) {
+        const message = template
+          .replaceAll("{parent_name}", name)
+          .replaceAll("{school_name}", schoolName);
+        try {
+          const r = await sendSms(phone, message);
+          if (r.ok) smsSent++; else smsFailed++;
+        } catch { smsFailed++; }
+      }
+    }
+
+    return {
+      total: p.rows.length,
+      created: results.filter((r) => r.status === "created").length,
+      failed: results.filter((r) => r.status === "failed").length,
+      new_parents: newParentPhones.size,
+      sms_sent: smsSent,
+      sms_failed: smsFailed,
+      results,
+    };
+  },
 };
 
 const INGREDIENT_UNITS = ["adet", "gr", "kg", "ml", "lt"] as const;
