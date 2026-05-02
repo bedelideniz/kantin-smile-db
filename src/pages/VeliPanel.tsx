@@ -209,10 +209,22 @@ export default function VeliPanel() {
               {session.students.map((s) => (
                 <DropdownMenuItem key={s.id} onClick={() => switchStudent(s.id)} className="py-3">
                   <div className="flex w-full items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">{s.full_name}</div>
-                      <div className="truncate text-xs text-muted-foreground">
-                        {[s.school_name, s.class_name, s.student_no].filter(Boolean).join(" • ")}
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-accent-foreground shadow-sm"
+                        style={{ background: "var(--gradient-gold)" }}
+                      >
+                        {s.photo_url ? (
+                          <img src={s.photo_url} alt={s.full_name} className="h-full w-full object-cover" />
+                        ) : (
+                          <GraduationCap className="h-4 w-4" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">{s.full_name}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {[s.school_name, s.class_name, s.student_no].filter(Boolean).join(" • ")}
+                        </div>
                       </div>
                     </div>
                     <div className="text-right text-sm font-semibold text-primary">{fmtTL(s.balance)}</div>
