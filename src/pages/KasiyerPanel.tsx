@@ -65,6 +65,9 @@ export default function KasiyerPanel() {
   const [saleError, setSaleError] = useState<string | null>(null);
   const [lostCardStudent, setLostCardStudent] = useState<Student | null>(null);
   const [markingFound, setMarkingFound] = useState(false);
+  const [seizeMode, setSeizeMode] = useState(false);
+  const [seizeNote, setSeizeNote] = useState("");
+  const [seizing, setSeizing] = useState(false);
 
   // Auth gate
   useEffect(() => {
