@@ -270,6 +270,7 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       {
         method: "POST",
         headers: {
+          apikey: SERVICE_KEY,
           Authorization: `Bearer ${SERVICE_KEY}`,
           "Content-Type": "image/jpeg",
           "x-upsert": "true",
@@ -293,7 +294,7 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
         const oldKey = oldUrl.slice(prefix.length);
         fetch(`${SUPABASE_URL}/storage/v1/object/student-photos/${oldKey}`, {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${SERVICE_KEY}` },
+          headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
         }).catch(() => {});
       }
     }
