@@ -92,6 +92,7 @@ export default function SchoolsManager() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [importTarget, setImportTarget] = useState<School | null>(null);
 
   const load = async () => {
     setLoading(true);
