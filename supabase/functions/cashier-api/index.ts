@@ -274,6 +274,10 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
 
     return { id: student.id, full_name: student.full_name, card_seized: true };
   },
+  create_sale: async (ctx, params) => {
+    const p = z.object({
+      student_id: z.string().uuid(),
+      items: z.array(z.object({
         product_id: z.string().uuid(),
         qty: z.number().int().min(1).max(99),
       })).min(1).max(50),
