@@ -559,6 +559,61 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Photo edit dialog (admin) */}
+      <Dialog open={!!photoTarget} onOpenChange={(o) => { if (!o) setPhotoTarget(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Öğrenci Fotoğrafı</DialogTitle>
+            <DialogDescription>
+              {photoTarget?.full_name} için fotoğrafı değiştir veya kaldır.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-2">
+            <div className="h-32 w-32 overflow-hidden rounded-full ring-2 ring-border bg-muted">
+              {photoTarget?.photo_url ? (
+                <img src={photoTarget.photo_url} alt={photoTarget.full_name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                  Fotoğraf yok
+                </div>
+              )}
+            </div>
+            <input
+              id="admin-photo-input"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (f) onPhotoFileSelected(f);
+              }}
+            />
+            <p className="text-center text-xs text-muted-foreground">
+              JPG / PNG, otomatik 800px'e küçültülür.
+            </p>
+          </div>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={removePhoto}
+              disabled={!photoTarget?.photo_url || photoUploading || photoDeleting}
+              className="text-destructive"
+            >
+              {photoDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+              Fotoğrafı Sil
+            </Button>
+            <Button
+              onClick={() => document.getElementById("admin-photo-input")?.click()}
+              disabled={photoUploading || photoDeleting}
+            >
+              {photoUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pencil className="mr-2 h-4 w-4" />}
+              {photoTarget?.photo_url ? "Değiştir" : "Yükle"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
