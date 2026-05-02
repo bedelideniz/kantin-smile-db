@@ -81,21 +81,22 @@ function drawCard(
   doc.setFillColor(255, 255, 255);
   doc.roundedRect(x, y, CARD_W, CARD_H, 2.5, 2.5, "FD");
 
-  // Top navy bar
+  // Top header (white background)
   const barH = 13;
-  doc.setFillColor(30, 58, 95);
-  doc.roundedRect(x, y, CARD_W, barH, 2.5, 2.5, "F");
-  doc.rect(x, y + barH - 4, CARD_W, 4, "F");
+  // Divider line under header
+  doc.setDrawColor(30, 58, 95);
+  doc.setLineWidth(0.4);
+  doc.line(x + 2, y + barH, x + CARD_W - 2, y + barH);
 
-  // MEB logo on both sides of the bar (white logo on navy)
+  // MEB logo on both sides of the header
   const logoSize = 10;
   try {
     doc.addImage(mebData, "PNG", x + 1.5, y + 1.5, logoSize, logoSize);
     doc.addImage(mebData, "PNG", x + CARD_W - logoSize - 1.5, y + 1.5, logoSize, logoSize);
   } catch { /* ignore */ }
 
-  // School name centered (Turkish-safe via DMSans)
-  doc.setTextColor(255, 255, 255);
+  // School name centered
+  doc.setTextColor(30, 58, 95);
   doc.setFont(FONT_FAMILY, "bold");
   const maxNameW = CARD_W - 2 * (logoSize + 4);
   let nameSize = 9;
@@ -109,12 +110,17 @@ function drawCard(
     displayName = displayName.slice(0, -2);
   }
   if (displayName !== schoolName) displayName = displayName.slice(0, -1) + "…";
-  doc.text(displayName, x + CARD_W / 2, y + 6.5, { align: "center", baseline: "middle" });
+  doc.text(displayName, x + CARD_W / 2, y + 5.5, { align: "center", baseline: "middle" });
 
   doc.setFont(FONT_FAMILY, "normal");
   doc.setFontSize(5.5);
-  doc.setTextColor(220, 230, 245);
-  doc.text("ÖĞRENCİ KİMLİK KARTI", x + CARD_W / 2, y + 10.6, { align: "center", baseline: "middle" });
+  doc.setTextColor(110, 120, 140);
+  doc.text("ÖĞRENCİ KİMLİK KARTI", x + CARD_W / 2, y + 10, { align: "center", baseline: "middle" });
+
+  // Bottom divider line
+  doc.setDrawColor(30, 58, 95);
+  doc.setLineWidth(0.4);
+  doc.line(x + 2, y + CARD_H - 2, x + CARD_W - 2, y + CARD_H - 2);
 
   // Photo box
   const photoX = x + 3;
