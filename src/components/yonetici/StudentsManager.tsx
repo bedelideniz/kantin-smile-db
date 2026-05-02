@@ -239,7 +239,7 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && load(search)}
-              placeholder="İsim, no, veli telefonu"
+              placeholder="İsim, no, veli telefonu, kart"
               className="w-56 pl-8"
             />
           </div>
