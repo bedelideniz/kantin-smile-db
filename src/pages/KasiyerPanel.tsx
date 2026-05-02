@@ -556,10 +556,15 @@ export default function KasiyerPanel() {
                             key={s.id}
                             className="flex w-full items-center justify-between border-b px-3 py-3 text-left transition hover:bg-accent"
                             onClick={() => {
-                              setStudent(s);
                               setSearchOpen(false);
                               setSearchTerm("");
                               setSearchResults([]);
+                              if (s.card_lost) {
+                                setStudent(null);
+                                setLostCardStudent(s);
+                              } else {
+                                setStudent(s);
+                              }
                             }}
                           >
                             <div className="min-w-0">
