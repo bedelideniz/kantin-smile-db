@@ -62,6 +62,8 @@ export default function KasiyerPanel() {
   const [now, setNow] = useState(() => new Date());
   const [manualBarcode, setManualBarcode] = useState("");
   const [saleError, setSaleError] = useState<string | null>(null);
+  const [lostCardStudent, setLostCardStudent] = useState<Student | null>(null);
+  const [markingFound, setMarkingFound] = useState(false);
 
   // Auth gate
   useEffect(() => {
