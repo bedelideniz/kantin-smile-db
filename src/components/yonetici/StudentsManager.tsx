@@ -29,6 +29,7 @@ interface Student {
   balance: number | string;
   qr_token: string;
   nfc_uid: string | null;
+  photo_url: string | null;
   is_active: boolean;
   created_at: string;
 }
