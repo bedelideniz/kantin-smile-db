@@ -52,6 +52,20 @@ export function requireSchoolAdminSchool(ctx: AuthContext): string {
   return r.school_id;
 }
 
+/**
+ * Returns the school_id to scope an operation to. super_admin may pass an explicit
+ * school_id parameter to act on any school; school_admin is always scoped to their
+ * own school (the param is ignored).
+ */
+export function resolveSchoolScope(ctx: AuthContext, paramSchoolId?: string | null): string {
+  const isSuper = ctx.roles.some((r) => r.role === "super_admin");
+  if (isSuper) {
+    if (!paramSchoolId) throw new HttpError(400, "school_id zorunludur");
+    return paramSchoolId;
+  }
+  return requireSchoolAdminSchool(ctx);
+}
+
 export class HttpError extends Error {
   constructor(public status: number, message: string) {
     super(message);
