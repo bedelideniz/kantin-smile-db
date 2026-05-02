@@ -276,6 +276,9 @@ export default function SchoolsManager() {
                     <Switch checked={s.is_active} onCheckedChange={() => toggleActive(s)} />
                   </TableCell>
                   <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" title="Excel ile öğrenci yükle" onClick={() => setImportTarget(s)}>
+                      <Upload className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="icon" title="Yöneticiye SMS kodu gönder" onClick={() => resendOtp(s)}>
                       <Send className="h-4 w-4" />
                     </Button>
