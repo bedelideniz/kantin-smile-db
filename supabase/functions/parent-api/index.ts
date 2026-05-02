@@ -167,6 +167,21 @@ const PUBLIC_OPS: Record<string, Handler> = {
     if (r.rowCount === 0) return null;
     return r.rows[0];
   },
+  get_school_donation_info: async (_req, params) => {
+    const p = z.object({ school_id: z.string().uuid() }).parse(params);
+    const r = await query<{ presets: string[] | null; is_enabled: boolean; thank_you_message: string | null }>(
+      "SELECT presets, is_enabled, thank_you_message FROM school_donation_settings WHERE school_id=$1",
+      [p.school_id],
+    );
+    if (r.rowCount === 0) {
+      return { presets: [10, 25, 50, 100, 250], is_enabled: true, thank_you_message: null };
+    }
+    return {
+      presets: (r.rows[0].presets ?? []).map((v) => Number(v)),
+      is_enabled: r.rows[0].is_enabled,
+      thank_you_message: r.rows[0].thank_you_message,
+    };
+  },
 };
 
 const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise<unknown>> = {
