@@ -10,7 +10,7 @@
 // to operate on per-request via `student_id`.
 import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { z } from "npm:zod@3.23.8";
-import { query } from "../_shared/external-db.ts";
+import { query, withTransaction } from "../_shared/external-db.ts";
 import { generateOtp, normalizePhone, sendSms } from "../_shared/sms.ts";
 
 class HttpError extends Error {
