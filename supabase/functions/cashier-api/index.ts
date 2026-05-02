@@ -162,21 +162,21 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       const uuid = p.qr_token.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
       if (!uuid) throw new HttpError(400, "Geçersiz QR kod");
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost
+        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost, photo_url
            FROM students WHERE school_id=$1 AND qr_token=$2`,
         [ctx.schoolId, uuid],
       );
       row = r.rows[0];
     } else if (p.nfc_uid) {
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost
+        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost, photo_url
            FROM students WHERE school_id=$1 AND nfc_uid=$2`,
         [ctx.schoolId, p.nfc_uid.toUpperCase()],
       );
       row = r.rows[0];
     } else if (p.query) {
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost
+        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost, photo_url
            FROM students
           WHERE school_id=$1 AND is_active=TRUE
             AND (full_name ILIKE $2 OR student_no ILIKE $2)
