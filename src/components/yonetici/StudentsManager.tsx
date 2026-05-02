@@ -45,7 +45,8 @@ async function callOp<T = unknown>(op: string, params?: Record<string, unknown>)
 const PHONE_RE = /^[0-9+\s()-]{10,20}$/;
 const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function StudentsManager() {
+export default function StudentsManager({ schoolId }: { schoolId?: string } = {}) {
+  const scope = schoolId ? { school_id: schoolId } : {};
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<Student[]>([]);
