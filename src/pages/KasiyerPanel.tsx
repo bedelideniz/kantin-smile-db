@@ -834,7 +834,7 @@ export default function KasiyerPanel() {
             </div>
           )}
 
-          <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-center">
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center">
             {seizeMode ? (
               <>
                 <Button
