@@ -767,7 +767,16 @@ export default function KasiyerPanel() {
       </Dialog>
 
       {/* Lost card warning + "Card Found" override */}
-      <Dialog open={!!lostCardStudent} onOpenChange={(o) => !o && setLostCardStudent(null)}>
+      <Dialog
+        open={!!lostCardStudent}
+        onOpenChange={(o) => {
+          if (!o) {
+            setLostCardStudent(null);
+            setSeizeMode(false);
+            setSeizeNote("");
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader className="items-center text-center">
             <div className="relative mx-auto mb-2">
@@ -786,39 +795,101 @@ export default function KasiyerPanel() {
                 <AlertTriangle className="h-5 w-5" />
               </div>
             </div>
-            <DialogTitle className="text-2xl text-destructive">Kart kayıp olarak işaretli</DialogTitle>
+            <DialogTitle className="text-2xl text-destructive">
+              {seizeMode ? "Karta el koy" : "Kart kayıp olarak işaretli"}
+            </DialogTitle>
             <DialogDescription className="text-center text-base text-foreground">
               <span className="block text-lg font-bold">{lostCardStudent?.full_name}</span>
               <span className="block text-sm text-muted-foreground">
                 {[lostCardStudent?.class_name, lostCardStudent?.student_no].filter(Boolean).join(" • ")}
               </span>
-              <span className="mt-3 block rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
-                Kartı getiren kişinin <strong>yukarıdaki fotoğraftaki öğrenci</strong> olduğundan emin olun.
-                Veli bu kartı kayıp olarak bildirmiş; bu karta satış yapılamaz.
-                Kart sahibinin elinde olduğundan eminseniz <strong>"Kart Bulundu"</strong> diyerek tekrar aktif edebilirsiniz.
-              </span>
+              {seizeMode ? (
+                <span className="mt-3 block rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                  Kartı kantinde tutuyorsanız bu işlemi yapın. Karta bağlı NFC kaldırılacak,
+                  kart kayıp olarak işaretli kalacak ve <strong>veliye SMS + bildirim</strong> gönderilecektir.
+                </span>
+              ) : (
+                <span className="mt-3 block rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                  Kartı getiren kişinin <strong>yukarıdaki fotoğraftaki öğrenci</strong> olduğundan emin olun.
+                  Veli bu kartı kayıp olarak bildirmiş; bu karta satış yapılamaz.
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
+
+          {seizeMode && (
+            <div className="space-y-2 px-1">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor="seize-note">
+                Veliye iletilecek not (opsiyonel)
+              </label>
+              <Textarea
+                id="seize-note"
+                value={seizeNote}
+                onChange={(e) => setSeizeNote(e.target.value.slice(0, 300))}
+                placeholder="Örn. Kartı 7-A öğrencisi kullanmaya çalıştı, kantinde bekliyor."
+                rows={3}
+                disabled={seizing}
+              />
+              <p className="text-right text-[10px] text-muted-foreground">{seizeNote.length}/300</p>
+            </div>
+          )}
+
           <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-center">
-            <Button
-              variant="outline"
-              className="w-full sm:w-auto"
-              onClick={() => setLostCardStudent(null)}
-              disabled={markingFound}
-            >
-              Vazgeç
-            </Button>
-            <Button
-              className="w-full sm:w-auto"
-              onClick={handleMarkCardFound}
-              disabled={markingFound}
-            >
-              {markingFound ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> İşleniyor…</>
-              ) : (
-                <>Kart Bulundu — Aktif Et</>
-              )}
-            </Button>
+            {seizeMode ? (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => { setSeizeMode(false); setSeizeNote(""); }}
+                  disabled={seizing}
+                >
+                  Geri
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="w-full sm:w-auto"
+                  onClick={handleSeizeCard}
+                  disabled={seizing}
+                >
+                  {seizing ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Gönderiliyor…</>
+                  ) : (
+                    <><ShieldOff className="mr-2 h-4 w-4" /> Onayla — Karta El Koy</>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  onClick={() => setLostCardStudent(null)}
+                  disabled={markingFound}
+                >
+                  Vazgeç
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="w-full sm:w-auto"
+                  onClick={() => setSeizeMode(true)}
+                  disabled={markingFound}
+                >
+                  <ShieldOff className="mr-2 h-4 w-4" />
+                  Karta El Koy
+                </Button>
+                <Button
+                  className="w-full sm:w-auto"
+                  onClick={handleMarkCardFound}
+                  disabled={markingFound}
+                >
+                  {markingFound ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> İşleniyor…</>
+                  ) : (
+                    <>Kart Bulundu — Aktif Et</>
+                  )}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
