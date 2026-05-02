@@ -82,23 +82,24 @@ function drawCard(
   doc.roundedRect(x, y, CARD_W, CARD_H, 2.5, 2.5, "FD");
 
   // Top header (white background)
-  const barH = 13;
+  const barH = 14;
   // Divider line under header
   doc.setDrawColor(30, 58, 95);
   doc.setLineWidth(0.4);
   doc.line(x + 2, y + barH, x + CARD_W - 2, y + barH);
 
-  // MEB logo on both sides of the header
-  const logoSize = 10;
+  // MEB logo on both sides of the header (larger)
+  const logoSize = 13;
+  const logoY = y + (barH - logoSize) / 2;
   try {
-    doc.addImage(mebData, "PNG", x + 1.5, y + 1.5, logoSize, logoSize);
-    doc.addImage(mebData, "PNG", x + CARD_W - logoSize - 1.5, y + 1.5, logoSize, logoSize);
+    doc.addImage(mebData, "PNG", x + 2, logoY, logoSize, logoSize);
+    doc.addImage(mebData, "PNG", x + CARD_W - logoSize - 2, logoY, logoSize, logoSize);
   } catch { /* ignore */ }
 
   // School name centered
   doc.setTextColor(30, 58, 95);
   doc.setFont(FONT_FAMILY, "bold");
-  const maxNameW = CARD_W - 2 * (logoSize + 4);
+  const maxNameW = CARD_W - 2 * (logoSize + 5);
   let nameSize = 9;
   doc.setFontSize(nameSize);
   while (doc.getTextWidth(schoolName) > maxNameW && nameSize > 6) {
@@ -110,17 +111,12 @@ function drawCard(
     displayName = displayName.slice(0, -2);
   }
   if (displayName !== schoolName) displayName = displayName.slice(0, -1) + "…";
-  doc.text(displayName, x + CARD_W / 2, y + 5.5, { align: "center", baseline: "middle" });
+  doc.text(displayName, x + CARD_W / 2, y + 6, { align: "center", baseline: "middle" });
 
   doc.setFont(FONT_FAMILY, "normal");
   doc.setFontSize(5.5);
   doc.setTextColor(110, 120, 140);
-  doc.text("ÖĞRENCİ KİMLİK KARTI", x + CARD_W / 2, y + 10, { align: "center", baseline: "middle" });
-
-  // Bottom divider line
-  doc.setDrawColor(30, 58, 95);
-  doc.setLineWidth(0.4);
-  doc.line(x + 2, y + CARD_H - 2, x + CARD_W - 2, y + CARD_H - 2);
+  doc.text("ÖĞRENCİ KİMLİK KARTI", x + CARD_W / 2, y + 10.5, { align: "center", baseline: "middle" });
 
   // Photo box
   const photoX = x + 3;
