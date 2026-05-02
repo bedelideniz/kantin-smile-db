@@ -14,6 +14,8 @@ import VeliGiris from "./pages/VeliGiris.tsx";
 import VeliPanel from "./pages/VeliPanel.tsx";
 import VeliYasaklilar from "./pages/VeliYasaklilar.tsx";
 import VeliYukle from "./pages/VeliYukle.tsx";
+import PazarlamaciGiris from "./pages/PazarlamaciGiris.tsx";
+import PazarlamaciPanel from "./pages/PazarlamaciPanel.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -36,6 +38,8 @@ const App = () => (
           <Route path="/veli" element={<VeliPanel />} />
           <Route path="/veli/yasaklilar" element={<VeliYasaklilar />} />
           <Route path="/veli/yukle" element={<VeliYukle />} />
+          <Route path="/pazarlamaci-giris" element={<PazarlamaciGiris />} />
+          <Route path="/pazarlamaci" element={<PazarlamaciPanel />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
