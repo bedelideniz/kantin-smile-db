@@ -43,6 +43,7 @@ export default function VeliPanel() {
   const [refreshing, setRefreshing] = useState(false);
   const [txLoading, setTxLoading] = useState(false);
   const [transactions, setTransactions] = useState<Tx[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Load session & validate, then refresh student list from backend
   useEffect(() => {
