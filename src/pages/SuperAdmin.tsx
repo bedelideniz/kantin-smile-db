@@ -114,6 +114,14 @@ export default function SuperAdmin() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="splashes">
+            <Card>
+              <CardContent className="pt-6">
+                <SchoolSplashesManager />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="payments">
             <Card>
               <CardContent className="pt-6">
