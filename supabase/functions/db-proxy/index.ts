@@ -4,7 +4,7 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { z } from "npm:zod@3.23.8";
 import bcrypt from "npm:bcryptjs@2.4.3";
-import { authenticate, HttpError, requireSchoolAdminSchool } from "../_shared/auth.ts";
+import { authenticate, HttpError, requireSchoolAdminSchool, resolveSchoolScope } from "../_shared/auth.ts";
 import { query, withTransaction } from "../_shared/external-db.ts";
 import { generateOtp, sendSms } from "../_shared/sms.ts";
 
