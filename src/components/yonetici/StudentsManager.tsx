@@ -196,6 +196,67 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
     }
   };
 
+  // Resize image to max 800x800 JPEG ~85% via canvas, return data URL.
+  const resizeToJpeg = (file: File, maxDim = 800, quality = 0.85): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas oluşturulamadı"));
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Görüntü okunamadı")); };
+      img.src = url;
+    });
+
+  const onPhotoFileSelected = async (file: File) => {
+    if (!photoTarget) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Geçersiz dosya", description: "Lütfen bir görüntü dosyası seçin.", variant: "destructive" });
+      return;
+    }
+    setPhotoUploading(true);
+    try {
+      const dataUrl = await resizeToJpeg(file);
+      const r = await callOp<{ id: string; photo_url: string }>("set_student_photo", {
+        ...scope, id: photoTarget.id, image_base64: dataUrl,
+      });
+      toast({ title: "Fotoğraf güncellendi" });
+      setRows((prev) => prev.map((s) => (s.id === r.id ? { ...s, photo_url: r.photo_url } : s)));
+      setPhotoTarget(null);
+    } catch (e) {
+      toast({ title: "Yükleme başarısız", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const removePhoto = async () => {
+    if (!photoTarget) return;
+    setPhotoDeleting(true);
+    try {
+      await callOp("delete_student_photo", { ...scope, id: photoTarget.id });
+      toast({ title: "Fotoğraf silindi" });
+      setRows((prev) => prev.map((s) => (s.id === photoTarget.id ? { ...s, photo_url: null } : s)));
+      setPhotoTarget(null);
+    } catch (e) {
+      toast({ title: "Hata", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setPhotoDeleting(false);
+    }
+  };
+
   const submitTopup = async () => {
     if (!topupTarget) return;
     const amt = Number(topupAmount.replace(",", "."));
