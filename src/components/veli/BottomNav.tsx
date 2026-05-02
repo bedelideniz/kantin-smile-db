@@ -1,4 +1,4 @@
-import { Ban, Wallet, ArrowUpDown, HandHeart } from "lucide-react";
+import { Ban, Wallet, ArrowUpDown, HandHeart, Star } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 interface Props {
@@ -13,7 +13,7 @@ export default function BottomNav({ onTopUp }: Props) {
   const isActive = (p: string) => pathname === p;
 
   const itemBase =
-    "flex flex-1 flex-col items-center gap-0.5 rounded-md py-2 text-[11px] transition-colors";
+    "flex flex-col items-center gap-0.5 rounded-md py-2 text-[11px] transition-colors";
 
   return (
     <>
@@ -23,7 +23,7 @@ export default function BottomNav({ onTopUp }: Props) {
         className="fixed inset-x-0 bottom-0 z-30 border-t border-accent/20 bg-background/95 shadow-[0_-4px_20px_-4px_hsl(var(--primary)/0.15)] backdrop-blur supports-[backdrop-filter]:bg-background/85"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="relative mx-auto flex max-w-md items-end justify-between gap-1 px-3 pt-2 pb-2">
+        <div className="relative mx-auto grid max-w-md grid-cols-5 items-end px-3 pt-2 pb-2">
           {/* Yasaklılar */}
           <button
             onClick={() => navigate("/veli/yasaklilar")}
@@ -53,7 +53,18 @@ export default function BottomNav({ onTopUp }: Props) {
           </button>
 
           {/* Center spacer for the floating button */}
-          <div className="w-16 shrink-0" />
+          <div aria-hidden />
+
+          {/* Puan (placeholder, henüz aktif değil) */}
+          <button
+            type="button"
+            disabled
+            className={`${itemBase} text-muted-foreground/60 cursor-not-allowed`}
+            aria-label="Puan (yakında)"
+          >
+            <Star className="h-5 w-5" />
+            <span className="font-medium">Puan</span>
+          </button>
 
           {/* Hareketler */}
           <button
@@ -66,9 +77,6 @@ export default function BottomNav({ onTopUp }: Props) {
             <ArrowUpDown className="h-5 w-5" />
             <span className="font-medium">Hareketler</span>
           </button>
-
-          {/* spacer for symmetry on the right of FAB */}
-          <div className="w-0 shrink-0" />
 
           {/* Center floating ₺ top-up button */}
           <button
