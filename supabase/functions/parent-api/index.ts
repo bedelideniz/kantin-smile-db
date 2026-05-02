@@ -263,6 +263,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     // Upload to Lovable Cloud Storage via REST (service role)
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const storageHeaders: Record<string, string> = { apikey: SERVICE_KEY };
+    if (SERVICE_KEY.split(".").length === 3) storageHeaders.Authorization = `Bearer ${SERVICE_KEY}`;
     const filename = `${p.student_id}-${Date.now()}.jpg`;
     const objectKey = `${school_id}/${filename}`;
     const uploadRes = await fetch(
@@ -270,8 +272,7 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       {
         method: "POST",
         headers: {
-          apikey: SERVICE_KEY,
-          Authorization: `Bearer ${SERVICE_KEY}`,
+          ...storageHeaders,
           "Content-Type": "image/jpeg",
           "x-upsert": "true",
           "Cache-Control": "31536000",
@@ -294,7 +295,7 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
         const oldKey = oldUrl.slice(prefix.length);
         fetch(`${SUPABASE_URL}/storage/v1/object/student-photos/${oldKey}`, {
           method: "DELETE",
-          headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` },
+          headers: storageHeaders,
         }).catch(() => {});
       }
     }
