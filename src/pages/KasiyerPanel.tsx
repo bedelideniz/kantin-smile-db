@@ -744,19 +744,32 @@ export default function KasiyerPanel() {
       <Dialog open={!!lostCardStudent} onOpenChange={(o) => !o && setLostCardStudent(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader className="items-center text-center">
-            <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-              <AlertTriangle className="h-9 w-9 text-destructive" />
+            <div className="relative mx-auto mb-2">
+              <div className="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full border-4 border-destructive/40 bg-muted shadow-lg">
+                {lostCardStudent?.photo_url ? (
+                  <img
+                    src={lostCardStudent.photo_url}
+                    alt={lostCardStudent.full_name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <GraduationCap className="h-14 w-14 text-muted-foreground" />
+                )}
+              </div>
+              <div className="absolute -bottom-1 -right-1 flex h-10 w-10 items-center justify-center rounded-full border-4 border-background bg-destructive text-destructive-foreground shadow-md">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
             </div>
             <DialogTitle className="text-2xl text-destructive">Kart kayıp olarak işaretli</DialogTitle>
             <DialogDescription className="text-center text-base text-foreground">
-              <span className="block font-semibold">{lostCardStudent?.full_name}</span>
+              <span className="block text-lg font-bold">{lostCardStudent?.full_name}</span>
               <span className="block text-sm text-muted-foreground">
                 {[lostCardStudent?.class_name, lostCardStudent?.student_no].filter(Boolean).join(" • ")}
               </span>
-              <span className="mt-3 block text-sm">
-                Veli bu kartı kayıp olarak bildirmiş. Bu karta satış yapılamaz.
-                Kart sahibinin elinde olduğundan eminseniz <strong>"Kart Bulundu"</strong> diyerek
-                tekrar aktif edebilirsiniz.
+              <span className="mt-3 block rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                Kartı getiren kişinin <strong>yukarıdaki fotoğraftaki öğrenci</strong> olduğundan emin olun.
+                Veli bu kartı kayıp olarak bildirmiş; bu karta satış yapılamaz.
+                Kart sahibinin elinde olduğundan eminseniz <strong>"Kart Bulundu"</strong> diyerek tekrar aktif edebilirsiniz.
               </span>
             </DialogDescription>
           </DialogHeader>
