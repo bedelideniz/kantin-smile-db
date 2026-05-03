@@ -298,6 +298,7 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
         product_id: z.string().uuid(),
         qty: z.number().int().min(1).max(99),
       })).min(1).max(50),
+      lookup_at: z.string().datetime().optional(),
     }).parse(params);
 
     return await withTransaction(async (client) => {
