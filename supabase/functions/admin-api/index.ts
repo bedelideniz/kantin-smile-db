@@ -171,6 +171,13 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
     );
     return { alarms: r.rows };
   },
+  count_open_alarms: async (ctx) => {
+    await requireModule(ctx.userId, "alarms");
+    const r = await query<{ c: string }>(
+      "SELECT COUNT(*)::text AS c FROM transaction_alarms WHERE status='open'",
+    );
+    return { count: Number(r.rows[0]?.c ?? 0) };
+  },
   alarm_detail: async (ctx, params) => {
     await requireModule(ctx.userId, "alarms");
     const p = z.object({ alarm_id: z.string().uuid() }).parse(params);

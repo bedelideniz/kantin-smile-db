@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import SchoolsManager from "@/components/admin/SchoolsManager";
 import NetgsmSettings from "@/components/admin/NetgsmSettings";
@@ -30,6 +31,7 @@ export default function SuperAdmin() {
   const [running, setRunning] = useState(false);
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [myModules, setMyModules] = useState<AppModule[] | null>(null);
+  const [openAlarms, setOpenAlarms] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) navigate("/login", { replace: true });
@@ -41,6 +43,20 @@ export default function SuperAdmin() {
       .then((r) => setMyModules(r.modules))
       .catch(() => setMyModules([]));
   }, [user, hasRole]);
+
+  // Poll open alarms count every 30s for badge notification
+  useEffect(() => {
+    if (!myModules?.includes("alarms")) return;
+    let cancelled = false;
+    const poll = () => {
+      callAdminApi<{ count: number }>("count_open_alarms")
+        .then((r) => { if (!cancelled) setOpenAlarms(r.count); })
+        .catch(() => {});
+    };
+    poll();
+    const id = setInterval(poll, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [myModules]);
 
   if (loading || !user) {
     return <div className="flex min-h-screen items-center justify-center">Yükleniyor…</div>;
@@ -113,7 +129,14 @@ export default function SuperAdmin() {
           <Tabs defaultValue={defaultTab} className="space-y-4">
             <TabsList className="flex-wrap h-auto">
               {visibleTabs.map((m) => (
-                <TabsTrigger key={m} value={m}>{MODULE_LABELS[m]}</TabsTrigger>
+                <TabsTrigger key={m} value={m} className="relative">
+                  {MODULE_LABELS[m]}
+                  {m === "alarms" && openAlarms > 0 && (
+                    <Badge className="ml-2 h-5 min-w-5 px-1.5 bg-destructive text-destructive-foreground hover:bg-destructive animate-pulse">
+                      {openAlarms}
+                    </Badge>
+                  )}
+                </TabsTrigger>
               ))}
             </TabsList>
 
