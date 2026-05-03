@@ -14,6 +14,13 @@ import StudentsBySchool from "@/components/admin/StudentsBySchool";
 import SchoolSplashesManager from "@/components/admin/SchoolSplashesManager";
 import DonationManagersManager from "@/components/admin/DonationManagersManager";
 import ParentWelcomeSmsSettings from "@/components/admin/ParentWelcomeSmsSettings";
+import StaffManager from "@/components/admin/StaffManager";
+import AlarmsManager from "@/components/admin/AlarmsManager";
+import { callAdminApi, MODULE_LABELS, type AppModule } from "@/lib/adminApi";
+
+const TAB_ORDER: AppModule[] = [
+  "schools","students","marketers","splashes","donations","payments","sms","alarms","staff","infrastructure",
+];
 
 export default function SuperAdmin() {
   const { user, roles, loading, hasRole, signOut } = useAuth();
@@ -21,10 +28,18 @@ export default function SuperAdmin() {
   const { toast } = useToast();
   const [running, setRunning] = useState(false);
   const [pingResult, setPingResult] = useState<string | null>(null);
+  const [myModules, setMyModules] = useState<AppModule[] | null>(null);
 
   useEffect(() => {
     if (!loading && !user) navigate("/login", { replace: true });
   }, [loading, user, navigate]);
+
+  useEffect(() => {
+    if (!user || !hasRole("super_admin")) return;
+    callAdminApi<{ modules: AppModule[]; is_owner: boolean }>("whoami")
+      .then((r) => setMyModules(r.modules))
+      .catch(() => setMyModules([]));
+  }, [user, hasRole]);
 
   if (loading || !user) {
     return <div className="flex min-h-screen items-center justify-center">Yükleniyor…</div>;
@@ -37,15 +52,11 @@ export default function SuperAdmin() {
           <CardHeader>
             <CardTitle>Yetkisiz</CardTitle>
             <CardDescription>
-              Bu hesabın SüperAdmin rolü yok. İlk SüperAdmin'i Lovable Cloud arayüzünden
-              <code className="mx-1 rounded bg-muted px-1">user_roles</code>
-              tablosuna ekleyebilirsiniz.
+              Bu hesabın SüperAdmin rolü yok.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <p className="text-sm text-muted-foreground break-all">
-              user_id: <code>{user.id}</code>
-            </p>
+            <p className="text-sm text-muted-foreground break-all">user_id: <code>{user.id}</code></p>
             <Button variant="outline" onClick={signOut}>Çıkış Yap</Button>
           </CardContent>
         </Card>
@@ -57,22 +68,23 @@ export default function SuperAdmin() {
     setRunning(true);
     const { data, error } = await supabase.functions.invoke("migrate-external-db");
     setRunning(false);
-    if (error) {
-      toast({ title: "Migration hatası", description: error.message, variant: "destructive" });
-      return;
-    }
+    if (error) { toast({ title: "Migration hatası", description: error.message, variant: "destructive" }); return; }
     toast({ title: "Migration tamamlandı", description: JSON.stringify(data?.results ?? data) });
   };
 
   const pingDb = async () => {
     const { data, error } = await supabase.functions.invoke("db-proxy", { body: { op: "ping" } });
-    if (error) {
-      toast({ title: "Bağlantı hatası", description: error.message, variant: "destructive" });
-      setPingResult(null);
-      return;
-    }
+    if (error) { toast({ title: "Bağlantı hatası", description: error.message, variant: "destructive" }); setPingResult(null); return; }
     setPingResult(JSON.stringify(data?.data, null, 2));
   };
+
+  if (myModules === null) {
+    return <div className="flex min-h-screen items-center justify-center">Yetkiler yükleniyor…</div>;
+  }
+
+  const hasMod = (m: AppModule) => myModules.includes(m);
+  const visibleTabs = TAB_ORDER.filter(hasMod);
+  const defaultTab = visibleTabs[0] ?? "schools";
 
   return (
     <main className="min-h-screen bg-background p-6">
@@ -83,108 +95,65 @@ export default function SuperAdmin() {
             <p className="text-sm text-muted-foreground">{user.email}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={runMigration} disabled={running}>
-              {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
-            </Button>
+            {hasMod("infrastructure") && (
+              <Button onClick={runMigration} disabled={running}>
+                {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
+              </Button>
+            )}
             <Button variant="outline" onClick={signOut}>Çıkış</Button>
           </div>
         </header>
 
-        <Tabs defaultValue="schools" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="schools">Okullar</TabsTrigger>
-            <TabsTrigger value="students">Veli & Öğrenci</TabsTrigger>
-            <TabsTrigger value="marketers">Pazarlamacılar</TabsTrigger>
-            <TabsTrigger value="splashes">Veli Splash</TabsTrigger>
-            <TabsTrigger value="donations">Bağış</TabsTrigger>
-            <TabsTrigger value="payments">Ödeme</TabsTrigger>
-            <TabsTrigger value="netgsm">SMS / NetGSM</TabsTrigger>
-            <TabsTrigger value="infrastructure">Altyapı</TabsTrigger>
-          </TabsList>
+        {visibleTabs.length === 0 ? (
+          <Card><CardContent className="p-6 text-sm text-muted-foreground">
+            Henüz hiçbir modüle yetkiniz tanımlanmamış. Yöneticinize başvurun.
+          </CardContent></Card>
+        ) : (
+          <Tabs defaultValue={defaultTab} className="space-y-4">
+            <TabsList className="flex-wrap h-auto">
+              {visibleTabs.map((m) => (
+                <TabsTrigger key={m} value={m}>{MODULE_LABELS[m]}</TabsTrigger>
+              ))}
+            </TabsList>
 
-          <TabsContent value="schools">
-            <Card>
-              <CardContent className="pt-6">
-                <SchoolsManager />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="students">
-            <StudentsBySchool />
-          </TabsContent>
-
-          <TabsContent value="marketers">
-            <Card>
-              <CardContent className="pt-6">
-                <MarketersManager />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="splashes">
-            <Card>
-              <CardContent className="pt-6">
-                <SchoolSplashesManager />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="donations">
-            <Card>
-              <CardContent className="pt-6">
-                <DonationManagersManager />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="payments">
-            <Card>
-              <CardContent className="pt-6">
-                <PaymentSettings />
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="netgsm">
-            <div className="space-y-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <NetgsmSettings />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <ParentWelcomeSmsSettings />
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="infrastructure">
-            <Card>
-              <CardHeader>
-                <CardTitle>Faz 0 — Altyapı</CardTitle>
-                <CardDescription>
-                  Kendi PostgreSQL sunucunuzdaki şemayı kurun ve bağlantıyı test edin.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  <Button onClick={runMigration} disabled={running}>
-                    {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
-                  </Button>
-                  <Button variant="secondary" onClick={pingDb}>DB Bağlantısını Test Et</Button>
+            {hasMod("schools") && <TabsContent value="schools"><Card><CardContent className="pt-6"><SchoolsManager /></CardContent></Card></TabsContent>}
+            {hasMod("students") && <TabsContent value="students"><StudentsBySchool /></TabsContent>}
+            {hasMod("marketers") && <TabsContent value="marketers"><Card><CardContent className="pt-6"><MarketersManager /></CardContent></Card></TabsContent>}
+            {hasMod("splashes") && <TabsContent value="splashes"><Card><CardContent className="pt-6"><SchoolSplashesManager /></CardContent></Card></TabsContent>}
+            {hasMod("donations") && <TabsContent value="donations"><Card><CardContent className="pt-6"><DonationManagersManager /></CardContent></Card></TabsContent>}
+            {hasMod("payments") && <TabsContent value="payments"><Card><CardContent className="pt-6"><PaymentSettings /></CardContent></Card></TabsContent>}
+            {hasMod("sms") && (
+              <TabsContent value="sms">
+                <div className="space-y-4">
+                  <Card><CardContent className="pt-6"><NetgsmSettings /></CardContent></Card>
+                  <Card><CardContent className="pt-6"><ParentWelcomeSmsSettings /></CardContent></Card>
                 </div>
-                {pingResult && (
-                  <pre className="overflow-auto rounded bg-muted p-3 text-xs">{pingResult}</pre>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              </TabsContent>
+            )}
+            {hasMod("alarms") && <TabsContent value="alarms"><AlarmsManager /></TabsContent>}
+            {hasMod("staff") && <TabsContent value="staff"><StaffManager /></TabsContent>}
+            {hasMod("infrastructure") && (
+              <TabsContent value="infrastructure">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Faz 0 — Altyapı</CardTitle>
+                    <CardDescription>Kendi PostgreSQL sunucunuzdaki şemayı kurun ve bağlantıyı test edin.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={runMigration} disabled={running}>
+                        {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
+                      </Button>
+                      <Button variant="secondary" onClick={pingDb}>DB Bağlantısını Test Et</Button>
+                    </div>
+                    {pingResult && <pre className="overflow-auto rounded bg-muted p-3 text-xs">{pingResult}</pre>}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
+          </Tabs>
+        )}
       </div>
     </main>
   );
 }
-
