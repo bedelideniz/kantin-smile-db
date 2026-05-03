@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LogOut, QrCode, Search, Trash2, X, Plus, Minus,
   CreditCard, CircleDot, Wallet, ShoppingCart, AlertTriangle, GraduationCap, Sparkles, Barcode, Loader2, ShieldOff,
+  Receipt, Bell,
 } from "lucide-react";
 import {
   callCashierApi,
@@ -36,6 +37,18 @@ interface Student {
   photo_url?: string | null;
 }
 interface CartItem { product_id: string; name: string; price: number; qty: number; catColor: string }
+interface RecentSale {
+  id: string;
+  tx_no: number;
+  total_amount: number | string;
+  balance_after: number | string;
+  created_at: string;
+  status: string;
+  refunded_amount: number | string;
+  student_name: string;
+  student_class: string | null;
+  has_alarm: boolean;
+}
 
 const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -69,6 +82,41 @@ export default function KasiyerPanel() {
   const [seizeMode, setSeizeMode] = useState(false);
   const [seizeNote, setSeizeNote] = useState("");
   const [seizing, setSeizing] = useState(false);
+  const [recentOpen, setRecentOpen] = useState(false);
+  const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
+  const [recentLoading, setRecentLoading] = useState(false);
+  const [alarmFor, setAlarmFor] = useState<RecentSale | null>(null);
+  const [alarmReason, setAlarmReason] = useState("");
+  const [alarmSubmitting, setAlarmSubmitting] = useState(false);
+
+  const loadRecent = async () => {
+    setRecentLoading(true);
+    try {
+      const r = await callCashierApi<RecentSale[]>("recent_sales", { limit: 30 });
+      setRecentSales(r);
+    } catch (e: any) {
+      toast({ title: "Hata", description: e?.message, variant: "destructive" });
+    } finally { setRecentLoading(false); }
+  };
+
+  const submitAlarm = async () => {
+    if (!alarmFor) return;
+    setAlarmSubmitting(true);
+    try {
+      await callCashierApi("raise_alarm", {
+        transaction_id: alarmFor.id,
+        ...(alarmReason.trim() ? { reason: alarmReason.trim() } : {}),
+      });
+      toast({
+        title: "Alarm gönderildi",
+        description: `İşlem #${alarmFor.tx_no} yöneticiye iletildi.`,
+      });
+      setAlarmFor(null); setAlarmReason("");
+      await loadRecent();
+    } catch (e: any) {
+      toast({ title: "Hata", description: e?.message, variant: "destructive" });
+    } finally { setAlarmSubmitting(false); }
+  };
 
   // Auth gate
   useEffect(() => {
@@ -338,6 +386,14 @@ export default function KasiyerPanel() {
             <CircleDot className={cn("h-3 w-3", reader.status === "listening" && "animate-pulse")} />
             {reader.status === "listening" ? "Kart & barkod okuyucu hazır" : "Okuyucu kapalı"}
           </div>
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-11 rounded-xl border-border/60"
+            onClick={() => { setRecentOpen(true); loadRecent(); }}
+          >
+            <Receipt className="mr-2 h-4 w-4" /> Son İşlemler
+          </Button>
           <Button
             variant="outline"
             size="lg"
@@ -890,6 +946,101 @@ export default function KasiyerPanel() {
                 </Button>
               </>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recent transactions list */}
+      <Dialog open={recentOpen} onOpenChange={setRecentOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5" /> Son İşlemler
+            </DialogTitle>
+            <DialogDescription>
+              Yanlış bir satış varsa alarm düğmesine basarak yöneticinin incelemesi için bildirin.
+            </DialogDescription>
+          </DialogHeader>
+          {recentLoading ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">Yükleniyor…</div>
+          ) : recentSales.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">Henüz işlem yok.</div>
+          ) : (
+            <div className="divide-y rounded-lg border">
+              {recentSales.map((s) => (
+                <div key={s.id} className="flex items-center gap-3 p-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-sm font-bold">#{s.tx_no}</span>
+                      <span className="font-medium truncate">{s.student_name}</span>
+                      {s.student_class && (
+                        <span className="text-xs text-muted-foreground">{s.student_class}</span>
+                      )}
+                      {s.status === "refunded" && (
+                        <Badge variant="secondary">İade edildi</Badge>
+                      )}
+                      {Number(s.refunded_amount) > 0 && s.status !== "refunded" && (
+                        <Badge variant="secondary">Kısmi iade</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(s.created_at).toLocaleString("tr-TR")}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold">{fmt(Number(s.total_amount))} ₺</p>
+                  </div>
+                  {s.has_alarm ? (
+                    <Button size="sm" variant="ghost" disabled className="text-warning">
+                      <Bell className="h-4 w-4 mr-1 fill-current" /> Bildirildi
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setAlarmFor(s); setAlarmReason(""); }}
+                      className="text-warning border-warning/40 hover:bg-warning/10"
+                    >
+                      <Bell className="h-4 w-4 mr-1" /> Alarm
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Raise alarm dialog */}
+      <Dialog open={!!alarmFor} onOpenChange={(o) => { if (!o) { setAlarmFor(null); setAlarmReason(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-warning">
+              <Bell className="h-5 w-5" /> İşlem #{alarmFor?.tx_no} için alarm
+            </DialogTitle>
+            <DialogDescription>
+              {alarmFor?.student_name} • {fmt(Number(alarmFor?.total_amount ?? 0))} ₺.
+              Yönetici alarmı inceleyip gerekirse iade işlemini tamamlayacak.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Açıklama (opsiyonel)
+            </label>
+            <Textarea
+              value={alarmReason}
+              onChange={(e) => setAlarmReason(e.target.value.slice(0, 500))}
+              placeholder="Örn. Yanlış öğrenciye işlendi / fazla ürün eklendi / öğrenci almadı."
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAlarmFor(null)} disabled={alarmSubmitting}>
+              Vazgeç
+            </Button>
+            <Button onClick={submitAlarm} disabled={alarmSubmitting}>
+              {alarmSubmitting ? "Gönderiliyor…" : "Alarmı Gönder"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
