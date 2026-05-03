@@ -391,21 +391,55 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     );
     if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
 
+    // Sales (always shown as debit) UNION refunds (always shown as credit, separate row).
     const tx = await query(
-      `SELECT t.id, t.total_amount, t.balance_before, t.balance_after, t.created_at,
-              t.payment_method, t.status,
-              COALESCE(json_agg(json_build_object(
-                'product_name', ti.product_name,
-                'qty', ti.qty,
-                'unit_price', ti.unit_price,
-                'line_total', ti.line_total
-              ) ORDER BY ti.id) FILTER (WHERE ti.id IS NOT NULL), '[]'::json) AS items
-         FROM transactions t
-         LEFT JOIN transaction_items ti ON ti.transaction_id = t.id
-        WHERE t.student_id = $1
-        GROUP BY t.id
-        ORDER BY t.created_at DESC
-        LIMIT $2`,
+      `WITH sales AS (
+         SELECT t.id::text AS id,
+                'sale'::text AS kind,
+                t.total_amount, t.balance_before, t.balance_after, t.created_at,
+                t.payment_method, t.status,
+                COALESCE(json_agg(json_build_object(
+                  'product_name', ti.product_name,
+                  'qty', ti.qty,
+                  'unit_price', ti.unit_price,
+                  'line_total', ti.line_total
+                ) ORDER BY ti.id) FILTER (WHERE ti.id IS NOT NULL), '[]'::json) AS items
+           FROM transactions t
+           LEFT JOIN transaction_items ti ON ti.transaction_id = t.id
+          WHERE t.student_id = $1
+          GROUP BY t.id
+       ),
+       refunds AS (
+         SELECT r.id::text AS id,
+                'refund'::text AS kind,
+                r.amount AS total_amount,
+                r.balance_before, r.balance_after, r.created_at,
+                'refund'::text AS payment_method,
+                r.kind AS status,
+                COALESCE(json_agg(json_build_object(
+                  'product_name', ri.product_name,
+                  'qty', ri.qty,
+                  'unit_price', ri.unit_price,
+                  'line_total', ri.line_total
+                ) ORDER BY ri.id) FILTER (WHERE ri.id IS NOT NULL),
+                  json_build_array(json_build_object(
+                    'product_name', 'İade (#' || t.tx_no || ')',
+                    'qty', 1,
+                    'unit_price', r.amount,
+                    'line_total', r.amount
+                  ))
+                ) AS items
+           FROM transaction_refunds r
+           JOIN transactions t ON t.id = r.transaction_id
+           LEFT JOIN transaction_refund_items ri ON ri.refund_id = r.id
+          WHERE t.student_id = $1
+          GROUP BY r.id, t.tx_no
+       )
+       SELECT * FROM sales
+       UNION ALL
+       SELECT * FROM refunds
+       ORDER BY created_at DESC
+       LIMIT $2`,
       [p.student_id, p.limit],
     );
     return tx.rows;
