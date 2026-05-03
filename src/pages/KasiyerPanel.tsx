@@ -37,6 +37,18 @@ interface Student {
   photo_url?: string | null;
 }
 interface CartItem { product_id: string; name: string; price: number; qty: number; catColor: string }
+interface RecentSale {
+  id: string;
+  tx_no: number;
+  total_amount: number | string;
+  balance_after: number | string;
+  created_at: string;
+  status: string;
+  refunded_amount: number | string;
+  student_name: string;
+  student_class: string | null;
+  has_alarm: boolean;
+}
 
 const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
