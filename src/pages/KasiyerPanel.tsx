@@ -949,6 +949,101 @@ export default function KasiyerPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Recent transactions list */}
+      <Dialog open={recentOpen} onOpenChange={setRecentOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5" /> Son İşlemler
+            </DialogTitle>
+            <DialogDescription>
+              Yanlış bir satış varsa alarm düğmesine basarak yöneticinin incelemesi için bildirin.
+            </DialogDescription>
+          </DialogHeader>
+          {recentLoading ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">Yükleniyor…</div>
+          ) : recentSales.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">Henüz işlem yok.</div>
+          ) : (
+            <div className="divide-y rounded-lg border">
+              {recentSales.map((s) => (
+                <div key={s.id} className="flex items-center gap-3 p-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-sm font-bold">#{s.tx_no}</span>
+                      <span className="font-medium truncate">{s.student_name}</span>
+                      {s.student_class && (
+                        <span className="text-xs text-muted-foreground">{s.student_class}</span>
+                      )}
+                      {s.status === "refunded" && (
+                        <Badge variant="secondary">İade edildi</Badge>
+                      )}
+                      {Number(s.refunded_amount) > 0 && s.status !== "refunded" && (
+                        <Badge variant="secondary">Kısmi iade</Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(s.created_at).toLocaleString("tr-TR")}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold">{fmt(Number(s.total_amount))} ₺</p>
+                  </div>
+                  {s.has_alarm ? (
+                    <Button size="sm" variant="ghost" disabled className="text-warning">
+                      <Bell className="h-4 w-4 mr-1 fill-current" /> Bildirildi
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { setAlarmFor(s); setAlarmReason(""); }}
+                      className="text-warning border-warning/40 hover:bg-warning/10"
+                    >
+                      <Bell className="h-4 w-4 mr-1" /> Alarm
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Raise alarm dialog */}
+      <Dialog open={!!alarmFor} onOpenChange={(o) => { if (!o) { setAlarmFor(null); setAlarmReason(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-warning">
+              <Bell className="h-5 w-5" /> İşlem #{alarmFor?.tx_no} için alarm
+            </DialogTitle>
+            <DialogDescription>
+              {alarmFor?.student_name} • {fmt(Number(alarmFor?.total_amount ?? 0))} ₺.
+              Yönetici alarmı inceleyip gerekirse iade işlemini tamamlayacak.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Açıklama (opsiyonel)
+            </label>
+            <Textarea
+              value={alarmReason}
+              onChange={(e) => setAlarmReason(e.target.value.slice(0, 500))}
+              placeholder="Örn. Yanlış öğrenciye işlendi / fazla ürün eklendi / öğrenci almadı."
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAlarmFor(null)} disabled={alarmSubmitting}>
+              Vazgeç
+            </Button>
+            <Button onClick={submitAlarm} disabled={alarmSubmitting}>
+              {alarmSubmitting ? "Gönderiliyor…" : "Alarmı Gönder"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
