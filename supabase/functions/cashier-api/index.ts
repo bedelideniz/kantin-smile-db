@@ -428,7 +428,7 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       const tx = await client.query(
         `INSERT INTO transactions (school_id, cashier_id, student_id, total_amount, balance_before, balance_after, payment_method, status)
          VALUES ($1,$2,$3,$4,$5,$6,'balance','completed')
-         RETURNING id, created_at`,
+         RETURNING id, tx_no, created_at`,
         [ctx.schoolId, ctx.cashierId, student.id, total, balanceBefore, balanceAfter],
       );
       const txId = tx.rows[0].id;
