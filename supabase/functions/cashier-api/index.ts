@@ -453,6 +453,7 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
 
       return {
         transaction_id: txId,
+        tx_no: tx.rows[0].tx_no,
         created_at: tx.rows[0].created_at,
         student: { id: student.id, full_name: student.full_name },
         total_amount: total,
@@ -466,8 +467,9 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
   recent_sales: async (ctx, params) => {
     const p = z.object({ limit: z.number().int().min(1).max(50).default(10) }).parse(params ?? {});
     const r = await query(
-      `SELECT t.id, t.total_amount, t.balance_after, t.created_at,
-              s.full_name AS student_name, s.class_name AS student_class
+      `SELECT t.id, t.tx_no, t.total_amount, t.balance_after, t.created_at, t.status, t.refunded_amount,
+              s.full_name AS student_name, s.class_name AS student_class,
+              EXISTS(SELECT 1 FROM transaction_alarms a WHERE a.transaction_id = t.id) AS has_alarm
          FROM transactions t
          JOIN students s ON s.id = t.student_id
         WHERE t.cashier_id = $1
@@ -475,6 +477,30 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       [ctx.cashierId, p.limit],
     );
     return r.rows;
+  },
+  raise_alarm: async (ctx, params) => {
+    const p = z.object({
+      transaction_id: z.string().uuid(),
+      reason: z.string().trim().max(500).optional(),
+    }).parse(params);
+    const tr = await query<{ id: string }>(
+      "SELECT id FROM transactions WHERE id=$1 AND school_id=$2",
+      [p.transaction_id, ctx.schoolId],
+    );
+    if (tr.rowCount === 0) throw new HttpError(404, "İşlem bulunamadı");
+    const existing = await query<{ id: string }>(
+      "SELECT id FROM transaction_alarms WHERE transaction_id=$1 AND status='open'",
+      [p.transaction_id],
+    );
+    if (existing.rowCount > 0) {
+      return { id: existing.rows[0].id, already_open: true };
+    }
+    const r = await query<{ id: string }>(
+      `INSERT INTO transaction_alarms (transaction_id, school_id, cashier_id, reason)
+       VALUES ($1,$2,$3,$4) RETURNING id`,
+      [p.transaction_id, ctx.schoolId, ctx.cashierId, p.reason ?? null],
+    );
+    return { id: r.rows[0].id };
   },
 };
 
