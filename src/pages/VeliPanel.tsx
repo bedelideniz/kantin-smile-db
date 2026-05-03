@@ -25,6 +25,7 @@ interface TxItem { product_name: string; qty: number; unit_price: number; line_t
 interface Tx {
   id: string; total_amount: string | number; balance_before: string | number;
   balance_after: string | number; created_at: string; payment_method: string; status: string;
+  kind?: "sale" | "refund";
   items: TxItem[];
 }
 
@@ -346,12 +347,14 @@ export default function VeliPanel() {
                       </div>
                     </div>
                     <div className="text-right">
-                      {t.status === "refunded" ? (
+                      {t.kind === "refund" || t.status === "refunded" ? (
                         <>
                           <div className="rounded-lg bg-primary/10 px-2 py-1 font-bold tabular-nums text-primary">
                             +{fmtTL(t.total_amount)}
                           </div>
-                          <Badge className="mt-1 bg-primary text-primary-foreground text-[10px] hover:bg-primary">İADE</Badge>
+                          <Badge className="mt-1 bg-primary text-primary-foreground text-[10px] hover:bg-primary">
+                            {t.status === "partial" ? "KISMİ İADE" : "İADE"}
+                          </Badge>
                         </>
                       ) : (
                         <>
