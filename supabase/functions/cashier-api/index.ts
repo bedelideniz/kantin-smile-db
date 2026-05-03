@@ -426,11 +426,13 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       }
 
       // Insert transaction
+      const lookupAt = p.lookup_at ?? null;
+      const lookupDurationMs = lookupAt ? Math.max(0, Date.now() - new Date(lookupAt).getTime()) : null;
       const tx = await client.query(
-        `INSERT INTO transactions (school_id, cashier_id, student_id, total_amount, balance_before, balance_after, payment_method, status)
-         VALUES ($1,$2,$3,$4,$5,$6,'balance','completed')
+        `INSERT INTO transactions (school_id, cashier_id, student_id, total_amount, balance_before, balance_after, payment_method, status, student_lookup_at, lookup_duration_ms)
+         VALUES ($1,$2,$3,$4,$5,$6,'balance','completed',$7,$8)
          RETURNING id, tx_no, created_at`,
-        [ctx.schoolId, ctx.cashierId, student.id, total, balanceBefore, balanceAfter],
+        [ctx.schoolId, ctx.cashierId, student.id, total, balanceBefore, balanceAfter, lookupAt, lookupDurationMs],
       );
       const txId = tx.rows[0].id;
 
