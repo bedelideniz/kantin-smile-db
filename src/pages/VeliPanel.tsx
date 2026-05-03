@@ -346,11 +346,22 @@ export default function VeliPanel() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="rounded-lg bg-destructive/10 px-2 py-1 font-bold tabular-nums text-destructive">
-                        −{fmtTL(t.total_amount)}
-                      </div>
-                      {t.status !== "completed" && (
-                        <Badge variant="outline" className="mt-1 text-[10px]">{t.status}</Badge>
+                      {t.status === "refunded" ? (
+                        <>
+                          <div className="rounded-lg bg-primary/10 px-2 py-1 font-bold tabular-nums text-primary">
+                            +{fmtTL(t.total_amount)}
+                          </div>
+                          <Badge className="mt-1 bg-primary text-primary-foreground text-[10px] hover:bg-primary">İADE</Badge>
+                        </>
+                      ) : (
+                        <>
+                          <div className="rounded-lg bg-destructive/10 px-2 py-1 font-bold tabular-nums text-destructive">
+                            −{fmtTL(t.total_amount)}
+                          </div>
+                          {t.status !== "completed" && (
+                            <Badge variant="outline" className="mt-1 text-[10px]">{t.status}</Badge>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
