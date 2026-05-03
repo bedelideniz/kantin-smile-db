@@ -55,7 +55,9 @@ export default function SuperAdmin() {
     };
     poll();
     const id = setInterval(poll, 30_000);
-    return () => { cancelled = true; clearInterval(id); };
+    const onChange = () => poll();
+    window.addEventListener("alarms:changed", onChange);
+    return () => { cancelled = true; clearInterval(id); window.removeEventListener("alarms:changed", onChange); };
   }, [myModules]);
 
   if (loading || !user) {

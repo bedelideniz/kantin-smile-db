@@ -174,7 +174,13 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
   count_open_alarms: async (ctx) => {
     await requireModule(ctx.userId, "alarms");
     const r = await query<{ c: string }>(
-      "SELECT COUNT(*)::text AS c FROM transaction_alarms WHERE status='open'",
+      `SELECT COUNT(*)::text AS c
+         FROM transaction_alarms a
+         JOIN transactions t ON t.id = a.transaction_id
+         JOIN students s ON s.id = t.student_id
+         JOIN app_users u ON u.id = a.cashier_id
+         JOIN schools sch ON sch.id = a.school_id
+        WHERE a.status='open'`,
     );
     return { count: Number(r.rows[0]?.c ?? 0) };
   },
