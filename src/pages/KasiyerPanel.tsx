@@ -70,6 +70,41 @@ export default function KasiyerPanel() {
   const [seizeMode, setSeizeMode] = useState(false);
   const [seizeNote, setSeizeNote] = useState("");
   const [seizing, setSeizing] = useState(false);
+  const [recentOpen, setRecentOpen] = useState(false);
+  const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
+  const [recentLoading, setRecentLoading] = useState(false);
+  const [alarmFor, setAlarmFor] = useState<RecentSale | null>(null);
+  const [alarmReason, setAlarmReason] = useState("");
+  const [alarmSubmitting, setAlarmSubmitting] = useState(false);
+
+  const loadRecent = async () => {
+    setRecentLoading(true);
+    try {
+      const r = await callCashierApi<RecentSale[]>("recent_sales", { limit: 30 });
+      setRecentSales(r);
+    } catch (e: any) {
+      toast({ title: "Hata", description: e?.message, variant: "destructive" });
+    } finally { setRecentLoading(false); }
+  };
+
+  const submitAlarm = async () => {
+    if (!alarmFor) return;
+    setAlarmSubmitting(true);
+    try {
+      await callCashierApi("raise_alarm", {
+        transaction_id: alarmFor.id,
+        ...(alarmReason.trim() ? { reason: alarmReason.trim() } : {}),
+      });
+      toast({
+        title: "Alarm gönderildi",
+        description: `İşlem #${alarmFor.tx_no} yöneticiye iletildi.`,
+      });
+      setAlarmFor(null); setAlarmReason("");
+      await loadRecent();
+    } catch (e: any) {
+      toast({ title: "Hata", description: e?.message, variant: "destructive" });
+    } finally { setAlarmSubmitting(false); }
+  };
 
   // Auth gate
   useEffect(() => {
