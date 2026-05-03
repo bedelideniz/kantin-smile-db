@@ -323,6 +323,59 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
     });
   },
 
+  // ---------- transaction logs ----------
+  list_schools_for_logs: async (ctx) => {
+    await requireModule(ctx.userId, "logs");
+    const r = await query<{ id: string; name: string }>(
+      "SELECT id, name FROM schools ORDER BY name ASC",
+    );
+    return { schools: r.rows };
+  },
+  list_sale_logs: async (ctx, params) => {
+    await requireModule(ctx.userId, "logs");
+    const p = z.object({
+      school_id: z.string().uuid(),
+      search: z.string().trim().max(100).optional(),
+      from: z.string().datetime().optional(),
+      to: z.string().datetime().optional(),
+      limit: z.number().int().min(1).max(500).default(200),
+    }).parse(params);
+
+    const args: any[] = [p.school_id];
+    let where = "t.school_id = $1";
+    if (p.from) { args.push(p.from); where += ` AND t.created_at >= $${args.length}`; }
+    if (p.to)   { args.push(p.to);   where += ` AND t.created_at <= $${args.length}`; }
+    if (p.search) {
+      args.push(`%${p.search}%`);
+      const i = args.length;
+      const asNum = Number(p.search);
+      if (Number.isInteger(asNum) && asNum > 0) {
+        args.push(asNum);
+        where += ` AND (s.full_name ILIKE $${i} OR s.student_no ILIKE $${i} OR s.class_name ILIKE $${i} OR u.full_name ILIKE $${i} OR t.tx_no = $${args.length})`;
+      } else {
+        where += ` AND (s.full_name ILIKE $${i} OR s.student_no ILIKE $${i} OR s.class_name ILIKE $${i} OR u.full_name ILIKE $${i})`;
+      }
+    }
+    args.push(p.limit);
+
+    const r = await query(
+      `SELECT t.id, t.tx_no, t.total_amount, t.balance_before, t.balance_after,
+              t.refunded_amount, t.status, t.created_at,
+              t.student_lookup_at, t.lookup_duration_ms,
+              s.full_name AS student_name, s.class_name AS student_class, s.student_no,
+              u.full_name AS cashier_name,
+              EXISTS(SELECT 1 FROM transaction_alarms a WHERE a.transaction_id = t.id) AS has_alarm
+         FROM transactions t
+         JOIN students s ON s.id = t.student_id
+         JOIN app_users u ON u.id = t.cashier_id
+        WHERE ${where}
+        ORDER BY t.created_at DESC
+        LIMIT $${args.length}`,
+      args,
+    );
+    return { logs: r.rows };
+  },
+
   // Owner-only: report whether the calling user is the owner (no module grants)
   whoami: async (ctx) => {
     const owner = await isOwner(ctx.userId);
