@@ -129,7 +129,14 @@ export default function SuperAdmin() {
           <Tabs defaultValue={defaultTab} className="space-y-4">
             <TabsList className="flex-wrap h-auto">
               {visibleTabs.map((m) => (
-                <TabsTrigger key={m} value={m}>{MODULE_LABELS[m]}</TabsTrigger>
+                <TabsTrigger key={m} value={m} className="relative">
+                  {MODULE_LABELS[m]}
+                  {m === "alarms" && openAlarms > 0 && (
+                    <Badge className="ml-2 h-5 min-w-5 px-1.5 bg-destructive text-destructive-foreground hover:bg-destructive animate-pulse">
+                      {openAlarms}
+                    </Badge>
+                  )}
+                </TabsTrigger>
               ))}
             </TabsList>
 
