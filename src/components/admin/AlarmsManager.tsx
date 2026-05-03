@@ -148,7 +148,7 @@ export default function AlarmsManager() {
         <AlarmDetailDialog
           detail={selected}
           onClose={() => setSelected(null)}
-          onDone={() => { setSelected(null); load(); }}
+          onDone={() => { setSelected(null); load(); window.dispatchEvent(new Event("alarms:changed")); }}
         />
       )}
     </div>
