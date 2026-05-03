@@ -67,7 +67,12 @@ export default function KasiyerPanel() {
   const [loading, setLoading] = useState(true);
 
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [student, setStudent] = useState<Student | null>(null);
+  const [student, _setStudent] = useState<Student | null>(null);
+  const [lookupAt, setLookupAt] = useState<string | null>(null);
+  const setStudent = (s: Student | null) => {
+    _setStudent(s);
+    setLookupAt(s ? new Date().toISOString() : null);
+  };
 
   const [qrOpen, setQrOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
