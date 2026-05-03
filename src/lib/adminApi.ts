@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type AppModule =
   | "schools" | "students" | "marketers" | "splashes" | "donations"
-  | "payments" | "sms" | "infrastructure" | "alarms" | "staff";
+  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs";
 
 export const MODULE_LABELS: Record<AppModule, string> = {
   schools: "Okullar",
@@ -15,6 +15,7 @@ export const MODULE_LABELS: Record<AppModule, string> = {
   infrastructure: "Altyapı",
   alarms: "Alarmlar",
   staff: "Personel",
+  logs: "İşlem Logları",
 };
 
 export class AdminApiError extends Error {
