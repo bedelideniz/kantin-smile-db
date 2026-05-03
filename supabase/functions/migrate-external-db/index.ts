@@ -609,6 +609,17 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_refund_items_refund ON transaction_refund_items(refund_id);
     `,
   },
+  {
+    version: "0017_sale_timing_logs",
+    description: "Track student lookup time and sale duration for transaction logs",
+    sql: `
+      ALTER TABLE transactions
+        ADD COLUMN IF NOT EXISTS student_lookup_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS lookup_duration_ms INT;
+      CREATE INDEX IF NOT EXISTS idx_transactions_school_created
+        ON transactions(school_id, created_at DESC);
+    `,
+  },
 ];
 
 
