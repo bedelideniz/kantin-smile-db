@@ -327,6 +327,7 @@ export default function KasiyerPanel() {
       }>("create_sale", {
         student_id: student.id,
         items: cart.map((c) => ({ product_id: c.product_id, qty: c.qty })),
+        lookup_at: lookupAt ?? undefined,
       });
       toast({
         title: "✓ Satış tamamlandı",
