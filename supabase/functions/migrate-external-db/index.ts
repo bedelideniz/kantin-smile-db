@@ -545,6 +545,70 @@ const MIGRATIONS: Migration[] = [
       ALTER TABLE students ADD COLUMN IF NOT EXISTS card_seized_note TEXT;
     `,
   },
+  {
+    version: "0016_tx_no_and_alarms",
+    description: "Unique transaction numbers + alarm/refund tables for cashier-flagged sales",
+    sql: `
+      -- Human-readable, monotonic per-school transaction number
+      CREATE SEQUENCE IF NOT EXISTS transaction_no_seq;
+      ALTER TABLE transactions
+        ADD COLUMN IF NOT EXISTS tx_no BIGINT UNIQUE DEFAULT nextval('transaction_no_seq'),
+        ADD COLUMN IF NOT EXISTS refunded_amount NUMERIC(12,2) NOT NULL DEFAULT 0;
+
+      -- Backfill existing rows that may have NULL tx_no
+      UPDATE transactions SET tx_no = nextval('transaction_no_seq') WHERE tx_no IS NULL;
+      ALTER TABLE transactions ALTER COLUMN tx_no SET NOT NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_transactions_tx_no ON transactions(tx_no);
+
+      -- Alarms raised by the cashier on a specific transaction
+      CREATE TABLE IF NOT EXISTS transaction_alarms (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        transaction_id UUID NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        cashier_id UUID NOT NULL REFERENCES app_users(id),
+        reason TEXT,
+        status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved','rejected')),
+        resolved_at TIMESTAMPTZ,
+        resolved_by_admin UUID,    -- supabase auth user id of the staff who resolved
+        resolution_note TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_alarms_school_status ON transaction_alarms(school_id, status, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_alarms_status ON transaction_alarms(status, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_alarms_tx ON transaction_alarms(transaction_id);
+
+      -- Refund records (one transaction can have multiple partial refunds up to total)
+      CREATE TABLE IF NOT EXISTS transaction_refunds (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        transaction_id UUID NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+        alarm_id UUID REFERENCES transaction_alarms(id) ON DELETE SET NULL,
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        student_id UUID NOT NULL REFERENCES students(id),
+        amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+        kind TEXT NOT NULL CHECK (kind IN ('full','partial')),
+        balance_before NUMERIC(12,2) NOT NULL,
+        balance_after NUMERIC(12,2) NOT NULL,
+        refunded_by_admin UUID NOT NULL,
+        note TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_refunds_tx ON transaction_refunds(transaction_id);
+      CREATE INDEX IF NOT EXISTS idx_refunds_school_date ON transaction_refunds(school_id, created_at DESC);
+
+      -- Per-line refund detail (only used when kind='partial')
+      CREATE TABLE IF NOT EXISTS transaction_refund_items (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        refund_id UUID NOT NULL REFERENCES transaction_refunds(id) ON DELETE CASCADE,
+        transaction_item_id UUID NOT NULL REFERENCES transaction_items(id),
+        product_name TEXT NOT NULL,
+        unit_price NUMERIC(10,2) NOT NULL,
+        qty INT NOT NULL CHECK (qty > 0),
+        line_total NUMERIC(12,2) NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_refund_items_refund ON transaction_refund_items(refund_id);
+    `,
+  },
 ];
 
 
