@@ -31,6 +31,7 @@ export default function SuperAdmin() {
   const [running, setRunning] = useState(false);
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [myModules, setMyModules] = useState<AppModule[] | null>(null);
+  const [openAlarms, setOpenAlarms] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) navigate("/login", { replace: true });
@@ -42,6 +43,20 @@ export default function SuperAdmin() {
       .then((r) => setMyModules(r.modules))
       .catch(() => setMyModules([]));
   }, [user, hasRole]);
+
+  // Poll open alarms count every 30s for badge notification
+  useEffect(() => {
+    if (!myModules?.includes("alarms")) return;
+    let cancelled = false;
+    const poll = () => {
+      callAdminApi<{ count: number }>("count_open_alarms")
+        .then((r) => { if (!cancelled) setOpenAlarms(r.count); })
+        .catch(() => {});
+    };
+    poll();
+    const id = setInterval(poll, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [myModules]);
 
   if (loading || !user) {
     return <div className="flex min-h-screen items-center justify-center">Yükleniyor…</div>;
