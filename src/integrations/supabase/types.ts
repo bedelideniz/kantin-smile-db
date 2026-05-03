@@ -38,6 +38,27 @@ export type Database = {
         }
         Relationships: []
       }
+      super_admin_module_permissions: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          module: Database["public"]["Enums"]["app_module"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          module: Database["public"]["Enums"]["app_module"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          module?: Database["public"]["Enums"]["app_module"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -67,12 +88,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_my_modules: {
+        Args: never
+        Returns: {
+          module: Database["public"]["Enums"]["app_module"]
+        }[]
+      }
       get_my_roles: {
         Args: never
         Returns: {
           role: Database["public"]["Enums"]["app_role"]
           school_id: string
         }[]
+      }
+      has_module_permission: {
+        Args: {
+          _module: Database["public"]["Enums"]["app_module"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       has_role: {
         Args: {
@@ -83,6 +117,17 @@ export type Database = {
       }
     }
     Enums: {
+      app_module:
+        | "schools"
+        | "students"
+        | "marketers"
+        | "splashes"
+        | "donations"
+        | "payments"
+        | "sms"
+        | "infrastructure"
+        | "alarms"
+        | "staff"
       app_role:
         | "super_admin"
         | "school_admin"
@@ -216,6 +261,18 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_module: [
+        "schools",
+        "students",
+        "marketers",
+        "splashes",
+        "donations",
+        "payments",
+        "sms",
+        "infrastructure",
+        "alarms",
+        "staff",
+      ],
       app_role: [
         "super_admin",
         "school_admin",
