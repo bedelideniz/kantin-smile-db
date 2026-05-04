@@ -1147,6 +1147,7 @@ const SchoolInputSchema = z.object({
   min_topup_amount: z.number().nonnegative().default(50),
   commission_rate: z.number().min(0).max(1).default(0.05),
   commission_free_after_days: z.number().int().nonnegative().default(7),
+  payout_hold_days: z.number().int().min(0).max(60).default(1),
   is_active: z.boolean().default(true),
 });
 const SchoolUpdateSchema = SchoolInputSchema.extend({ id: z.string().uuid() });
