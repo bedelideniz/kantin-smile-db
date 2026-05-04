@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import Login from "./pages/Login.tsx";
 import SuperAdmin from "./pages/SuperAdmin.tsx";
+import Dashboard from "./pages/Dashboard.tsx";
 import YoneticiGiris from "./pages/YoneticiGiris.tsx";
 import YoneticiPanel from "./pages/YoneticiPanel.tsx";
 import KasiyerGiris from "./pages/KasiyerGiris.tsx";
@@ -33,6 +34,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/login" element={<Login />} />
           <Route path="/staff" element={<SuperAdmin />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/yonetici-giris" element={<YoneticiGiris />} />
           <Route path="/yonetici" element={<YoneticiPanel />} />
           <Route path="/kantin-giris" element={<KasiyerGiris />} />

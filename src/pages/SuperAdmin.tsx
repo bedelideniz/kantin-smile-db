@@ -22,7 +22,7 @@ import CanteenPayoutsManager from "@/components/admin/CanteenPayoutsManager";
 import { callAdminApi, MODULE_LABELS, type AppModule } from "@/lib/adminApi";
 
 const TAB_ORDER: AppModule[] = [
-  "schools","students","marketers","splashes","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
+  "dashboard","schools","students","marketers","splashes","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
 ];
 
 export default function SuperAdmin() {
@@ -143,6 +143,19 @@ export default function SuperAdmin() {
               ))}
             </TabsList>
 
+            {hasMod("dashboard") && (
+              <TabsContent value="dashboard">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>TV Dashboard</CardTitle>
+                    <CardDescription>Televizyonda sürekli açık tutmak için tam ekran canlı gösterge paneli.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button onClick={() => window.open("/dashboard", "_blank")}>Tam Ekran Aç</Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
             {hasMod("schools") && <TabsContent value="schools"><Card><CardContent className="pt-6"><SchoolsManager /></CardContent></Card></TabsContent>}
             {hasMod("students") && <TabsContent value="students"><StudentsBySchool /></TabsContent>}
             {hasMod("marketers") && <TabsContent value="marketers"><Card><CardContent className="pt-6"><MarketersManager /></CardContent></Card></TabsContent>}
