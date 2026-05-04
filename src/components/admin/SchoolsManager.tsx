@@ -127,7 +127,7 @@ export default function SchoolsManager() {
       admin_full_name: s.admin_full_name,
       admin_phone: s.admin_phone,
       min_topup_amount: String(s.min_topup_amount),
-      commission_rate: String(s.commission_rate),
+      commission_rate: String(+(Number(s.commission_rate) * 100).toFixed(4)),
       commission_free_after_days: String(s.commission_free_after_days),
       payout_hold_days: String(s.payout_hold_days ?? 1),
       is_active: s.is_active,
