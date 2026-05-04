@@ -77,7 +77,7 @@ export default function Dashboard() {
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <img src={logo} alt="KantinPay" className="h-14 w-auto drop-shadow-sm" />
+            <img src={logo} alt="KantinPay" className="h-20 w-auto drop-shadow-md" />
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Canlı Dashboard</h1>
               <p className="text-sm text-muted-foreground">Tüm okul/kantin bazlı toplam akış</p>
