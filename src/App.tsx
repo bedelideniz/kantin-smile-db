@@ -35,8 +35,8 @@ const App = () => (
           <Route path="/staff" element={<SuperAdmin />} />
           <Route path="/yonetici-giris" element={<YoneticiGiris />} />
           <Route path="/yonetici" element={<YoneticiPanel />} />
-          <Route path="/kasiyer-giris" element={<KasiyerGiris />} />
-          <Route path="/kasiyer" element={<KasiyerPanel />} />
+          <Route path="/kantin-giris" element={<KasiyerGiris />} />
+          <Route path="/kantin" element={<KasiyerPanel />} />
           <Route path="/veli-giris" element={<VeliGiris />} />
           <Route path="/veli" element={<VeliPanel />} />
           <Route path="/veli/yasaklilar" element={<VeliYasaklilar />} />
