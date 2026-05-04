@@ -17,7 +17,7 @@ export default function KasiyerGiris() {
 
   // If already logged in, jump to POS.
   useEffect(() => {
-    if (getCashierSession()) navigate("/kasiyer", { replace: true });
+    if (getCashierSession()) navigate("/kantin", { replace: true });
   }, [navigate]);
 
   const submit = async (e?: React.FormEvent) => {
@@ -31,7 +31,7 @@ export default function KasiyerGiris() {
       const session = await callCashierApi<CashierSession>("login", { phone, pin });
       saveCashierSession(session);
       toast({ title: "Giriş başarılı", description: `Hoş geldiniz ${session.cashier.full_name}` });
-      navigate("/kasiyer", { replace: true });
+      navigate("/kantin", { replace: true });
     } catch (err: any) {
       toast({ title: "Giriş başarısız", description: err?.message ?? "Bilinmeyen hata", variant: "destructive" });
       setPin("");

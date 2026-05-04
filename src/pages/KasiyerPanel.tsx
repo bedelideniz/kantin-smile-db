@@ -125,7 +125,7 @@ export default function KasiyerPanel() {
 
   // Auth gate
   useEffect(() => {
-    if (!session) navigate("/kasiyer-giris", { replace: true });
+    if (!session) navigate("/kantin-giris", { replace: true });
   }, [session, navigate]);
 
   // Live clock
@@ -147,7 +147,7 @@ export default function KasiyerPanel() {
         setProducts(prods);
       } catch (e: any) {
         toast({ title: "Yükleme hatası", description: e?.message, variant: "destructive" });
-        if (e?.status === 401) navigate("/kasiyer-giris", { replace: true });
+        if (e?.status === 401) navigate("/kantin-giris", { replace: true });
       } finally {
         setLoading(false);
       }
@@ -356,7 +356,7 @@ export default function KasiyerPanel() {
   const logout = async () => {
     try { await callCashierApi("logout"); } catch { /* ignore */ }
     clearCashierSession();
-    navigate("/kasiyer-giris", { replace: true });
+    navigate("/kantin-giris", { replace: true });
   };
 
   if (!session) return null;
