@@ -389,6 +389,175 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
     return { logs: r.rows };
   },
 
+  // ---------- canteen payouts ----------
+  // Recompute (upsert) daily payout rows from transactions for a given school
+  // and date range. Idempotent. Excludes refunded amounts. Snapshots
+  // commission_rate and payout_hold_days from the school at time of compute.
+  recompute_canteen_payouts: async (ctx, params) => {
+    await requireModule(ctx.userId, "payouts");
+    const p = z.object({
+      school_id: z.string().uuid().optional(),
+      from: z.string().optional(), // YYYY-MM-DD
+      to: z.string().optional(),   // YYYY-MM-DD (inclusive)
+    }).parse(params ?? {});
+    const args: any[] = [];
+    let where = "1=1";
+    if (p.school_id) { args.push(p.school_id); where += ` AND s.id = $${args.length}`; }
+    if (p.from)      { args.push(p.from);      where += ` AND (t.created_at AT TIME ZONE 'Europe/Istanbul')::date >= $${args.length}::date`; }
+    if (p.to)        { args.push(p.to);        where += ` AND (t.created_at AT TIME ZONE 'Europe/Istanbul')::date <= $${args.length}::date`; }
+
+    // Aggregate per (school, sale_date in Europe/Istanbul)
+    const sql = `
+      WITH agg AS (
+        SELECT
+          s.id  AS school_id,
+          s.commission_rate,
+          s.payout_hold_days,
+          (t.created_at AT TIME ZONE 'Europe/Istanbul')::date AS sale_date,
+          COALESCE(SUM(t.total_amount),0)    AS gross,
+          COALESCE(SUM(t.refunded_amount),0) AS refunded
+        FROM transactions t
+        JOIN schools s ON s.id = t.school_id
+        WHERE ${where}
+        GROUP BY s.id, s.commission_rate, s.payout_hold_days, sale_date
+      )
+      INSERT INTO canteen_payouts
+        (school_id, sale_date, gross_amount, refunded_amount, net_sales,
+         commission_rate, commission_amount, payout_amount, hold_days, payable_at, status)
+      SELECT
+        a.school_id, a.sale_date, a.gross, a.refunded, (a.gross - a.refunded),
+        a.commission_rate,
+        ROUND((a.gross - a.refunded) * a.commission_rate, 2),
+        ROUND((a.gross - a.refunded) - ((a.gross - a.refunded) * a.commission_rate), 2),
+        a.payout_hold_days,
+        ((a.sale_date + (a.payout_hold_days || ' days')::interval)::timestamp AT TIME ZONE 'Europe/Istanbul')
+          + interval '1 minute',
+        CASE WHEN now() >= ((a.sale_date + (a.payout_hold_days || ' days')::interval)::timestamp AT TIME ZONE 'Europe/Istanbul') + interval '1 minute'
+             THEN 'payable' ELSE 'pending' END
+      FROM agg a
+      ON CONFLICT (school_id, sale_date) DO UPDATE SET
+        gross_amount      = EXCLUDED.gross_amount,
+        refunded_amount   = EXCLUDED.refunded_amount,
+        net_sales         = EXCLUDED.net_sales,
+        commission_rate   = EXCLUDED.commission_rate,
+        commission_amount = EXCLUDED.commission_amount,
+        payout_amount     = EXCLUDED.payout_amount,
+        hold_days         = EXCLUDED.hold_days,
+        payable_at        = EXCLUDED.payable_at,
+        status            = CASE
+          WHEN canteen_payouts.status = 'paid' THEN 'paid'
+          WHEN canteen_payouts.status = 'cancelled' THEN 'cancelled'
+          ELSE EXCLUDED.status
+        END,
+        updated_at        = now()
+      RETURNING school_id, sale_date
+    `;
+    const r = await query(sql, args);
+
+    // Also bump any pending rows whose payable_at has arrived to 'payable'
+    await query(
+      `UPDATE canteen_payouts
+          SET status='payable', updated_at=now()
+        WHERE status='pending' AND now() >= payable_at`,
+    );
+    return { upserted: r.rowCount };
+  },
+
+  list_canteen_payouts: async (ctx, params) => {
+    await requireModule(ctx.userId, "payouts");
+    const p = z.object({
+      school_id: z.string().uuid().optional(),
+      status: z.enum(["pending","payable","paid","cancelled","all","unpaid"]).default("unpaid"),
+      from: z.string().optional(),
+      to: z.string().optional(),
+      limit: z.number().int().min(1).max(1000).default(500),
+    }).parse(params ?? {});
+
+    // Auto-promote pending->payable on read
+    await query(
+      `UPDATE canteen_payouts
+          SET status='payable', updated_at=now()
+        WHERE status='pending' AND now() >= payable_at`,
+    );
+
+    const args: any[] = [];
+    let where = "1=1";
+    if (p.school_id) { args.push(p.school_id); where += ` AND cp.school_id = $${args.length}`; }
+    if (p.status === "unpaid")      where += ` AND cp.status IN ('pending','payable')`;
+    else if (p.status !== "all")    { args.push(p.status); where += ` AND cp.status = $${args.length}`; }
+    if (p.from) { args.push(p.from); where += ` AND cp.sale_date >= $${args.length}::date`; }
+    if (p.to)   { args.push(p.to);   where += ` AND cp.sale_date <= $${args.length}::date`; }
+    args.push(p.limit);
+
+    const r = await query(
+      `SELECT cp.id, cp.school_id, sch.name AS school_name,
+              cp.sale_date, cp.gross_amount, cp.refunded_amount, cp.net_sales,
+              cp.commission_rate, cp.commission_amount, cp.payout_amount,
+              cp.hold_days, cp.payable_at, cp.status, cp.paid_at, cp.paid_reference, cp.note
+         FROM canteen_payouts cp
+         JOIN schools sch ON sch.id = cp.school_id
+        WHERE ${where}
+        ORDER BY cp.sale_date DESC, sch.name ASC
+        LIMIT $${args.length}`,
+      args,
+    );
+
+    // Summary totals over current filter
+    const sumArgs = args.slice(0, -1);
+    const sumR = await query<any>(
+      `SELECT
+          COALESCE(SUM(CASE WHEN cp.status='payable' THEN cp.payout_amount ELSE 0 END),0)::text AS payable_total,
+          COALESCE(SUM(CASE WHEN cp.status='pending' THEN cp.payout_amount ELSE 0 END),0)::text AS pending_total,
+          COALESCE(SUM(CASE WHEN cp.status='paid'    THEN cp.payout_amount ELSE 0 END),0)::text AS paid_total,
+          COALESCE(SUM(cp.commission_amount),0)::text AS commission_total
+         FROM canteen_payouts cp
+         JOIN schools sch ON sch.id = cp.school_id
+        WHERE ${where}`,
+      sumArgs,
+    );
+    return { rows: r.rows, summary: sumR.rows[0] };
+  },
+
+  mark_canteen_payout_paid: async (ctx, params) => {
+    await requireModule(ctx.userId, "payouts");
+    const p = z.object({
+      id: z.string().uuid(),
+      reference: z.string().trim().max(200).optional(),
+      note: z.string().trim().max(500).optional(),
+    }).parse(params);
+    const r = await query(
+      `UPDATE canteen_payouts
+          SET status='paid', paid_at=now(), paid_by=$2, paid_reference=$3, note=COALESCE($4, note), updated_at=now()
+        WHERE id=$1 AND status IN ('pending','payable')`,
+      [p.id, ctx.userId, p.reference ?? null, p.note ?? null],
+    );
+    if (r.rowCount === 0) throw new HttpError(409, "Bu satır zaten ödenmiş veya iptal edilmiş");
+    return { ok: true };
+  },
+
+  mark_canteen_payout_unpaid: async (ctx, params) => {
+    await requireModule(ctx.userId, "payouts");
+    const p = z.object({ id: z.string().uuid() }).parse(params);
+    const r = await query(
+      `UPDATE canteen_payouts
+          SET status = CASE WHEN now() >= payable_at THEN 'payable' ELSE 'pending' END,
+              paid_at=NULL, paid_by=NULL, paid_reference=NULL, updated_at=now()
+        WHERE id=$1 AND status='paid'`,
+      [p.id],
+    );
+    if (r.rowCount === 0) throw new HttpError(409, "Satır ödenmiş değil");
+    return { ok: true };
+  },
+
+  list_payout_schools: async (ctx) => {
+    await requireModule(ctx.userId, "payouts");
+    const r = await query(
+      `SELECT id, name, commission_rate, payout_hold_days
+         FROM schools WHERE is_active = TRUE ORDER BY name ASC`,
+    );
+    return { schools: r.rows };
+  },
+
   // Owner-only: report whether the calling user is the owner (no module grants)
   whoami: async (ctx) => {
     const owner = await isOwner(ctx.userId);
