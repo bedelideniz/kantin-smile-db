@@ -16,7 +16,7 @@ import {
   clearCashierSession,
   getCashierSession,
 } from "@/lib/cashierApi";
-import { QrScannerDialog } from "@/components/kantin/QrScannerDialog";
+import { QrScannerDialog } from "@/components/kasiyer/QrScannerDialog";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
