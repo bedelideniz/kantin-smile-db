@@ -158,6 +158,7 @@ export default function SuperAdmin() {
               </TabsContent>
             )}
             {hasMod("alarms") && <TabsContent value="alarms"><AlarmsManager /></TabsContent>}
+            {hasMod("payouts") && <TabsContent value="payouts"><CanteenPayoutsManager /></TabsContent>}
             {hasMod("logs") && <TabsContent value="logs"><SaleLogsManager /></TabsContent>}
             {hasMod("staff") && <TabsContent value="staff"><StaffManager /></TabsContent>}
             {hasMod("infrastructure") && (
