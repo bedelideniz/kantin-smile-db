@@ -44,6 +44,7 @@ interface School {
   min_topup_amount: number | string;
   commission_rate: number | string;
   commission_free_after_days: number;
+  payout_hold_days: number;
   is_active: boolean;
   created_at: string;
 }
@@ -58,6 +59,7 @@ interface FormState {
   min_topup_amount: string;
   commission_rate: string;
   commission_free_after_days: string;
+  payout_hold_days: string;
   is_active: boolean;
 }
 
@@ -70,6 +72,7 @@ const emptyForm: FormState = {
   min_topup_amount: "50",
   commission_rate: "0.05",
   commission_free_after_days: "7",
+  payout_hold_days: "1",
   is_active: true,
 };
 
