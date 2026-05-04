@@ -25,7 +25,7 @@ const HANDLERS: Record<string, Handler> = {
   list_schools: async (ctx) => {
     requireSuperAdmin(ctx);
     const r = await query(
-      "SELECT id, name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, is_active, created_at FROM schools ORDER BY created_at DESC",
+      "SELECT id, name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, payout_hold_days, is_active, created_at FROM schools ORDER BY created_at DESC",
     );
     return r.rows;
   },
@@ -34,13 +34,12 @@ const HANDLERS: Record<string, Handler> = {
     const p = SchoolInputSchema.parse(params);
     const school = await withTransaction(async (client) => {
       const ins = await client.query(
-        `INSERT INTO schools (name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, is_active)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-         RETURNING id, name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, is_active, created_at`,
-        [p.name, p.province ?? null, p.district ?? null, p.admin_full_name, p.admin_phone, p.min_topup_amount, p.commission_rate, p.commission_free_after_days, p.is_active],
+        `INSERT INTO schools (name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, payout_hold_days, is_active)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         RETURNING id, name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, payout_hold_days, is_active, created_at`,
+        [p.name, p.province ?? null, p.district ?? null, p.admin_full_name, p.admin_phone, p.min_topup_amount, p.commission_rate, p.commission_free_after_days, p.payout_hold_days, p.is_active],
       );
       const s = ins.rows[0];
-      // Create / upsert school_admin user record (OTP-only login).
       await client.query(
         `INSERT INTO app_users (school_id, full_name, phone, role, is_active)
          VALUES ($1,$2,$3,'school_admin',TRUE)
@@ -51,7 +50,6 @@ const HANDLERS: Record<string, Handler> = {
       return s;
     });
 
-    // Generate OTP, store it, and send welcome SMS (non-blocking on failure).
     let smsResult: { ok: boolean; status: string } = { ok: false, status: "skipped" };
     try {
       const code = generateOtp();
@@ -73,13 +71,12 @@ const HANDLERS: Record<string, Handler> = {
     const p = SchoolUpdateSchema.parse(params);
     const r = await query(
       `UPDATE schools SET name=$2, province=$3, district=$4, admin_full_name=$5, admin_phone=$6,
-         min_topup_amount=$7, commission_rate=$8, commission_free_after_days=$9, is_active=$10, updated_at=now()
+         min_topup_amount=$7, commission_rate=$8, commission_free_after_days=$9, payout_hold_days=$10, is_active=$11, updated_at=now()
        WHERE id=$1
-       RETURNING id, name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, is_active, created_at`,
-      [p.id, p.name, p.province ?? null, p.district ?? null, p.admin_full_name, p.admin_phone, p.min_topup_amount, p.commission_rate, p.commission_free_after_days, p.is_active],
+       RETURNING id, name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, payout_hold_days, is_active, created_at`,
+      [p.id, p.name, p.province ?? null, p.district ?? null, p.admin_full_name, p.admin_phone, p.min_topup_amount, p.commission_rate, p.commission_free_after_days, p.payout_hold_days, p.is_active],
     );
     if (r.rowCount === 0) throw new HttpError(404, "Okul bulunamadı");
-    // Keep the school_admin user in sync (name/phone may have changed).
     await query(
       `INSERT INTO app_users (school_id, full_name, phone, role, is_active)
        VALUES ($1,$2,$3,'school_admin',TRUE)
