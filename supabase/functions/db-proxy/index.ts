@@ -518,6 +518,13 @@ const HANDLERS: Record<string, Handler> = {
         "UPDATE students SET balance=$1, updated_at=now() WHERE id=$2",
         [after, p.id],
       );
+      if (p.delta > 0) {
+        await client.query(
+          `INSERT INTO wallet_topups (school_id, student_id, amount, source, created_by)
+           VALUES ($1,$2,$3,'admin',$4)`,
+          [schoolId, p.id, p.delta, (ctx as any).userId ?? null],
+        );
+      }
       return { id: p.id, balance_before: before, balance_after: after };
     });
   },
