@@ -75,13 +75,13 @@ export default function Dashboard() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <img src={logo} alt="KantinPay" className="h-20 w-auto drop-shadow-md" />
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Canlı Dashboard</h1>
-              <p className="text-sm text-muted-foreground">Tüm okul/kantin bazlı toplam akış</p>
-            </div>
+        <header className="grid grid-cols-3 items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Canlı Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Tüm okul/kantin bazlı toplam akış</p>
+          </div>
+          <div className="flex justify-center">
+            <img src={logo} alt="KantinPay" className="h-32 w-auto drop-shadow-md" />
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold tabular-nums">{now.toLocaleTimeString("tr-TR")}</div>
