@@ -620,6 +620,41 @@ const MIGRATIONS: Migration[] = [
         ON transactions(school_id, created_at DESC);
     `,
   },
+  {
+    version: "0018_canteen_payouts",
+    description: "Per-school payout hold days + canteen_payouts table to track daily net payouts owed to canteen.",
+    sql: `
+      -- Number of calendar days a sale is held before becoming payable to the canteen.
+      -- 0 = next day (00:01 the day after sale), 7 = a week later, etc.
+      ALTER TABLE schools
+        ADD COLUMN IF NOT EXISTS payout_hold_days INT NOT NULL DEFAULT 1;
+
+      -- One row per school per sale-day. Aggregated nightly (or on-demand) from transactions.
+      CREATE TABLE IF NOT EXISTS canteen_payouts (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        sale_date DATE NOT NULL,
+        gross_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        refunded_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        net_sales NUMERIC(14,2) NOT NULL DEFAULT 0,    -- gross - refunded
+        commission_rate NUMERIC(5,4) NOT NULL,         -- snapshotted from school
+        commission_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
+        payout_amount NUMERIC(14,2) NOT NULL DEFAULT 0, -- net_sales - commission_amount
+        hold_days INT NOT NULL,                         -- snapshotted from school
+        payable_at TIMESTAMPTZ NOT NULL,                -- sale_date + hold_days @ 00:01
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','payable','paid','cancelled')),
+        paid_at TIMESTAMPTZ,
+        paid_by UUID,
+        paid_reference TEXT,
+        note TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (school_id, sale_date)
+      );
+      CREATE INDEX IF NOT EXISTS idx_cpayouts_school_date ON canteen_payouts(school_id, sale_date DESC);
+      CREATE INDEX IF NOT EXISTS idx_cpayouts_status ON canteen_payouts(status, payable_at);
+    `,
+  },
 ];
 
 
