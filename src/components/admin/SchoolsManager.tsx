@@ -145,7 +145,7 @@ export default function SchoolsManager() {
         admin_full_name: form.admin_full_name.trim(),
         admin_phone: form.admin_phone.trim(),
         min_topup_amount: Number(form.min_topup_amount),
-        commission_rate: Number(form.commission_rate),
+        commission_rate: +(Number(form.commission_rate) / 100).toFixed(6),
         commission_free_after_days: Number(form.commission_free_after_days),
         payout_hold_days: Number(form.payout_hold_days),
         is_active: form.is_active,
