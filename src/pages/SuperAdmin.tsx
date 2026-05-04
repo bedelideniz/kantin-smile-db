@@ -143,6 +143,19 @@ export default function SuperAdmin() {
               ))}
             </TabsList>
 
+            {hasMod("dashboard") && (
+              <TabsContent value="dashboard">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>TV Dashboard</CardTitle>
+                    <CardDescription>Televizyonda sürekli açık tutmak için tam ekran canlı gösterge paneli.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button onClick={() => window.open("/dashboard", "_blank")}>Tam Ekran Aç</Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            )}
             {hasMod("schools") && <TabsContent value="schools"><Card><CardContent className="pt-6"><SchoolsManager /></CardContent></Card></TabsContent>}
             {hasMod("students") && <TabsContent value="students"><StudentsBySchool /></TabsContent>}
             {hasMod("marketers") && <TabsContent value="marketers"><Card><CardContent className="pt-6"><MarketersManager /></CardContent></Card></TabsContent>}
