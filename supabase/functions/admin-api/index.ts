@@ -623,6 +623,20 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
     return r.rows[0]?.payload ?? {};
   },
 
+  recent_topups: async (ctx, params) => {
+    await requireModule(ctx.userId, "dashboard");
+    const limit = Math.min(Math.max(Number(params?.limit ?? 30), 1), 100);
+    const r = await query<{ id: string; school_name: string; amount: string; created_at: string }>(
+      `SELECT t.id, s.name AS school_name, t.amount, t.created_at
+         FROM wallet_topups t
+         JOIN schools s ON s.id = t.school_id
+        ORDER BY t.created_at DESC
+        LIMIT $1`,
+      [limit],
+    );
+    return { topups: r.rows };
+  },
+
   // Owner-only: report whether the calling user is the owner (no module grants)
   whoami: async (ctx) => {
     const owner = await isOwner(ctx.userId);
