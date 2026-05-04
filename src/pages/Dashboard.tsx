@@ -57,6 +57,11 @@ export default function Dashboard() {
   }, [loading, user, navigate]);
 
   useEffect(() => {
+    const clk = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(clk);
+  }, []);
+
+  useEffect(() => {
     if (!user || !hasRole("super_admin")) return;
     let cancelled = false;
     const load = () => {
@@ -66,8 +71,7 @@ export default function Dashboard() {
     };
     load();
     const id = setInterval(load, 30_000);
-    const clk = setInterval(() => setNow(new Date()), 1000);
-    return () => { cancelled = true; clearInterval(id); clearInterval(clk); };
+    return () => { cancelled = true; clearInterval(id); };
   }, [user, hasRole]);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center">Yükleniyor…</div>;
