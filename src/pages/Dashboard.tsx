@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { callAdminApi } from "@/lib/adminApi";
 import { Skeleton } from "@/components/ui/skeleton";
+import logo from "@/assets/kantinpay-logo.png";
 
 type Bucket = { today: number; week: number; month: number; total: number };
 type Stats = {
