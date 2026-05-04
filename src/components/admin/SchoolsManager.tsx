@@ -147,6 +147,7 @@ export default function SchoolsManager() {
         min_topup_amount: Number(form.min_topup_amount),
         commission_rate: Number(form.commission_rate),
         commission_free_after_days: Number(form.commission_free_after_days),
+        payout_hold_days: Number(form.payout_hold_days),
         is_active: form.is_active,
       };
       if (form.id) {
