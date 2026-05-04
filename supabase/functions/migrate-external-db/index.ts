@@ -655,6 +655,24 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_cpayouts_status ON canteen_payouts(status, payable_at);
     `,
   },
+  {
+    version: "0019_wallet_topups",
+    description: "Track every parent wallet top-up (balance increase) for dashboard reporting.",
+    sql: `
+      CREATE TABLE IF NOT EXISTS wallet_topups (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+        source TEXT NOT NULL DEFAULT 'admin' CHECK (source IN ('admin','parent','online','manual')),
+        created_by UUID,
+        note TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_wallet_topups_school_date ON wallet_topups(school_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_wallet_topups_student ON wallet_topups(student_id, created_at DESC);
+    `,
+  },
 ];
 
 
