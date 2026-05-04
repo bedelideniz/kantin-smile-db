@@ -81,7 +81,7 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground">Tüm okul/kantin bazlı toplam akış</p>
           </div>
           <div className="flex justify-center">
-            <img src={logo} alt="KantinPay" className="h-32 w-auto drop-shadow-md" />
+            <img src={logo} alt="KantinPay" className="h-64 w-auto drop-shadow-md" />
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold tabular-nums">{now.toLocaleTimeString("tr-TR")}</div>
