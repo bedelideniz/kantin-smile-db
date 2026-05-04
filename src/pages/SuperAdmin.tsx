@@ -22,7 +22,7 @@ import CanteenPayoutsManager from "@/components/admin/CanteenPayoutsManager";
 import { callAdminApi, MODULE_LABELS, type AppModule } from "@/lib/adminApi";
 
 const TAB_ORDER: AppModule[] = [
-  "schools","students","marketers","splashes","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
+  "dashboard","schools","students","marketers","splashes","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
 ];
 
 export default function SuperAdmin() {
