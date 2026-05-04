@@ -389,6 +389,19 @@ export default function SchoolsManager() {
                 }
               />
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="payout_hold_days">Kantin Ödeme Blokesi (gün)</Label>
+              <Input
+                id="payout_hold_days"
+                type="number"
+                min={0}
+                value={form.payout_hold_days}
+                onChange={(e) => setForm({ ...form, payout_hold_days: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = ertesi gün, 7 = bir hafta sonra
+              </p>
+            </div>
             <div className="flex items-center gap-3 sm:col-span-2">
               <Switch
                 id="is_active"
