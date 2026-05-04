@@ -558,6 +558,75 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
     return { schools: r.rows };
   },
 
+  // ---------- TV Dashboard ----------
+  dashboard_stats: async (ctx) => {
+    await requireModule(ctx.userId, "dashboard");
+    const sql = `
+      WITH ranges AS (
+        SELECT
+          (now() AT TIME ZONE 'Europe/Istanbul')::date AS today,
+          ((now() AT TIME ZONE 'Europe/Istanbul')::date - interval '6 days')::date AS d7,
+          ((now() AT TIME ZONE 'Europe/Istanbul')::date - interval '29 days')::date AS d30
+      ),
+      tu AS (
+        SELECT
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date = (SELECT today FROM ranges) THEN amount END),0) AS d,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d7    FROM ranges) THEN amount END),0) AS w,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d30   FROM ranges) THEN amount END),0) AS m,
+          COALESCE(SUM(amount),0) AS t
+        FROM wallet_topups
+      ),
+      cp AS (
+        SELECT
+          COALESCE(SUM(CASE WHEN (paid_at AT TIME ZONE 'Europe/Istanbul')::date = (SELECT today FROM ranges) THEN payout_amount END),0) AS d,
+          COALESCE(SUM(CASE WHEN (paid_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d7    FROM ranges) THEN payout_amount END),0) AS w,
+          COALESCE(SUM(CASE WHEN (paid_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d30   FROM ranges) THEN payout_amount END),0) AS m,
+          COALESCE(SUM(payout_amount),0) AS t,
+          COALESCE(SUM(CASE WHEN status IN ('pending','payable') THEN payout_amount END),0) AS owed
+        FROM canteen_payouts WHERE status='paid' OR status IN ('pending','payable')
+      ),
+      dn AS (
+        SELECT
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date = (SELECT today FROM ranges) THEN amount END),0) AS d,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d7    FROM ranges) THEN amount END),0) AS w,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d30   FROM ranges) THEN amount END),0) AS m,
+          COALESCE(SUM(amount),0) AS t
+        FROM donations WHERE status='completed'
+      ),
+      dd AS (
+        SELECT
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date = (SELECT today FROM ranges) THEN amount END),0) AS d,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d7    FROM ranges) THEN amount END),0) AS w,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d30   FROM ranges) THEN amount END),0) AS m,
+          COALESCE(SUM(amount),0) AS t
+        FROM donation_distributions
+      ),
+      bal AS (
+        SELECT COALESCE(SUM(balance),0) AS student_balances FROM students
+      ),
+      pool AS (
+        SELECT COALESCE(SUM(balance),0) AS pool_balances FROM school_donation_pools
+      ),
+      payouts_owed AS (
+        SELECT COALESCE(SUM(payout_amount),0) AS owed
+        FROM canteen_payouts WHERE status IN ('pending','payable')
+      )
+      SELECT
+        json_build_object(
+          'topups',     json_build_object('today',tu.d,'week',tu.w,'month',tu.m,'total',tu.t),
+          'payouts',    json_build_object('today',cp.d,'week',cp.w,'month',cp.m,'total',cp.t,'owed',payouts_owed.owed),
+          'donations',  json_build_object('today',dn.d,'week',dn.w,'month',dn.m,'total',dn.t),
+          'distributions', json_build_object('today',dd.d,'week',dd.w,'month',dd.m,'total',dd.t),
+          'pool_balance', bal.student_balances + pool.pool_balances,
+          'student_balances', bal.student_balances,
+          'donation_pool_balances', pool.pool_balances
+        ) AS payload
+      FROM tu, cp, dn, dd, bal, pool, payouts_owed
+    `;
+    const r = await query<{ payload: any }>(sql);
+    return r.rows[0]?.payload ?? {};
+  },
+
   // Owner-only: report whether the calling user is the owner (no module grants)
   whoami: async (ctx) => {
     const owner = await isOwner(ctx.userId);
