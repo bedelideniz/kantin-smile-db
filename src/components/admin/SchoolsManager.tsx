@@ -366,16 +366,18 @@ export default function SchoolsManager() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="commission_rate">Komisyon Oranı (0-1)</Label>
+              <Label htmlFor="commission_rate">Komisyon Oranı (%)</Label>
               <Input
                 id="commission_rate"
                 type="number"
-                step="0.0001"
+                step="0.01"
+                min={0}
+                max={100}
                 value={form.commission_rate}
                 onChange={(e) => setForm({ ...form, commission_rate: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                Örn. 0.05 = %5
+                Yüzde olarak girin. Örn. 5 = %5
               </p>
             </div>
             <div className="space-y-1.5">
