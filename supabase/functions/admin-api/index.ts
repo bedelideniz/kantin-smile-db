@@ -617,7 +617,7 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
           'payouts',    json_build_object('today',cp.d,'week',cp.w,'month',cp.m,'total',cp.t,'owed',payouts_owed.owed),
           'donations',  json_build_object('today',dn.d,'week',dn.w,'month',dn.m,'total',dn.t),
           'distributions', json_build_object('today',dd.d,'week',dd.w,'month',dd.m,'total',dd.t),
-          'pool_balance', bal.student_balances + pool.pool_balances,
+          'pool_balance', (tu.t - cp.t),
           'student_balances', bal.student_balances,
           'donation_pool_balances', pool.pool_balances
         ) AS payload
