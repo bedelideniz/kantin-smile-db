@@ -18,10 +18,11 @@ import ParentWelcomeSmsSettings from "@/components/admin/ParentWelcomeSmsSetting
 import StaffManager from "@/components/admin/StaffManager";
 import AlarmsManager from "@/components/admin/AlarmsManager";
 import SaleLogsManager from "@/components/admin/SaleLogsManager";
+import CanteenPayoutsManager from "@/components/admin/CanteenPayoutsManager";
 import { callAdminApi, MODULE_LABELS, type AppModule } from "@/lib/adminApi";
 
 const TAB_ORDER: AppModule[] = [
-  "schools","students","marketers","splashes","donations","payments","sms","alarms","logs","staff","infrastructure",
+  "schools","students","marketers","splashes","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
 ];
 
 export default function SuperAdmin() {
@@ -157,6 +158,7 @@ export default function SuperAdmin() {
               </TabsContent>
             )}
             {hasMod("alarms") && <TabsContent value="alarms"><AlarmsManager /></TabsContent>}
+            {hasMod("payouts") && <TabsContent value="payouts"><CanteenPayoutsManager /></TabsContent>}
             {hasMod("logs") && <TabsContent value="logs"><SaleLogsManager /></TabsContent>}
             {hasMod("staff") && <TabsContent value="staff"><StaffManager /></TabsContent>}
             {hasMod("infrastructure") && (

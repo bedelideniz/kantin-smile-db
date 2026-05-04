@@ -44,6 +44,7 @@ interface School {
   min_topup_amount: number | string;
   commission_rate: number | string;
   commission_free_after_days: number;
+  payout_hold_days: number;
   is_active: boolean;
   created_at: string;
 }
@@ -58,6 +59,7 @@ interface FormState {
   min_topup_amount: string;
   commission_rate: string;
   commission_free_after_days: string;
+  payout_hold_days: string;
   is_active: boolean;
 }
 
@@ -70,6 +72,7 @@ const emptyForm: FormState = {
   min_topup_amount: "50",
   commission_rate: "0.05",
   commission_free_after_days: "7",
+  payout_hold_days: "1",
   is_active: true,
 };
 
@@ -126,6 +129,7 @@ export default function SchoolsManager() {
       min_topup_amount: String(s.min_topup_amount),
       commission_rate: String(s.commission_rate),
       commission_free_after_days: String(s.commission_free_after_days),
+      payout_hold_days: String(s.payout_hold_days ?? 1),
       is_active: s.is_active,
     });
     setDialogOpen(true);
@@ -143,6 +147,7 @@ export default function SchoolsManager() {
         min_topup_amount: Number(form.min_topup_amount),
         commission_rate: Number(form.commission_rate),
         commission_free_after_days: Number(form.commission_free_after_days),
+        payout_hold_days: Number(form.payout_hold_days),
         is_active: form.is_active,
       };
       if (form.id) {
@@ -383,6 +388,19 @@ export default function SchoolsManager() {
                   setForm({ ...form, commission_free_after_days: e.target.value })
                 }
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="payout_hold_days">Kantin Ödeme Blokesi (gün)</Label>
+              <Input
+                id="payout_hold_days"
+                type="number"
+                min={0}
+                value={form.payout_hold_days}
+                onChange={(e) => setForm({ ...form, payout_hold_days: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                0 = ertesi gün, 7 = bir hafta sonra
+              </p>
             </div>
             <div className="flex items-center gap-3 sm:col-span-2">
               <Switch
