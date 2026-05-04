@@ -70,7 +70,7 @@ const emptyForm: FormState = {
   admin_full_name: "",
   admin_phone: "",
   min_topup_amount: "50",
-  commission_rate: "0.05",
+  commission_rate: "5",
   commission_free_after_days: "7",
   payout_hold_days: "1",
   is_active: true,
@@ -127,7 +127,7 @@ export default function SchoolsManager() {
       admin_full_name: s.admin_full_name,
       admin_phone: s.admin_phone,
       min_topup_amount: String(s.min_topup_amount),
-      commission_rate: String(s.commission_rate),
+      commission_rate: String(+(Number(s.commission_rate) * 100).toFixed(4)),
       commission_free_after_days: String(s.commission_free_after_days),
       payout_hold_days: String(s.payout_hold_days ?? 1),
       is_active: s.is_active,
@@ -145,7 +145,7 @@ export default function SchoolsManager() {
         admin_full_name: form.admin_full_name.trim(),
         admin_phone: form.admin_phone.trim(),
         min_topup_amount: Number(form.min_topup_amount),
-        commission_rate: Number(form.commission_rate),
+        commission_rate: +(Number(form.commission_rate) / 100).toFixed(6),
         commission_free_after_days: Number(form.commission_free_after_days),
         payout_hold_days: Number(form.payout_hold_days),
         is_active: form.is_active,
@@ -366,16 +366,18 @@ export default function SchoolsManager() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="commission_rate">Komisyon Oranı (0-1)</Label>
+              <Label htmlFor="commission_rate">Komisyon Oranı (%)</Label>
               <Input
                 id="commission_rate"
                 type="number"
-                step="0.0001"
+                step="0.01"
+                min={0}
+                max={100}
                 value={form.commission_rate}
                 onChange={(e) => setForm({ ...form, commission_rate: e.target.value })}
               />
               <p className="text-xs text-muted-foreground">
-                Örn. 0.05 = %5
+                Yüzde olarak girin. Örn. 5 = %5
               </p>
             </div>
             <div className="space-y-1.5">
