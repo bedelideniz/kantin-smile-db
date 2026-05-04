@@ -129,6 +129,7 @@ export default function SchoolsManager() {
       min_topup_amount: String(s.min_topup_amount),
       commission_rate: String(s.commission_rate),
       commission_free_after_days: String(s.commission_free_after_days),
+      payout_hold_days: String(s.payout_hold_days ?? 1),
       is_active: s.is_active,
     });
     setDialogOpen(true);
