@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { callAdminApi } from "@/lib/adminApi";
 import { Skeleton } from "@/components/ui/skeleton";
+import logo from "@/assets/kantinpay-logo.png";
 
 type Bucket = { today: number; week: number; month: number; total: number };
 type Stats = {
@@ -74,10 +75,13 @@ export default function Dashboard() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex items-end justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Canlı Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Tüm okul/kantin bazlı toplam akış</p>
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <img src={logo} alt="KantinPay" className="h-14 w-auto drop-shadow-sm" />
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Canlı Dashboard</h1>
+              <p className="text-sm text-muted-foreground">Tüm okul/kantin bazlı toplam akış</p>
+            </div>
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold tabular-nums">{now.toLocaleTimeString("tr-TR")}</div>
