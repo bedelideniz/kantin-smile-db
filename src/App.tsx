@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import Login from "./pages/Login.tsx";
 import SuperAdmin from "./pages/SuperAdmin.tsx";
+import Dashboard from "./pages/Dashboard.tsx";
 import YoneticiGiris from "./pages/YoneticiGiris.tsx";
 import YoneticiPanel from "./pages/YoneticiPanel.tsx";
 import KasiyerGiris from "./pages/KasiyerGiris.tsx";
