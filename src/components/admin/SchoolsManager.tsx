@@ -70,7 +70,7 @@ const emptyForm: FormState = {
   admin_full_name: "",
   admin_phone: "",
   min_topup_amount: "50",
-  commission_rate: "0.05",
+  commission_rate: "5",
   commission_free_after_days: "7",
   payout_hold_days: "1",
   is_active: true,
