@@ -632,33 +632,45 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
     if (!c || !c.username || !c.password) {
       return { ok: false, error: "NetGSM yapılandırılmamış", credit: null, amount: null };
     }
-    async function fetchBalance(stip: "1" | "2"): Promise<string> {
-      const url = new URL("https://api.netgsm.com.tr/balance/list/get");
-      url.searchParams.set("usercode", c.username!);
-      url.searchParams.set("password", c.password!);
-      url.searchParams.set("stip", stip);
-      const res = await fetch(url.toString());
-      return (await res.text()).trim();
-    }
-    try {
-      const [creditRaw, amountRaw] = await Promise.all([fetchBalance("2"), fetchBalance("1")]);
-      // Success format: "00 <value>"; error: single code like "30","40","60"
-      const parse = (raw: string): { ok: boolean; value: number | null; raw: string } => {
-        const parts = raw.split(/\s+/);
+    async function fetchBalance(stip: 1 | 2): Promise<{ ok: boolean; value: number | null; raw: string }> {
+      const res = await fetch("https://api.netgsm.com.tr/balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usercode: c.username, password: c.password, stip }),
+      });
+      const text = (await res.text()).trim();
+      // Try JSON shape first: { code, balance }
+      try {
+        const j = JSON.parse(text);
+        const b = j?.balance;
+        if (Array.isArray(b)) {
+          // stip=1 -> packages; sum amounts
+          const total = b.reduce((s: number, x: any) => s + (Number(x?.amount) || 0), 0);
+          return { ok: true, value: total, raw: text };
+        }
+        if (typeof b === "string" || typeof b === "number") {
+          const n = Number(String(b).replace(",", "."));
+          return { ok: Number.isFinite(n), value: Number.isFinite(n) ? n : null, raw: text };
+        }
+        return { ok: false, value: null, raw: text };
+      } catch {
+        // Legacy "00 <value>" format
+        const parts = text.split(/\s+/);
         if (parts[0] === "00" && parts[1]) {
           const n = Number(parts[1].replace(",", "."));
-          return { ok: true, value: Number.isFinite(n) ? n : null, raw };
+          return { ok: Number.isFinite(n), value: Number.isFinite(n) ? n : null, raw: text };
         }
-        return { ok: false, value: null, raw };
-      };
-      const credit = parse(creditRaw);
-      const amount = parse(amountRaw);
+        return { ok: false, value: null, raw: text };
+      }
+    }
+    try {
+      const [credit, amount] = await Promise.all([fetchBalance(2), fetchBalance(1)]);
       return {
         ok: credit.ok || amount.ok,
         credit: credit.value,
         amount: amount.value,
-        raw_credit: creditRaw,
-        raw_amount: amountRaw,
+        raw_credit: credit.raw,
+        raw_amount: amount.raw,
         is_active: c.is_active,
       };
     } catch (e) {
