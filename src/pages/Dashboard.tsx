@@ -52,6 +52,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
   const [topups, setTopups] = useState<Topup[] | null>(null);
+  const [sms, setSms] = useState<{ ok: boolean; credit: number | null; amount: number | null; error?: string } | null>(null);
   const [now, setNow] = useState(new Date());
   const [error, setError] = useState<string | null>(null);
 
@@ -73,6 +74,9 @@ export default function Dashboard() {
         .catch((e) => { if (!cancelled) setError(e.message); });
       callAdminApi<{ topups: Topup[] }>("recent_topups", { limit: 40 })
         .then((r) => { if (!cancelled) setTopups(r.topups ?? []); })
+        .catch(() => { /* silent */ });
+      callAdminApi<{ ok: boolean; credit: number | null; amount: number | null; error?: string }>("sms_balance")
+        .then((r) => { if (!cancelled) setSms(r); })
         .catch(() => { /* silent */ });
     };
     load();
@@ -163,6 +167,35 @@ export default function Dashboard() {
               </>
             )}
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">SMS Paketi (NetGSM)</h2>
+          {!sms ? (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+            </div>
+          ) : !sms.ok ? (
+            <Card className="border-border/50 bg-card/60 backdrop-blur">
+              <CardContent className="p-5 text-sm text-muted-foreground">
+                SMS bakiyesi alınamadı{sms.error ? ` — ${sms.error}` : ""}.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <StatCard
+                label="Kalan SMS Adedi"
+                value={(sms.credit ?? 0).toLocaleString("tr-TR") + " adet"}
+                accent="text-primary"
+              />
+              <StatCard
+                label="Kalan Bakiye"
+                value={(sms.amount ?? 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺"}
+                accent="text-emerald-500"
+              />
+            </div>
+          )}
         </div>
       </div>
     </main>
