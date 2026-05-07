@@ -183,16 +183,11 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3">
               <StatCard
                 label="Kalan SMS Adedi"
-                value={(sms.credit ?? 0).toLocaleString("tr-TR") + " adet"}
+                value={(sms.credit ?? sms.amount ?? 0).toLocaleString("tr-TR") + " adet"}
                 accent="text-primary"
-              />
-              <StatCard
-                label="Kalan Bakiye"
-                value={(sms.amount ?? 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺"}
-                accent="text-emerald-500"
               />
             </div>
           )}
