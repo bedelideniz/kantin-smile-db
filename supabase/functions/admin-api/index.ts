@@ -633,34 +633,39 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
       return { ok: false, error: "NetGSM yapılandırılmamış", credit: null, amount: null };
     }
     async function fetchBalance(stip: 1 | 2): Promise<{ ok: boolean; value: number | null; raw: string }> {
-      const res = await fetch("https://api.netgsm.com.tr/balance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usercode: c.username, password: c.password, stip }),
-      });
-      const text = (await res.text()).trim();
-      // Try JSON shape first: { code, balance }
+      let text = "";
+      let status = 0;
+      try {
+        const res = await fetch("https://api.netgsm.com.tr/balance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ usercode: c.username, password: c.password, stip }),
+        });
+        status = res.status;
+        text = (await res.text()).trim();
+      } catch (e) {
+        return { ok: false, value: null, raw: `fetch_error: ${e instanceof Error ? e.message : String(e)}` };
+      }
+      const raw = `[${status}] ${text}`;
       try {
         const j = JSON.parse(text);
         const b = j?.balance;
         if (Array.isArray(b)) {
-          // stip=1 -> packages; sum amounts
           const total = b.reduce((s: number, x: any) => s + (Number(x?.amount) || 0), 0);
-          return { ok: true, value: total, raw: text };
+          return { ok: true, value: total, raw };
         }
         if (typeof b === "string" || typeof b === "number") {
           const n = Number(String(b).replace(",", "."));
-          return { ok: Number.isFinite(n), value: Number.isFinite(n) ? n : null, raw: text };
+          return { ok: Number.isFinite(n), value: Number.isFinite(n) ? n : null, raw };
         }
-        return { ok: false, value: null, raw: text };
+        return { ok: false, value: null, raw };
       } catch {
-        // Legacy "00 <value>" format
         const parts = text.split(/\s+/);
         if (parts[0] === "00" && parts[1]) {
           const n = Number(parts[1].replace(",", "."));
-          return { ok: Number.isFinite(n), value: Number.isFinite(n) ? n : null, raw: text };
+          return { ok: Number.isFinite(n), value: Number.isFinite(n) ? n : null, raw };
         }
-        return { ok: false, value: null, raw: text };
+        return { ok: false, value: null, raw };
       }
     }
     try {
