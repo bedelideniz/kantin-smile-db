@@ -52,6 +52,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState<Stats | null>(null);
   const [topups, setTopups] = useState<Topup[] | null>(null);
+  const [sms, setSms] = useState<{ ok: boolean; credit: number | null; amount: number | null; error?: string } | null>(null);
   const [now, setNow] = useState(new Date());
   const [error, setError] = useState<string | null>(null);
 
