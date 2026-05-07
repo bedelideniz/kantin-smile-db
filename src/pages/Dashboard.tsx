@@ -77,7 +77,7 @@ export default function Dashboard() {
         .catch(() => { /* silent */ });
       callAdminApi<{ ok: boolean; credit: number | null; amount: number | null; error?: string }>("sms_balance")
         .then((r) => { if (!cancelled) setSms(r); })
-        .catch(() => { /* silent */ });
+        .catch((e) => { if (!cancelled) setSms({ ok: false, credit: null, amount: null, error: e?.message ?? "İstek başarısız" }); });
     };
     load();
     const id = setInterval(load, 30_000);
