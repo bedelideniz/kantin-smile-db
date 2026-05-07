@@ -75,6 +75,9 @@ export default function Dashboard() {
       callAdminApi<{ topups: Topup[] }>("recent_topups", { limit: 40 })
         .then((r) => { if (!cancelled) setTopups(r.topups ?? []); })
         .catch(() => { /* silent */ });
+      callAdminApi<{ ok: boolean; credit: number | null; amount: number | null; error?: string }>("sms_balance")
+        .then((r) => { if (!cancelled) setSms(r); })
+        .catch(() => { /* silent */ });
     };
     load();
     const id = setInterval(load, 30_000);
