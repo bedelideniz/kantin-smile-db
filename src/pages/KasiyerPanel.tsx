@@ -142,12 +142,14 @@ export default function KasiyerPanel() {
     if (!session) return;
     (async () => {
       try {
-        const [cats, prods] = await Promise.all([
+        const [cats, prods, anns] = await Promise.all([
           callCashierApi<Category[]>("list_categories"),
           callCashierApi<Product[]>("list_products"),
+          callCashierApi<Announcement[]>("list_announcements").catch(() => []),
         ]);
         setCategories(cats);
         setProducts(prods);
+        setAnnouncements(anns ?? []);
       } catch (e: any) {
         toast({ title: "Yükleme hatası", description: e?.message, variant: "destructive" });
         if (e?.status === 401) navigate("/kantin-giris", { replace: true });
