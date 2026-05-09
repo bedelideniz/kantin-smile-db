@@ -64,6 +64,8 @@ export default function KasiyerPanel() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [previewAnn, setPreviewAnn] = useState<Announcement | null>(null);
   const [activeCat, setActiveCat] = useState<string | "all">("all");
   const [loading, setLoading] = useState(true);
 
