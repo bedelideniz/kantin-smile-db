@@ -19,10 +19,11 @@ import StaffManager from "@/components/admin/StaffManager";
 import AlarmsManager from "@/components/admin/AlarmsManager";
 import SaleLogsManager from "@/components/admin/SaleLogsManager";
 import CanteenPayoutsManager from "@/components/admin/CanteenPayoutsManager";
+import CanteenAnnouncementsManager from "@/components/admin/CanteenAnnouncementsManager";
 import { callAdminApi, MODULE_LABELS, type AppModule } from "@/lib/adminApi";
 
 const TAB_ORDER: AppModule[] = [
-  "dashboard","schools","students","marketers","splashes","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
+  "dashboard","schools","students","marketers","splashes","announcements","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
 ];
 
 export default function SuperAdmin() {
