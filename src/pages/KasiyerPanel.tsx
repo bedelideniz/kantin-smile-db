@@ -839,6 +839,25 @@ export default function KasiyerPanel() {
 
       <QrScannerDialog open={qrOpen} onClose={() => setQrOpen(false)} onResult={handleQrResult} />
 
+      {/* Announcement preview modal */}
+      <Dialog open={!!previewAnn} onOpenChange={(o) => !o && setPreviewAnn(null)}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden">
+          {previewAnn && (
+            <>
+              <img
+                src={previewAnn.image_url}
+                alt={previewAnn.title ?? "Duyuru"}
+                className="block max-h-[80vh] w-full object-contain bg-muted"
+              />
+              {previewAnn.title && (
+                <div className="border-t p-3 text-center text-sm font-medium">{previewAnn.title}</div>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+
       <Dialog open={!!saleError} onOpenChange={(o) => !o && setSaleError(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader className="items-center text-center">
