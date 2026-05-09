@@ -673,6 +673,22 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_wallet_topups_student ON wallet_topups(student_id, created_at DESC);
     `,
   },
+  {
+    version: "0020_canteen_announcements",
+    description: "Per-school canteen announcement images (4 slots), shown on cashier panel left rail.",
+    sql: `
+      CREATE TABLE IF NOT EXISTS canteen_announcements (
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        slot SMALLINT NOT NULL CHECK (slot BETWEEN 1 AND 4),
+        image_url TEXT NOT NULL,
+        title TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        PRIMARY KEY (school_id, slot)
+      );
+    `,
+  },
 ];
 
 
