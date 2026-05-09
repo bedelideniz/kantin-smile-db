@@ -37,6 +37,7 @@ interface Student {
   photo_url?: string | null;
 }
 interface CartItem { product_id: string; name: string; price: number; qty: number; catColor: string }
+interface Announcement { slot: number; image_url: string; title: string | null }
 interface RecentSale {
   id: string;
   tx_no: number;
@@ -63,6 +64,8 @@ export default function KasiyerPanel() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [previewAnn, setPreviewAnn] = useState<Announcement | null>(null);
   const [activeCat, setActiveCat] = useState<string | "all">("all");
   const [loading, setLoading] = useState(true);
 
@@ -139,12 +142,14 @@ export default function KasiyerPanel() {
     if (!session) return;
     (async () => {
       try {
-        const [cats, prods] = await Promise.all([
+        const [cats, prods, anns] = await Promise.all([
           callCashierApi<Category[]>("list_categories"),
           callCashierApi<Product[]>("list_products"),
+          callCashierApi<Announcement[]>("list_announcements").catch(() => []),
         ]);
         setCategories(cats);
         setProducts(prods);
+        setAnnouncements(anns ?? []);
       } catch (e: any) {
         toast({ title: "Yükleme hatası", description: e?.message, variant: "destructive" });
         if (e?.status === 401) navigate("/kantin-giris", { replace: true });
@@ -411,39 +416,70 @@ export default function KasiyerPanel() {
         </div>
       </header>
 
+      {/* ============== CATEGORY BAR (top) ============== */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-pos-panel/80 px-4 py-2 overflow-x-auto">
+        <CategoryPill
+          active={activeCat === "all"}
+          label="Tümü"
+          count={products.length}
+          color="hsl(var(--primary))"
+          onClick={() => setActiveCat("all")}
+        />
+        {categories.map((c, i) => {
+          const count = products.filter((p) => p.category_id === c.id).length;
+          return (
+            <CategoryPill
+              key={c.id}
+              active={activeCat === c.id}
+              label={c.name}
+              count={count}
+              color={catColor(i)}
+              onClick={() => setActiveCat(c.id)}
+            />
+          );
+        })}
+      </div>
+
       {/* ============== BODY ============== */}
       <div className="flex flex-1 overflow-hidden">
-        {/* CATEGORIES (dark rail) */}
-        <aside className="flex w-[200px] shrink-0 flex-col bg-pos-sidebar text-pos-sidebar-foreground">
-          <ScrollArea className="flex-1">
-            <div className="flex flex-col gap-2 p-3">
-              <CategoryButton
-                active={activeCat === "all"}
-                label="Tümü"
-                count={products.length}
-                color="hsl(var(--primary))"
-                onClick={() => setActiveCat("all")}
-              />
-              {categories.map((c, i) => {
-                const count = products.filter((p) => p.category_id === c.id).length;
-                return (
-                  <CategoryButton
-                    key={c.id}
-                    active={activeCat === c.id}
-                    label={c.name}
-                    count={count}
-                    color={catColor(i)}
-                    onClick={() => setActiveCat(c.id)}
-                  />
-                );
-              })}
-              {categories.length === 0 && !loading && (
-                <p className="px-2 py-6 text-center text-xs text-pos-sidebar-foreground/60">
-                  Henüz kategori yok.
-                </p>
-              )}
-            </div>
-          </ScrollArea>
+        {/* ANNOUNCEMENTS RAIL (4 vertical slots, per-school, click → preview) */}
+        <aside className="hidden w-[180px] shrink-0 flex-col gap-2 border-r border-border/60 bg-pos-panel/40 p-2 lg:flex">
+          {[1, 2, 3, 4].map((slot) => {
+            const ann = announcements.find((a) => a.slot === slot);
+            return (
+              <button
+                key={slot}
+                type="button"
+                onClick={() => ann && setPreviewAnn(ann)}
+                disabled={!ann}
+                className={cn(
+                  "group relative flex flex-1 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-card transition",
+                  ann ? "cursor-pointer hover:shadow-elevated hover:-translate-y-0.5" : "cursor-default opacity-50",
+                )}
+              >
+                {ann ? (
+                  <>
+                    <img
+                      src={ann.image_url}
+                      alt={ann.title ?? `Duyuru ${slot}`}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    {ann.title && (
+                      <span className="absolute bottom-0 left-0 right-0 truncate bg-gradient-to-t from-black/70 to-transparent px-2 py-1 text-xs font-medium text-white">
+                        {ann.title}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                    <Bell className="h-5 w-5 opacity-40" />
+                    <span className="text-[10px]">Boş</span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </aside>
 
         {/* PRODUCTS */}
@@ -803,6 +839,25 @@ export default function KasiyerPanel() {
 
       <QrScannerDialog open={qrOpen} onClose={() => setQrOpen(false)} onResult={handleQrResult} />
 
+      {/* Announcement preview modal */}
+      <Dialog open={!!previewAnn} onOpenChange={(o) => !o && setPreviewAnn(null)}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden">
+          {previewAnn && (
+            <>
+              <img
+                src={previewAnn.image_url}
+                alt={previewAnn.title ?? "Duyuru"}
+                className="block max-h-[80vh] w-full object-contain bg-muted"
+              />
+              {previewAnn.title && (
+                <div className="border-t p-3 text-center text-sm font-medium">{previewAnn.title}</div>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+
       <Dialog open={!!saleError} onOpenChange={(o) => !o && setSaleError(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader className="items-center text-center">
@@ -1055,6 +1110,36 @@ export default function KasiyerPanel() {
 }
 
 /* ---------- Sub-components ---------- */
+
+function CategoryPill({ active, label, count, color, onClick }: CategoryButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex h-10 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-semibold transition-all",
+        active
+          ? "border-transparent text-white shadow-sm"
+          : "border-border/60 bg-card text-foreground/80 hover:bg-accent",
+      )}
+      style={active ? { background: color } : undefined}
+    >
+      <span
+        className={cn("h-2 w-2 shrink-0 rounded-full", active ? "bg-white/80" : "")}
+        style={!active ? { background: color } : undefined}
+      />
+      <span className="truncate">{label}</span>
+      <span
+        className={cn(
+          "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+          active ? "bg-white/25 text-white" : "bg-muted text-muted-foreground",
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
 
 interface CategoryButtonProps {
   active: boolean;

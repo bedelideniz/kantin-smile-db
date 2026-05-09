@@ -19,10 +19,11 @@ import StaffManager from "@/components/admin/StaffManager";
 import AlarmsManager from "@/components/admin/AlarmsManager";
 import SaleLogsManager from "@/components/admin/SaleLogsManager";
 import CanteenPayoutsManager from "@/components/admin/CanteenPayoutsManager";
+import CanteenAnnouncementsManager from "@/components/admin/CanteenAnnouncementsManager";
 import { callAdminApi, MODULE_LABELS, type AppModule } from "@/lib/adminApi";
 
 const TAB_ORDER: AppModule[] = [
-  "dashboard","schools","students","marketers","splashes","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
+  "dashboard","schools","students","marketers","splashes","announcements","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
 ];
 
 export default function SuperAdmin() {
@@ -160,6 +161,7 @@ export default function SuperAdmin() {
             {hasMod("students") && <TabsContent value="students"><StudentsBySchool /></TabsContent>}
             {hasMod("marketers") && <TabsContent value="marketers"><Card><CardContent className="pt-6"><MarketersManager /></CardContent></Card></TabsContent>}
             {hasMod("splashes") && <TabsContent value="splashes"><Card><CardContent className="pt-6"><SchoolSplashesManager /></CardContent></Card></TabsContent>}
+            {hasMod("announcements") && <TabsContent value="announcements"><Card><CardContent className="pt-6"><CanteenAnnouncementsManager /></CardContent></Card></TabsContent>}
             {hasMod("donations") && <TabsContent value="donations"><Card><CardContent className="pt-6"><DonationManagersManager /></CardContent></Card></TabsContent>}
             {hasMod("payments") && <TabsContent value="payments"><Card><CardContent className="pt-6"><PaymentSettings /></CardContent></Card></TabsContent>}
             {hasMod("sms") && (

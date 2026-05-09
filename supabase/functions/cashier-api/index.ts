@@ -128,6 +128,16 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
     );
     return r.rows;
   },
+  list_announcements: async (ctx) => {
+    const r = await query(
+      `SELECT slot, image_url, title
+         FROM canteen_announcements
+        WHERE school_id=$1 AND is_active=TRUE
+        ORDER BY slot ASC`,
+      [ctx.schoolId],
+    );
+    return r.rows;
+  },
   list_products: async (ctx, params) => {
     const p = z.object({ category_id: z.string().uuid().nullable().optional() }).parse(params ?? {});
     const args: any[] = [ctx.schoolId];

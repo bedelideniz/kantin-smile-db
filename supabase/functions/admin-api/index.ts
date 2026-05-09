@@ -8,11 +8,11 @@ import { query, withTransaction } from "../_shared/external-db.ts";
 
 type AppModule =
   | "schools" | "students" | "marketers" | "splashes" | "donations"
-  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard";
+  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard" | "announcements";
 
 const MODULES: AppModule[] = [
   "schools","students","marketers","splashes","donations",
-  "payments","sms","infrastructure","alarms","staff","logs","payouts","dashboard",
+  "payments","sms","infrastructure","alarms","staff","logs","payouts","dashboard","announcements",
 ];
 
 function admin() {
