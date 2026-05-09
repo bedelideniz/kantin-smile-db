@@ -2,13 +2,14 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type AppModule =
   | "schools" | "students" | "marketers" | "splashes" | "donations"
-  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard";
+  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard" | "announcements";
 
 export const MODULE_LABELS: Record<AppModule, string> = {
   schools: "Okullar",
   students: "Veli & Öğrenci",
   marketers: "Pazarlamacılar",
   splashes: "Veli Splash",
+  announcements: "Kantin Duyuru",
   donations: "Bağış",
   payments: "Ödeme",
   sms: "SMS / NetGSM",
