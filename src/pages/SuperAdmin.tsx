@@ -161,6 +161,7 @@ export default function SuperAdmin() {
             {hasMod("students") && <TabsContent value="students"><StudentsBySchool /></TabsContent>}
             {hasMod("marketers") && <TabsContent value="marketers"><Card><CardContent className="pt-6"><MarketersManager /></CardContent></Card></TabsContent>}
             {hasMod("splashes") && <TabsContent value="splashes"><Card><CardContent className="pt-6"><SchoolSplashesManager /></CardContent></Card></TabsContent>}
+            {hasMod("announcements") && <TabsContent value="announcements"><Card><CardContent className="pt-6"><CanteenAnnouncementsManager /></CardContent></Card></TabsContent>}
             {hasMod("donations") && <TabsContent value="donations"><Card><CardContent className="pt-6"><DonationManagersManager /></CardContent></Card></TabsContent>}
             {hasMod("payments") && <TabsContent value="payments"><Card><CardContent className="pt-6"><PaymentSettings /></CardContent></Card></TabsContent>}
             {hasMod("sms") && (
