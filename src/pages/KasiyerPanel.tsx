@@ -37,6 +37,7 @@ interface Student {
   photo_url?: string | null;
 }
 interface CartItem { product_id: string; name: string; price: number; qty: number; catColor: string }
+interface Announcement { slot: number; image_url: string; title: string | null }
 interface RecentSale {
   id: string;
   tx_no: number;
