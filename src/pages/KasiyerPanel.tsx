@@ -416,39 +416,70 @@ export default function KasiyerPanel() {
         </div>
       </header>
 
+      {/* ============== CATEGORY BAR (top) ============== */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-pos-panel/80 px-4 py-2 overflow-x-auto">
+        <CategoryPill
+          active={activeCat === "all"}
+          label="Tümü"
+          count={products.length}
+          color="hsl(var(--primary))"
+          onClick={() => setActiveCat("all")}
+        />
+        {categories.map((c, i) => {
+          const count = products.filter((p) => p.category_id === c.id).length;
+          return (
+            <CategoryPill
+              key={c.id}
+              active={activeCat === c.id}
+              label={c.name}
+              count={count}
+              color={catColor(i)}
+              onClick={() => setActiveCat(c.id)}
+            />
+          );
+        })}
+      </div>
+
       {/* ============== BODY ============== */}
       <div className="flex flex-1 overflow-hidden">
-        {/* CATEGORIES (dark rail) */}
-        <aside className="flex w-[200px] shrink-0 flex-col bg-pos-sidebar text-pos-sidebar-foreground">
-          <ScrollArea className="flex-1">
-            <div className="flex flex-col gap-2 p-3">
-              <CategoryButton
-                active={activeCat === "all"}
-                label="Tümü"
-                count={products.length}
-                color="hsl(var(--primary))"
-                onClick={() => setActiveCat("all")}
-              />
-              {categories.map((c, i) => {
-                const count = products.filter((p) => p.category_id === c.id).length;
-                return (
-                  <CategoryButton
-                    key={c.id}
-                    active={activeCat === c.id}
-                    label={c.name}
-                    count={count}
-                    color={catColor(i)}
-                    onClick={() => setActiveCat(c.id)}
-                  />
-                );
-              })}
-              {categories.length === 0 && !loading && (
-                <p className="px-2 py-6 text-center text-xs text-pos-sidebar-foreground/60">
-                  Henüz kategori yok.
-                </p>
-              )}
-            </div>
-          </ScrollArea>
+        {/* ANNOUNCEMENTS RAIL (4 vertical slots, per-school, click → preview) */}
+        <aside className="hidden w-[180px] shrink-0 flex-col gap-2 border-r border-border/60 bg-pos-panel/40 p-2 lg:flex">
+          {[1, 2, 3, 4].map((slot) => {
+            const ann = announcements.find((a) => a.slot === slot);
+            return (
+              <button
+                key={slot}
+                type="button"
+                onClick={() => ann && setPreviewAnn(ann)}
+                disabled={!ann}
+                className={cn(
+                  "group relative flex flex-1 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-card transition",
+                  ann ? "cursor-pointer hover:shadow-elevated hover:-translate-y-0.5" : "cursor-default opacity-50",
+                )}
+              >
+                {ann ? (
+                  <>
+                    <img
+                      src={ann.image_url}
+                      alt={ann.title ?? `Duyuru ${slot}`}
+                      className="absolute inset-0 h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                    {ann.title && (
+                      <span className="absolute bottom-0 left-0 right-0 truncate bg-gradient-to-t from-black/70 to-transparent px-2 py-1 text-xs font-medium text-white">
+                        {ann.title}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                    <Bell className="h-5 w-5 opacity-40" />
+                    <span className="text-[10px]">Boş</span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </aside>
 
         {/* PRODUCTS */}
