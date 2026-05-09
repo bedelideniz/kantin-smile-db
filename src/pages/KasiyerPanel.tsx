@@ -1111,6 +1111,36 @@ export default function KasiyerPanel() {
 
 /* ---------- Sub-components ---------- */
 
+function CategoryPill({ active, label, count, color, onClick }: CategoryButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "flex h-10 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-semibold transition-all",
+        active
+          ? "border-transparent text-white shadow-sm"
+          : "border-border/60 bg-card text-foreground/80 hover:bg-accent",
+      )}
+      style={active ? { background: color } : undefined}
+    >
+      <span
+        className={cn("h-2 w-2 shrink-0 rounded-full", active ? "bg-white/80" : "")}
+        style={!active ? { background: color } : undefined}
+      />
+      <span className="truncate">{label}</span>
+      <span
+        className={cn(
+          "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+          active ? "bg-white/25 text-white" : "bg-muted text-muted-foreground",
+        )}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+
 interface CategoryButtonProps {
   active: boolean;
   label: string;
