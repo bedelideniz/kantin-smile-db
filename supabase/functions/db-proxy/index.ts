@@ -870,6 +870,52 @@ const HANDLERS: Record<string, Handler> = {
     await query("DELETE FROM school_splashes WHERE school_id=$1", [p.school_id]);
     return { school_id: p.school_id, deleted: true };
   },
+  // ===== Canteen announcements (per-school, 4 slots, shown on cashier panel) =====
+  list_canteen_announcements: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      `SELECT s.id AS school_id, s.name AS school_name,
+              ca.slot, ca.image_url, ca.title, ca.is_active, ca.updated_at
+         FROM schools s
+         LEFT JOIN canteen_announcements ca ON ca.school_id = s.id
+        ORDER BY s.name ASC, ca.slot ASC NULLS LAST`,
+    );
+    return r.rows;
+  },
+  upsert_canteen_announcement: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      school_id: z.string().uuid(),
+      slot: z.number().int().min(1).max(4),
+      image_url: z.string().trim().url().max(2048),
+      title: z.string().trim().max(120).nullable().optional(),
+      is_active: z.boolean().optional().default(true),
+    }).parse(params);
+    const r = await query(
+      `INSERT INTO canteen_announcements (school_id, slot, image_url, title, is_active, updated_at)
+       VALUES ($1,$2,$3,$4,$5, now())
+       ON CONFLICT (school_id, slot) DO UPDATE
+         SET image_url = EXCLUDED.image_url,
+             title = EXCLUDED.title,
+             is_active = EXCLUDED.is_active,
+             updated_at = now()
+       RETURNING school_id, slot, image_url, title, is_active, updated_at`,
+      [p.school_id, p.slot, p.image_url, p.title ?? null, p.is_active],
+    );
+    return r.rows[0];
+  },
+  delete_canteen_announcement: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      school_id: z.string().uuid(),
+      slot: z.number().int().min(1).max(4),
+    }).parse(params);
+    await query(
+      "DELETE FROM canteen_announcements WHERE school_id=$1 AND slot=$2",
+      [p.school_id, p.slot],
+    );
+    return { school_id: p.school_id, slot: p.slot, deleted: true };
+  },
   // ===== Donation managers (super_admin manages per-school donation operators) =====
   list_donation_managers: async (ctx) => {
     requireSuperAdmin(ctx);
