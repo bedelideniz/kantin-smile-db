@@ -11,6 +11,7 @@ import YoneticiGiris from "./pages/YoneticiGiris.tsx";
 import YoneticiPanel from "./pages/YoneticiPanel.tsx";
 import KasiyerGiris from "./pages/KasiyerGiris.tsx";
 import KasiyerPanel from "./pages/KasiyerPanel.tsx";
+import KasiyerDashboard from "./pages/KasiyerDashboard.tsx";
 import VeliGiris from "./pages/VeliGiris.tsx";
 import VeliPanel from "./pages/VeliPanel.tsx";
 import VeliYasaklilar from "./pages/VeliYasaklilar.tsx";
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/yonetici" element={<YoneticiPanel />} />
           <Route path="/kantin-giris" element={<KasiyerGiris />} />
           <Route path="/kantin" element={<KasiyerPanel />} />
+          <Route path="/kantin/dashboard" element={<KasiyerDashboard />} />
           <Route path="/veli-giris" element={<VeliGiris />} />
           <Route path="/veli" element={<VeliPanel />} />
           <Route path="/veli/yasaklilar" element={<VeliYasaklilar />} />

@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LogOut, QrCode, Search, Trash2, X, Plus, Minus,
   CreditCard, CircleDot, Wallet, ShoppingCart, AlertTriangle, GraduationCap, Sparkles, Barcode, Loader2, ShieldOff,
-  Receipt, Bell,
+  Receipt, Bell, LayoutDashboard,
 } from "lucide-react";
 import {
   callCashierApi,
@@ -397,6 +397,14 @@ export default function KasiyerPanel() {
             <CircleDot className={cn("h-3 w-3", reader.status === "listening" && "animate-pulse")} />
             {reader.status === "listening" ? "Kart & barkod okuyucu hazır" : "Okuyucu kapalı"}
           </div>
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-11 rounded-xl border-border/60"
+            onClick={() => navigate("/kantin/dashboard")}
+          >
+            <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+          </Button>
           <Button
             variant="outline"
             size="lg"
