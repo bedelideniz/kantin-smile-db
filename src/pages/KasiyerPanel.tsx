@@ -141,6 +141,7 @@ export default function KasiyerPanel() {
 
   // Poll recent sales periodically to detect rejected alarms (background)
   useEffect(() => {
+    if (!session) return;
     let cancelled = false;
     const tick = async () => {
       try {
@@ -148,10 +149,10 @@ export default function KasiyerPanel() {
         if (!cancelled) setRecentSales(r);
       } catch { /* silent */ }
     };
-    tick();
+    const initialId = setTimeout(tick, 10_000);
     const id = setInterval(tick, 60_000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, []);
+    return () => { cancelled = true; clearTimeout(initialId); clearInterval(id); };
+  }, [session]);
 
   const ack = useMemo(() => getAck(), [ackVersion]);
   const unseenRejected = useMemo(
