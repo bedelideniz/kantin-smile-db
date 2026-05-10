@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -69,6 +69,19 @@ const addAck = (id: string) => {
 
 const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+const isTransientDbError = (msg: string) =>
+  /timeout|terminated|ECONNRESET|ETIMEDOUT|too many|connection slots/i.test(msg);
+
+const callCashierApiWithRetry = async <T,>(op: string, params?: Record<string, unknown>): Promise<T> => {
+  try {
+    return await callCashierApi<T>(op, params);
+  } catch (e: any) {
+    if (!isTransientDbError(e?.message ?? "")) throw e;
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    return await callCashierApi<T>(op, params);
+  }
+};
+
 // Rotating accent palette (uses CSS vars defined in index.css)
 const CAT_VARS = ["--cat-1", "--cat-2", "--cat-3", "--cat-4", "--cat-5", "--cat-6"];
 const catColor = (idx: number) => `hsl(var(${CAT_VARS[idx % CAT_VARS.length]}))`;
@@ -114,11 +127,12 @@ export default function KasiyerPanel() {
   const [alarmSubmitting, setAlarmSubmitting] = useState(false);
 
   const [ackVersion, setAckVersion] = useState(0);
+  const transientLoadWarned = useRef(false);
 
   const loadRecent = async () => {
     setRecentLoading(true);
     try {
-      const r = await callCashierApi<RecentSale[]>("recent_sales", { limit: 30 });
+      const r = await callCashierApiWithRetry<RecentSale[]>("recent_sales", { limit: 30 });
       setRecentSales(r);
     } catch (e: any) {
       toast({ title: "Hata", description: e?.message, variant: "destructive" });
@@ -127,17 +141,18 @@ export default function KasiyerPanel() {
 
   // Poll recent sales periodically to detect rejected alarms (background)
   useEffect(() => {
+    if (!session) return;
     let cancelled = false;
     const tick = async () => {
       try {
-        const r = await callCashierApi<RecentSale[]>("recent_sales", { limit: 30 });
+        const r = await callCashierApiWithRetry<RecentSale[]>("recent_sales", { limit: 30 });
         if (!cancelled) setRecentSales(r);
       } catch { /* silent */ }
     };
-    tick();
+    const initialId = setTimeout(tick, 10_000);
     const id = setInterval(tick, 60_000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, []);
+    return () => { cancelled = true; clearTimeout(initialId); clearInterval(id); };
+  }, [session]);
 
   const ack = useMemo(() => getAck(), [ackVersion]);
   const unseenRejected = useMemo(
@@ -188,16 +203,18 @@ export default function KasiyerPanel() {
     if (!session) return;
     (async () => {
       try {
-        const [cats, prods, anns] = await Promise.all([
-          callCashierApi<Category[]>("list_categories"),
-          callCashierApi<Product[]>("list_products"),
-          callCashierApi<Announcement[]>("list_announcements").catch(() => []),
-        ]);
+        const cats = await callCashierApiWithRetry<Category[]>("list_categories");
+        const prods = await callCashierApiWithRetry<Product[]>("list_products");
+        const anns = await callCashierApiWithRetry<Announcement[]>("list_announcements").catch(() => []);
         setCategories(cats);
         setProducts(prods);
         setAnnouncements(anns ?? []);
       } catch (e: any) {
-        toast({ title: "Yükleme hatası", description: e?.message, variant: "destructive" });
+        const msg = e?.message ?? "";
+        if (!isTransientDbError(msg) || !transientLoadWarned.current) {
+          toast({ title: "Yükleme hatası", description: msg, variant: "destructive" });
+          transientLoadWarned.current = true;
+        }
         if (e?.status === 401) navigate("/kantin-giris", { replace: true });
       } finally {
         setLoading(false);
@@ -394,7 +411,7 @@ export default function KasiyerPanel() {
       setCart([]);
       setStudent(null);
       try {
-        const prods = await callCashierApi<Product[]>("list_products");
+        const prods = await callCashierApiWithRetry<Product[]>("list_products");
         setProducts(prods);
       } catch { /* ignore */ }
     } catch (e: any) {
