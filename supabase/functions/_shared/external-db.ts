@@ -5,6 +5,7 @@ const { Pool } = pg;
 type Pool = InstanceType<typeof pg.Pool>;
 
 let _pool: Pool | null = null;
+let _connecting: Promise<unknown> | null = null;
 
 export function getPool(): Pool {
   if (_pool) return _pool;
@@ -58,6 +59,14 @@ function isTransient(err: unknown): boolean {
   return TRANSIENT_PATTERNS.some((re) => re.test(msg));
 }
 
+async function recreatePool() {
+  if (_pool) {
+    const oldPool = _pool;
+    _pool = null;
+    await oldPool.end().catch(() => {});
+  }
+}
+
 async function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -66,17 +75,18 @@ export async function query<T = any>(
   text: string,
   params: unknown[] = [],
 ): Promise<{ rows: T[]; rowCount: number }> {
-  const pool = getPool();
   let lastErr: unknown;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
+      const pool = getPool();
       const res = await pool.query(text, params);
       return { rows: res.rows as T[], rowCount: res.rowCount ?? 0 };
     } catch (e) {
       lastErr = e;
       if (!isTransient(e)) throw e;
-      // Exponential backoff with jitter: ~150ms, ~400ms
-      await sleep(150 * Math.pow(2, attempt) + Math.floor(Math.random() * 100));
+      await recreatePool();
+      // Exponential backoff with jitter: ~500ms, ~1s, ~2s, ~4s
+      await sleep(500 * Math.pow(2, attempt) + Math.floor(Math.random() * 250));
     }
   }
   throw lastErr;
