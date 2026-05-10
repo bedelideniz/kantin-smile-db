@@ -453,10 +453,18 @@ export default function KasiyerPanel() {
           <Button
             variant="outline"
             size="lg"
-            className="h-11 rounded-xl border-border/60"
+            className={cn(
+              "relative h-11 rounded-xl border-border/60",
+              unseenRejected.length > 0 && "border-destructive bg-destructive/10 text-destructive hover:bg-destructive/20 animate-pulse",
+            )}
             onClick={() => { setRecentOpen(true); loadRecent(); }}
           >
             <Receipt className="mr-2 h-4 w-4" /> Son İşlemler
+            {unseenRejected.length > 0 && (
+              <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">
+                {unseenRejected.length}
+              </span>
+            )}
           </Button>
           <Button
             variant="outline"
