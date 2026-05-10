@@ -11,6 +11,7 @@ import YoneticiGiris from "./pages/YoneticiGiris.tsx";
 import YoneticiPanel from "./pages/YoneticiPanel.tsx";
 import KasiyerGiris from "./pages/KasiyerGiris.tsx";
 import KasiyerPanel from "./pages/KasiyerPanel.tsx";
+import KasiyerDashboard from "./pages/KasiyerDashboard.tsx";
 import VeliGiris from "./pages/VeliGiris.tsx";
 import VeliPanel from "./pages/VeliPanel.tsx";
 import VeliYasaklilar from "./pages/VeliYasaklilar.tsx";
