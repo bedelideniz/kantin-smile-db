@@ -1025,7 +1025,7 @@ export default function KasiyerPanel() {
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5" /> Son İşlemler
+              <span className="flex h-5 w-5 items-center justify-center font-bold">₺</span> Son İşlemler
             </DialogTitle>
             <DialogDescription>
               Yanlış bir satış varsa alarm düğmesine basarak yöneticinin incelemesi için bildirin.
@@ -1071,7 +1071,7 @@ export default function KasiyerPanel() {
                       onClick={() => { setAlarmFor(s); setAlarmReason(""); }}
                       className="text-warning border-warning/40 hover:bg-warning/10"
                     >
-                      <Bell className="h-4 w-4 mr-1" /> Alarm
+                      <Bell className="h-4 w-4 mr-1" /> Bildir
                     </Button>
                   )}
                 </div>
