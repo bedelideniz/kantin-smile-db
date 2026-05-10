@@ -49,7 +49,23 @@ interface RecentSale {
   student_name: string;
   student_class: string | null;
   has_alarm: boolean;
+  last_alarm_id: string | null;
+  last_alarm_status: "open" | "resolved" | "rejected" | null;
+  last_alarm_reason: string | null;
+  last_alarm_resolution_note: string | null;
+  last_alarm_resolved_at: string | null;
+  last_alarm_created_at: string | null;
 }
+
+const ACK_KEY = "kantinpay.cashier.ackAlarms";
+const getAck = (): Set<string> => {
+  try { return new Set(JSON.parse(localStorage.getItem(ACK_KEY) ?? "[]")); }
+  catch { return new Set(); }
+};
+const addAck = (id: string) => {
+  const s = getAck(); s.add(id);
+  localStorage.setItem(ACK_KEY, JSON.stringify([...s].slice(-200)));
+};
 
 const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
