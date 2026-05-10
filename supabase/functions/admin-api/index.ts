@@ -749,7 +749,7 @@ Deno.serve(async (req) => {
         error: "Veritabanı sunucusuna şu anda ulaşılamıyor. Lütfen kısa süre sonra tekrar deneyin.",
         code: "DB_UNAVAILABLE",
       }), {
-        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "5" },
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "5" },
       });
     }
     console.error("admin-api error:", msg);
