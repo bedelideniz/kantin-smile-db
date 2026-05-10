@@ -1071,7 +1071,7 @@ export default function KasiyerPanel() {
                       onClick={() => { setAlarmFor(s); setAlarmReason(""); }}
                       className="text-warning border-warning/40 hover:bg-warning/10"
                     >
-                      <Bell className="h-4 w-4 mr-1" /> Alarm
+                      <Bell className="h-4 w-4 mr-1" /> Bildir
                     </Button>
                   )}
                 </div>
