@@ -410,7 +410,7 @@ export default function KasiyerPanel() {
       setCart([]);
       setStudent(null);
       try {
-        const prods = await callCashierApi<Product[]>("list_products");
+        const prods = await callCashierApiWithRetry<Product[]>("list_products");
         setProducts(prods);
       } catch { /* ignore */ }
     } catch (e: any) {
