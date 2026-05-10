@@ -113,6 +113,8 @@ export default function KasiyerPanel() {
   const [alarmReason, setAlarmReason] = useState("");
   const [alarmSubmitting, setAlarmSubmitting] = useState(false);
 
+  const [ackVersion, setAckVersion] = useState(0);
+
   const loadRecent = async () => {
     setRecentLoading(true);
     try {
@@ -122,6 +124,26 @@ export default function KasiyerPanel() {
       toast({ title: "Hata", description: e?.message, variant: "destructive" });
     } finally { setRecentLoading(false); }
   };
+
+  // Poll recent sales periodically to detect rejected alarms (background)
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await callCashierApi<RecentSale[]>("recent_sales", { limit: 30 });
+        if (!cancelled) setRecentSales(r);
+      } catch { /* silent */ }
+    };
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const ack = useMemo(() => getAck(), [ackVersion]);
+  const unseenRejected = useMemo(
+    () => recentSales.filter((s) => s.last_alarm_status === "rejected" && s.last_alarm_id && !ack.has(s.last_alarm_id)),
+    [recentSales, ack],
+  );
 
   const submitAlarm = async () => {
     if (!alarmFor) return;
@@ -140,6 +162,14 @@ export default function KasiyerPanel() {
     } catch (e: any) {
       toast({ title: "Hata", description: e?.message, variant: "destructive" });
     } finally { setAlarmSubmitting(false); }
+  };
+
+  const openAlarmFor = (s: RecentSale) => {
+    if (s.last_alarm_id && s.last_alarm_status === "rejected") {
+      addAck(s.last_alarm_id);
+      setAckVersion((v) => v + 1);
+    }
+    setAlarmFor(s); setAlarmReason("");
   };
 
   // Auth gate
