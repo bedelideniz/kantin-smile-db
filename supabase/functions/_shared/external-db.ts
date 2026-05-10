@@ -94,11 +94,11 @@ export async function query<T = any>(
 export async function withTransaction<T>(
   fn: (client: any) => Promise<T>,
 ): Promise<T> {
-  const pool = getPool();
   let lastErr: unknown;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     let client: any = null;
     try {
+      const pool = getPool();
       client = await pool.connect();
       try {
         await client.query("BEGIN");
@@ -115,7 +115,8 @@ export async function withTransaction<T>(
       lastErr = e;
       // Only retry if we never got into the transaction body (i.e. connect failed).
       if (!client && isTransient(e)) {
-        await sleep(150 * Math.pow(2, attempt) + Math.floor(Math.random() * 100));
+        await recreatePool();
+        await sleep(500 * Math.pow(2, attempt) + Math.floor(Math.random() * 250));
         continue;
       }
       throw e;
