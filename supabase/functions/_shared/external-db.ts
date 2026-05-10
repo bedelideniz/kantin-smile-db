@@ -6,6 +6,13 @@ type Pool = InstanceType<typeof pg.Pool>;
 
 let _pool: Pool | null = null;
 
+export class DbConnectionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DbConnectionError";
+  }
+}
+
 export function getPool(): Pool {
   if (_pool) return _pool;
   const connectionString = Deno.env.get("EXTERNAL_DB_URL");
@@ -57,6 +64,10 @@ function isTransient(err: unknown): boolean {
   return TRANSIENT_PATTERNS.some((re) => re.test(msg));
 }
 
+export function isDbConnectionError(err: unknown): boolean {
+  return err instanceof DbConnectionError || isTransient(err);
+}
+
 async function recreatePool() {
   if (_pool) {
     const oldPool = _pool;
@@ -87,7 +98,8 @@ export async function query<T = any>(
       await sleep(250 + Math.floor(Math.random() * 150));
     }
   }
-  throw lastErr;
+  const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  throw new DbConnectionError(msg || "External database connection failed");
 }
 
 export async function withTransaction<T>(
@@ -121,5 +133,6 @@ export async function withTransaction<T>(
       throw e;
     }
   }
-  throw lastErr;
+  const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
+  throw new DbConnectionError(msg || "External database connection failed");
 }
