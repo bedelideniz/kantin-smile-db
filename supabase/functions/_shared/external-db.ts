@@ -30,7 +30,10 @@ export function getPool(): Pool {
     // exhaust the external DB's max_connections limit.
     max: 1,
     idleTimeoutMillis: 1_500,
-    connectionTimeoutMillis: 8_000,
+    // Give the external DB more breathing room when it's briefly saturated;
+    // 8s was too short and caused cascading "connection timeout" failures
+    // even when the DB recovered a second later.
+    connectionTimeoutMillis: 20_000,
     allowExitOnIdle: true,
   });
   // Swallow background pool errors so a dropped idle connection doesn't crash the isolate.
