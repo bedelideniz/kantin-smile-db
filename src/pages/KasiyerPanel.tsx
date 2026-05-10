@@ -620,9 +620,13 @@ export default function KasiyerPanel() {
                 >
                   <X className="h-4 w-4" />
                 </button>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20">
-                    <GraduationCap className="h-6 w-6" />
+                <div className="flex items-center gap-3 pr-10">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/20">
+                    {student.photo_url ? (
+                      <img src={student.photo_url} alt={student.full_name} className="h-full w-full object-cover" />
+                    ) : (
+                      <GraduationCap className="h-6 w-6" />
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-base font-bold leading-tight">{student.full_name}</p>
