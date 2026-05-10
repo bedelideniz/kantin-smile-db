@@ -86,7 +86,7 @@ export default function KasiyerDashboard() {
               <p className="text-sm text-muted-foreground">{session.school.name}</p>
             </div>
           </div>
-          <img src={logo} alt="KantinPay" className="h-16 w-auto shrink-0 drop-shadow-sm" />
+          <img src={logo} alt="KantinPay" className="h-32 md:h-40 w-auto shrink-0 drop-shadow-sm" />
         </header>
 
         {/* ===== Period filter ===== */}
