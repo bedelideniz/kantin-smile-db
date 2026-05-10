@@ -76,7 +76,7 @@ export default function KasiyerDashboard() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="flex items-center justify-between">
+        <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Button variant="outline" size="sm" onClick={() => navigate("/kantin")}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Kasaya Dön
@@ -86,6 +86,7 @@ export default function KasiyerDashboard() {
               <p className="text-sm text-muted-foreground">{session.school.name}</p>
             </div>
           </div>
+          <img src={logo} alt="KantinPay" className="h-16 w-auto shrink-0 drop-shadow-sm" />
         </header>
 
         {/* ===== Period filter ===== */}
