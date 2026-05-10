@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, TrendingUp, AlertTriangle, Package } from "lucide-react";
 import { callCashierApi, getCashierSession } from "@/lib/cashierApi";
 import { cn } from "@/lib/utils";
+import logo from "@/assets/kantinpay-logo.png";
 
 type Bucket = { total: number; count: number };
 interface DashboardData {
