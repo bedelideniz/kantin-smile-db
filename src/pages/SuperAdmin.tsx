@@ -138,6 +138,11 @@ export default function SuperAdmin() {
               {visibleTabs.map((m) => (
                 <TabsTrigger key={m} value={m} className="relative">
                   {MODULE_LABELS[m]}
+                  {m === "alarms" && openAlarms > 0 && (
+                    <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                      {openAlarms}
+                    </span>
+                  )}
                 </TabsTrigger>
               ))}
             </TabsList>
