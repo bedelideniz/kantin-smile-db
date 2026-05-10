@@ -401,6 +401,14 @@ export default function KasiyerPanel() {
             variant="outline"
             size="lg"
             className="h-11 rounded-xl border-border/60"
+            onClick={() => navigate("/kantin/dashboard")}
+          >
+            <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-11 rounded-xl border-border/60"
             onClick={() => { setRecentOpen(true); loadRecent(); }}
           >
             <Receipt className="mr-2 h-4 w-4" /> Son İşlemler
