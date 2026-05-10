@@ -33,6 +33,7 @@ export default function SuperAdmin() {
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [myModules, setMyModules] = useState<AppModule[] | null>(null);
   const [activeTab, setActiveTab] = useState<AppModule | undefined>("dashboard");
+  const [openAlarms, setOpenAlarms] = useState<number>(0);
   const visibleTabs = myModules ? TAB_ORDER.filter((m) => myModules.includes(m)) : [];
   const defaultTab = visibleTabs[0] ?? "schools";
 
@@ -51,6 +52,20 @@ export default function SuperAdmin() {
     if (visibleTabs.length === 0) return;
     if (!activeTab || !visibleTabs.includes(activeTab)) setActiveTab(defaultTab);
   }, [activeTab, defaultTab, visibleTabs]);
+
+  // Fetch open alarm count when alarms module is available; refresh on tab change & event
+  useEffect(() => {
+    if (!myModules?.includes("alarms")) return;
+    const refresh = () => {
+      callAdminApi<{ count: number }>("count_open_alarms")
+        .then((r) => setOpenAlarms(r?.count ?? 0))
+        .catch(() => {});
+    };
+    refresh();
+    const handler = () => refresh();
+    window.addEventListener("alarms:changed", handler);
+    return () => window.removeEventListener("alarms:changed", handler);
+  }, [myModules, activeTab]);
 
   if (loading || !user) {
     return <div className="flex min-h-screen items-center justify-center">Yükleniyor…</div>;
@@ -123,6 +138,11 @@ export default function SuperAdmin() {
               {visibleTabs.map((m) => (
                 <TabsTrigger key={m} value={m} className="relative">
                   {MODULE_LABELS[m]}
+                  {m === "alarms" && openAlarms > 0 && (
+                    <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+                      {openAlarms}
+                    </span>
+                  )}
                 </TabsTrigger>
               ))}
             </TabsList>
