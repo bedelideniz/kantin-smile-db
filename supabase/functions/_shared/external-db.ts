@@ -5,7 +5,6 @@ const { Pool } = pg;
 type Pool = InstanceType<typeof pg.Pool>;
 
 let _pool: Pool | null = null;
-let _connecting: Promise<unknown> | null = null;
 
 export function getPool(): Pool {
   if (_pool) return _pool;
