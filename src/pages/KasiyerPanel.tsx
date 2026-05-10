@@ -1091,45 +1091,76 @@ export default function KasiyerPanel() {
             <div className="p-6 text-center text-sm text-muted-foreground">Henüz işlem yok.</div>
           ) : (
             <div className="divide-y rounded-lg border">
-              {recentSales.map((s) => (
-                <div key={s.id} className="flex items-center gap-3 p-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-sm font-bold">#{s.tx_no}</span>
-                      <span className="font-medium truncate">{s.student_name}</span>
-                      {s.student_class && (
-                        <span className="text-xs text-muted-foreground">{s.student_class}</span>
-                      )}
-                      {s.status === "refunded" && (
-                        <Badge variant="secondary">İade edildi</Badge>
-                      )}
-                      {Number(s.refunded_amount) > 0 && s.status !== "refunded" && (
-                        <Badge variant="secondary">Kısmi iade</Badge>
+              {recentSales.map((s) => {
+                const st = s.last_alarm_status;
+                const unseen = st === "rejected" && s.last_alarm_id && !ack.has(s.last_alarm_id);
+                return (
+                  <div
+                    key={s.id}
+                    className={cn(
+                      "flex items-center gap-3 p-3",
+                      unseen && "bg-destructive/5",
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-sm font-bold">#{s.tx_no}</span>
+                        <span className="font-medium truncate">{s.student_name}</span>
+                        {s.student_class && (
+                          <span className="text-xs text-muted-foreground">{s.student_class}</span>
+                        )}
+                        {s.status === "refunded" && (
+                          <Badge variant="secondary">İade edildi</Badge>
+                        )}
+                        {Number(s.refunded_amount) > 0 && s.status !== "refunded" && (
+                          <Badge variant="secondary">Kısmi iade</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(s.created_at).toLocaleString("tr-TR")}
+                      </p>
+                      {st === "rejected" && s.last_alarm_resolution_note && (
+                        <p className="mt-1 text-xs text-destructive">
+                          <span className="font-semibold">Yönetici notu:</span> "{s.last_alarm_resolution_note}"
+                        </p>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(s.created_at).toLocaleString("tr-TR")}
-                    </p>
+                    <div className="text-right">
+                      <p className="font-bold">{fmt(Number(s.total_amount))} ₺</p>
+                    </div>
+                    {st === "open" ? (
+                      <Button size="sm" variant="ghost" disabled className="text-warning">
+                        <Bell className="h-4 w-4 mr-1 fill-current" /> Bildirildi
+                      </Button>
+                    ) : st === "resolved" ? (
+                      <Button size="sm" variant="ghost" disabled className="text-success">
+                        <Bell className="h-4 w-4 mr-1" /> İade onaylandı
+                      </Button>
+                    ) : st === "rejected" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openAlarmFor(s)}
+                        className={cn(
+                          "border-destructive/50 text-destructive hover:bg-destructive/10",
+                          unseen && "animate-pulse",
+                        )}
+                      >
+                        <Bell className="h-4 w-4 mr-1" /> Reddedildi · İncele
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openAlarmFor(s)}
+                        className="text-warning border-warning/40 hover:bg-warning/10"
+                      >
+                        <Bell className="h-4 w-4 mr-1" /> Bildir
+                      </Button>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">{fmt(Number(s.total_amount))} ₺</p>
-                  </div>
-                  {s.has_alarm ? (
-                    <Button size="sm" variant="ghost" disabled className="text-warning">
-                      <Bell className="h-4 w-4 mr-1 fill-current" /> Bildirildi
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => { setAlarmFor(s); setAlarmReason(""); }}
-                      className="text-warning border-warning/40 hover:bg-warning/10"
-                    >
-                      <Bell className="h-4 w-4 mr-1" /> Bildir
-                    </Button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </DialogContent>
