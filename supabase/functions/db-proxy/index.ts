@@ -5,7 +5,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { z } from "npm:zod@3.23.8";
 import bcrypt from "npm:bcryptjs@2.4.3";
 import { authenticate, HttpError, requireSchoolAdminSchool, resolveSchoolScope } from "../_shared/auth.ts";
-import { query, withTransaction } from "../_shared/external-db.ts";
+import { isDbConnectionError, query, withTransaction } from "../_shared/external-db.ts";
 import { generateOtp, sendSms } from "../_shared/sms.ts";
 
 const BodySchema = z.object({
@@ -1233,6 +1233,16 @@ Deno.serve(async (req) => {
       });
     }
     const msg = e instanceof Error ? e.message : String(e);
+    if (isDbConnectionError(e)) {
+      console.warn("db-proxy external DB unavailable:", msg);
+      return new Response(JSON.stringify({
+        error: "Veritabanı sunucusuna şu anda ulaşılamıyor. Lütfen kısa süre sonra tekrar deneyin.",
+        code: "DB_UNAVAILABLE",
+      }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "5" },
+      });
+    }
     console.error("db-proxy error:", msg);
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,
