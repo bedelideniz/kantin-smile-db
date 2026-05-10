@@ -1178,6 +1178,35 @@ export default function KasiyerPanel() {
               Yönetici alarmı inceleyip gerekirse iade işlemini tamamlayacak.
             </DialogDescription>
           </DialogHeader>
+
+          {alarmFor?.last_alarm_status === "rejected" && (
+            <div className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-destructive">
+                Önceki bildirim reddedildi
+              </p>
+              {alarmFor.last_alarm_reason && (
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-semibold">Sizin notunuz:</span> "{alarmFor.last_alarm_reason}"
+                </p>
+              )}
+              {alarmFor.last_alarm_resolution_note ? (
+                <p className="text-sm">
+                  <span className="font-semibold text-destructive">Yönetici notu:</span> {alarmFor.last_alarm_resolution_note}
+                </p>
+              ) : (
+                <p className="text-xs italic text-muted-foreground">Yönetici not eklemedi.</p>
+              )}
+              {alarmFor.last_alarm_resolved_at && (
+                <p className="text-[11px] text-muted-foreground">
+                  {new Date(alarmFor.last_alarm_resolved_at).toLocaleString("tr-TR")}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Hâlâ hatalı olduğunu düşünüyorsanız, daha açıklayıcı bir not yazıp tekrar bildirebilirsiniz.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground">
               Açıklama (opsiyonel)
@@ -1194,7 +1223,11 @@ export default function KasiyerPanel() {
               Vazgeç
             </Button>
             <Button onClick={submitAlarm} disabled={alarmSubmitting}>
-              {alarmSubmitting ? "Gönderiliyor…" : "Alarmı Gönder"}
+              {alarmSubmitting
+                ? "Gönderiliyor…"
+                : alarmFor?.last_alarm_status === "rejected"
+                  ? "Tekrar Bildir"
+                  : "Alarmı Gönder"}
             </Button>
           </DialogFooter>
         </DialogContent>
