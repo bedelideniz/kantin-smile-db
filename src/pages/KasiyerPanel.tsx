@@ -49,7 +49,23 @@ interface RecentSale {
   student_name: string;
   student_class: string | null;
   has_alarm: boolean;
+  last_alarm_id: string | null;
+  last_alarm_status: "open" | "resolved" | "rejected" | null;
+  last_alarm_reason: string | null;
+  last_alarm_resolution_note: string | null;
+  last_alarm_resolved_at: string | null;
+  last_alarm_created_at: string | null;
 }
+
+const ACK_KEY = "kantinpay.cashier.ackAlarms";
+const getAck = (): Set<string> => {
+  try { return new Set(JSON.parse(localStorage.getItem(ACK_KEY) ?? "[]")); }
+  catch { return new Set(); }
+};
+const addAck = (id: string) => {
+  const s = getAck(); s.add(id);
+  localStorage.setItem(ACK_KEY, JSON.stringify([...s].slice(-200)));
+};
 
 const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -97,6 +113,8 @@ export default function KasiyerPanel() {
   const [alarmReason, setAlarmReason] = useState("");
   const [alarmSubmitting, setAlarmSubmitting] = useState(false);
 
+  const [ackVersion, setAckVersion] = useState(0);
+
   const loadRecent = async () => {
     setRecentLoading(true);
     try {
@@ -106,6 +124,26 @@ export default function KasiyerPanel() {
       toast({ title: "Hata", description: e?.message, variant: "destructive" });
     } finally { setRecentLoading(false); }
   };
+
+  // Poll recent sales periodically to detect rejected alarms (background)
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await callCashierApi<RecentSale[]>("recent_sales", { limit: 30 });
+        if (!cancelled) setRecentSales(r);
+      } catch { /* silent */ }
+    };
+    tick();
+    const id = setInterval(tick, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  const ack = useMemo(() => getAck(), [ackVersion]);
+  const unseenRejected = useMemo(
+    () => recentSales.filter((s) => s.last_alarm_status === "rejected" && s.last_alarm_id && !ack.has(s.last_alarm_id)),
+    [recentSales, ack],
+  );
 
   const submitAlarm = async () => {
     if (!alarmFor) return;
@@ -124,6 +162,14 @@ export default function KasiyerPanel() {
     } catch (e: any) {
       toast({ title: "Hata", description: e?.message, variant: "destructive" });
     } finally { setAlarmSubmitting(false); }
+  };
+
+  const openAlarmFor = (s: RecentSale) => {
+    if (s.last_alarm_id && s.last_alarm_status === "rejected") {
+      addAck(s.last_alarm_id);
+      setAckVersion((v) => v + 1);
+    }
+    setAlarmFor(s); setAlarmReason("");
   };
 
   // Auth gate
@@ -407,10 +453,18 @@ export default function KasiyerPanel() {
           <Button
             variant="outline"
             size="lg"
-            className="h-11 rounded-xl border-border/60"
+            className={cn(
+              "relative h-11 rounded-xl border-border/60",
+              unseenRejected.length > 0 && "border-destructive bg-destructive/10 text-destructive hover:bg-destructive/20 animate-pulse",
+            )}
             onClick={() => { setRecentOpen(true); loadRecent(); }}
           >
             <Receipt className="mr-2 h-4 w-4" /> Son İşlemler
+            {unseenRejected.length > 0 && (
+              <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[11px] font-bold text-destructive-foreground">
+                {unseenRejected.length}
+              </span>
+            )}
           </Button>
           <Button
             variant="outline"
@@ -1037,45 +1091,76 @@ export default function KasiyerPanel() {
             <div className="p-6 text-center text-sm text-muted-foreground">Henüz işlem yok.</div>
           ) : (
             <div className="divide-y rounded-lg border">
-              {recentSales.map((s) => (
-                <div key={s.id} className="flex items-center gap-3 p-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono text-sm font-bold">#{s.tx_no}</span>
-                      <span className="font-medium truncate">{s.student_name}</span>
-                      {s.student_class && (
-                        <span className="text-xs text-muted-foreground">{s.student_class}</span>
-                      )}
-                      {s.status === "refunded" && (
-                        <Badge variant="secondary">İade edildi</Badge>
-                      )}
-                      {Number(s.refunded_amount) > 0 && s.status !== "refunded" && (
-                        <Badge variant="secondary">Kısmi iade</Badge>
+              {recentSales.map((s) => {
+                const st = s.last_alarm_status;
+                const unseen = st === "rejected" && s.last_alarm_id && !ack.has(s.last_alarm_id);
+                return (
+                  <div
+                    key={s.id}
+                    className={cn(
+                      "flex items-center gap-3 p-3",
+                      unseen && "bg-destructive/5",
+                    )}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono text-sm font-bold">#{s.tx_no}</span>
+                        <span className="font-medium truncate">{s.student_name}</span>
+                        {s.student_class && (
+                          <span className="text-xs text-muted-foreground">{s.student_class}</span>
+                        )}
+                        {s.status === "refunded" && (
+                          <Badge variant="secondary">İade edildi</Badge>
+                        )}
+                        {Number(s.refunded_amount) > 0 && s.status !== "refunded" && (
+                          <Badge variant="secondary">Kısmi iade</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(s.created_at).toLocaleString("tr-TR")}
+                      </p>
+                      {st === "rejected" && s.last_alarm_resolution_note && (
+                        <p className="mt-1 text-xs text-destructive">
+                          <span className="font-semibold">Yönetici notu:</span> "{s.last_alarm_resolution_note}"
+                        </p>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(s.created_at).toLocaleString("tr-TR")}
-                    </p>
+                    <div className="text-right">
+                      <p className="font-bold">{fmt(Number(s.total_amount))} ₺</p>
+                    </div>
+                    {st === "open" ? (
+                      <Button size="sm" variant="ghost" disabled className="text-warning">
+                        <Bell className="h-4 w-4 mr-1 fill-current" /> Bildirildi
+                      </Button>
+                    ) : st === "resolved" ? (
+                      <Button size="sm" variant="ghost" disabled className="text-success">
+                        <Bell className="h-4 w-4 mr-1" /> İade onaylandı
+                      </Button>
+                    ) : st === "rejected" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openAlarmFor(s)}
+                        className={cn(
+                          "border-destructive/50 text-destructive hover:bg-destructive/10",
+                          unseen && "animate-pulse",
+                        )}
+                      >
+                        <Bell className="h-4 w-4 mr-1" /> Reddedildi · İncele
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openAlarmFor(s)}
+                        className="text-warning border-warning/40 hover:bg-warning/10"
+                      >
+                        <Bell className="h-4 w-4 mr-1" /> Bildir
+                      </Button>
+                    )}
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">{fmt(Number(s.total_amount))} ₺</p>
-                  </div>
-                  {s.has_alarm ? (
-                    <Button size="sm" variant="ghost" disabled className="text-warning">
-                      <Bell className="h-4 w-4 mr-1 fill-current" /> Bildirildi
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => { setAlarmFor(s); setAlarmReason(""); }}
-                      className="text-warning border-warning/40 hover:bg-warning/10"
-                    >
-                      <Bell className="h-4 w-4 mr-1" /> Bildir
-                    </Button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </DialogContent>
@@ -1093,6 +1178,35 @@ export default function KasiyerPanel() {
               Yönetici alarmı inceleyip gerekirse iade işlemini tamamlayacak.
             </DialogDescription>
           </DialogHeader>
+
+          {alarmFor?.last_alarm_status === "rejected" && (
+            <div className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wider text-destructive">
+                Önceki bildirim reddedildi
+              </p>
+              {alarmFor.last_alarm_reason && (
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-semibold">Sizin notunuz:</span> "{alarmFor.last_alarm_reason}"
+                </p>
+              )}
+              {alarmFor.last_alarm_resolution_note ? (
+                <p className="text-sm">
+                  <span className="font-semibold text-destructive">Yönetici notu:</span> {alarmFor.last_alarm_resolution_note}
+                </p>
+              ) : (
+                <p className="text-xs italic text-muted-foreground">Yönetici not eklemedi.</p>
+              )}
+              {alarmFor.last_alarm_resolved_at && (
+                <p className="text-[11px] text-muted-foreground">
+                  {new Date(alarmFor.last_alarm_resolved_at).toLocaleString("tr-TR")}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Hâlâ hatalı olduğunu düşünüyorsanız, daha açıklayıcı bir not yazıp tekrar bildirebilirsiniz.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground">
               Açıklama (opsiyonel)
@@ -1109,7 +1223,11 @@ export default function KasiyerPanel() {
               Vazgeç
             </Button>
             <Button onClick={submitAlarm} disabled={alarmSubmitting}>
-              {alarmSubmitting ? "Gönderiliyor…" : "Alarmı Gönder"}
+              {alarmSubmitting
+                ? "Gönderiliyor…"
+                : alarmFor?.last_alarm_status === "rejected"
+                  ? "Tekrar Bildir"
+                  : "Alarmı Gönder"}
             </Button>
           </DialogFooter>
         </DialogContent>
