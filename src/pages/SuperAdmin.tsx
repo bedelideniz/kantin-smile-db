@@ -5,7 +5,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import SchoolsManager from "@/components/admin/SchoolsManager";
 import NetgsmSettings from "@/components/admin/NetgsmSettings";
@@ -33,8 +32,7 @@ export default function SuperAdmin() {
   const [running, setRunning] = useState(false);
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [myModules, setMyModules] = useState<AppModule[] | null>(null);
-  const [openAlarms, setOpenAlarms] = useState(0);
-  const [activeTab, setActiveTab] = useState<AppModule | undefined>();
+  const [activeTab, setActiveTab] = useState<AppModule | undefined>("dashboard");
   const visibleTabs = myModules ? TAB_ORDER.filter((m) => myModules.includes(m)) : [];
   const defaultTab = visibleTabs[0] ?? "schools";
 
@@ -50,29 +48,9 @@ export default function SuperAdmin() {
   }, [user, hasRole]);
 
   useEffect(() => {
-    if (!activeTab && visibleTabs.length > 0) setActiveTab(defaultTab);
-  }, [activeTab, defaultTab, visibleTabs.length]);
-
-  // Poll open alarms count occasionally for badge notification.
-  // Keeping this light prevents the external DB from being flooded by admin tabs.
-  useEffect(() => {
-    if (activeTab !== "alarms" || !myModules?.includes("alarms")) return;
-    let cancelled = false;
-    let inFlight = false;
-    const poll = () => {
-      if (inFlight) return;
-      inFlight = true;
-      callAdminApi<{ count: number }>("count_open_alarms")
-        .then((r) => { if (!cancelled) setOpenAlarms(r.count); })
-        .catch(() => {})
-        .finally(() => { inFlight = false; });
-    };
-    poll();
-    const id = setInterval(poll, 120_000);
-    const onChange = () => poll();
-    window.addEventListener("alarms:changed", onChange);
-    return () => { cancelled = true; clearInterval(id); window.removeEventListener("alarms:changed", onChange); };
-  }, [activeTab, myModules]);
+    if (visibleTabs.length === 0) return;
+    if (!activeTab || !visibleTabs.includes(activeTab)) setActiveTab(defaultTab);
+  }, [activeTab, defaultTab, visibleTabs]);
 
   if (loading || !user) {
     return <div className="flex min-h-screen items-center justify-center">Yükleniyor…</div>;
@@ -145,11 +123,6 @@ export default function SuperAdmin() {
               {visibleTabs.map((m) => (
                 <TabsTrigger key={m} value={m} className="relative">
                   {MODULE_LABELS[m]}
-                  {m === "alarms" && openAlarms > 0 && (
-                    <Badge className="ml-2 h-5 min-w-5 px-1.5 bg-destructive text-destructive-foreground hover:bg-destructive animate-pulse">
-                      {openAlarms}
-                    </Badge>
-                  )}
                 </TabsTrigger>
               ))}
             </TabsList>

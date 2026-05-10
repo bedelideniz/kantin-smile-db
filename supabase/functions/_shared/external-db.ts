@@ -30,10 +30,9 @@ export function getPool(): Pool {
     // exhaust the external DB's max_connections limit.
     max: 1,
     idleTimeoutMillis: 1_500,
-    // Give the external DB more breathing room when it's briefly saturated;
-    // 8s was too short and caused cascading "connection timeout" failures
-    // even when the DB recovered a second later.
-    connectionTimeoutMillis: 20_000,
+    // Keep connection attempts below the edge-function gateway timeout.
+    // If the external DB is saturated, fail fast and let the caller retry.
+    connectionTimeoutMillis: 6_000,
     allowExitOnIdle: true,
   });
   // Swallow background pool errors so a dropped idle connection doesn't crash the isolate.
@@ -75,7 +74,7 @@ export async function query<T = any>(
   params: unknown[] = [],
 ): Promise<{ rows: T[]; rowCount: number }> {
   let lastErr: unknown;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const pool = getPool();
       const res = await pool.query(text, params);
@@ -84,8 +83,8 @@ export async function query<T = any>(
       lastErr = e;
       if (!isTransient(e)) throw e;
       await recreatePool();
-      // Exponential backoff with jitter: ~500ms, ~1s, ~2s, ~4s
-      await sleep(500 * Math.pow(2, attempt) + Math.floor(Math.random() * 250));
+      // Short jitter keeps total function time below the gateway timeout.
+      await sleep(250 + Math.floor(Math.random() * 150));
     }
   }
   throw lastErr;
@@ -95,7 +94,7 @@ export async function withTransaction<T>(
   fn: (client: any) => Promise<T>,
 ): Promise<T> {
   let lastErr: unknown;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     let client: any = null;
     try {
       const pool = getPool();
@@ -116,7 +115,7 @@ export async function withTransaction<T>(
       // Only retry if we never got into the transaction body (i.e. connect failed).
       if (!client && isTransient(e)) {
         await recreatePool();
-        await sleep(500 * Math.pow(2, attempt) + Math.floor(Math.random() * 250));
+        await sleep(250 + Math.floor(Math.random() * 150));
         continue;
       }
       throw e;
