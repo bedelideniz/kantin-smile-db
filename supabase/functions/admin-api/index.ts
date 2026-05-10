@@ -4,7 +4,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 import { z } from "npm:zod@3.23.8";
 import { authenticate, HttpError, requireRole } from "../_shared/auth.ts";
-import { query, withTransaction } from "../_shared/external-db.ts";
+import { isDbConnectionError, query, withTransaction } from "../_shared/external-db.ts";
 
 type AppModule =
   | "schools" | "students" | "marketers" | "splashes" | "donations"
@@ -743,6 +743,15 @@ Deno.serve(async (req) => {
       });
     }
     const msg = e instanceof Error ? e.message : String(e);
+    if (isDbConnectionError(e)) {
+      console.warn("admin-api external DB unavailable:", msg);
+      return new Response(JSON.stringify({
+        error: "Veritabanı sunucusuna şu anda ulaşılamıyor. Lütfen kısa süre sonra tekrar deneyin.",
+        code: "DB_UNAVAILABLE",
+      }), {
+        status: 503, headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "5" },
+      });
+    }
     console.error("admin-api error:", msg);
     return new Response(JSON.stringify({ error: msg }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
