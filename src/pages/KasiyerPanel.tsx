@@ -202,16 +202,18 @@ export default function KasiyerPanel() {
     if (!session) return;
     (async () => {
       try {
-        const [cats, prods, anns] = await Promise.all([
-          callCashierApi<Category[]>("list_categories"),
-          callCashierApi<Product[]>("list_products"),
-          callCashierApi<Announcement[]>("list_announcements").catch(() => []),
-        ]);
+        const cats = await callCashierApiWithRetry<Category[]>("list_categories");
+        const prods = await callCashierApiWithRetry<Product[]>("list_products");
+        const anns = await callCashierApiWithRetry<Announcement[]>("list_announcements").catch(() => []);
         setCategories(cats);
         setProducts(prods);
         setAnnouncements(anns ?? []);
       } catch (e: any) {
-        toast({ title: "Yükleme hatası", description: e?.message, variant: "destructive" });
+        const msg = e?.message ?? "";
+        if (!isTransientDbError(msg) || !transientLoadWarned.current) {
+          toast({ title: "Yükleme hatası", description: msg, variant: "destructive" });
+          transientLoadWarned.current = true;
+        }
         if (e?.status === 401) navigate("/kantin-giris", { replace: true });
       } finally {
         setLoading(false);
