@@ -491,6 +491,65 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
     );
     return r.rows;
   },
+  canteen_dashboard: async (ctx) => {
+    // Aggregate completed sales for this school across common periods + last 30 days breakdown.
+    const buckets = await query<{
+      today_total: string; today_count: string;
+      week_total: string; week_count: string;
+      month_total: string; month_count: string;
+      year_total: string; year_count: string;
+      all_total: string; all_count: string;
+    }>(
+      `SELECT
+         COALESCE(SUM(CASE WHEN created_at >= date_trunc('day', now())                        THEN total_amount - COALESCE(refunded_amount,0) ELSE 0 END),0) AS today_total,
+         COUNT(*)    FILTER (WHERE created_at >= date_trunc('day', now()))                                                                               AS today_count,
+         COALESCE(SUM(CASE WHEN created_at >= now() - interval '7 days'                       THEN total_amount - COALESCE(refunded_amount,0) ELSE 0 END),0) AS week_total,
+         COUNT(*)    FILTER (WHERE created_at >= now() - interval '7 days')                                                                              AS week_count,
+         COALESCE(SUM(CASE WHEN created_at >= now() - interval '30 days'                      THEN total_amount - COALESCE(refunded_amount,0) ELSE 0 END),0) AS month_total,
+         COUNT(*)    FILTER (WHERE created_at >= now() - interval '30 days')                                                                             AS month_count,
+         COALESCE(SUM(CASE WHEN created_at >= date_trunc('year', now())                       THEN total_amount - COALESCE(refunded_amount,0) ELSE 0 END),0) AS year_total,
+         COUNT(*)    FILTER (WHERE created_at >= date_trunc('year', now()))                                                                              AS year_count,
+         COALESCE(SUM(total_amount - COALESCE(refunded_amount,0)),0) AS all_total,
+         COUNT(*) AS all_count
+       FROM transactions
+       WHERE school_id = $1 AND status = 'completed'`,
+      [ctx.schoolId],
+    );
+
+    const daily = await query<{ day: string; total: string; count: string }>(
+      `SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day,
+              COALESCE(SUM(total_amount - COALESCE(refunded_amount,0)),0) AS total,
+              COUNT(*) AS count
+         FROM transactions
+        WHERE school_id = $1 AND status = 'completed'
+          AND created_at >= now() - interval '30 days'
+        GROUP BY 1 ORDER BY 1 ASC`,
+      [ctx.schoolId],
+    );
+
+    const b = buckets.rows[0];
+    return {
+      today:    { total: Number(b.today_total),    count: Number(b.today_count) },
+      week:     { total: Number(b.week_total),     count: Number(b.week_count) },
+      month:    { total: Number(b.month_total),    count: Number(b.month_count) },
+      year:     { total: Number(b.year_total),     count: Number(b.year_count) },
+      all_time: { total: Number(b.all_total),      count: Number(b.all_count) },
+      daily: daily.rows.map((r) => ({ day: r.day, total: Number(r.total), count: Number(r.count) })),
+    };
+  },
+  low_stock_products: async (ctx, params) => {
+    const p = z.object({ threshold: z.number().int().min(0).max(10000).default(20) }).parse(params ?? {});
+    const r = await query(
+      `SELECT id, name, stock_qty, price, category_id
+         FROM products
+        WHERE school_id = $1 AND is_active = TRUE AND stock_tracking = TRUE
+          AND stock_qty < $2
+        ORDER BY stock_qty ASC, name ASC
+        LIMIT 200`,
+      [ctx.schoolId, p.threshold],
+    );
+    return { threshold: p.threshold, products: r.rows };
+  },
   raise_alarm: async (ctx, params) => {
     const p = z.object({
       transaction_id: z.string().uuid(),
