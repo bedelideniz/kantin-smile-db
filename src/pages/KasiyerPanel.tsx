@@ -398,9 +398,8 @@ export default function KasiyerPanel() {
             {reader.status === "listening" ? "Kart & barkod okuyucu hazır" : "Okuyucu kapalı"}
           </div>
           <Button
-            variant="outline"
             size="lg"
-            className="h-11 rounded-xl border-border/60"
+            className="h-11 rounded-xl bg-destructive text-destructive-foreground font-semibold shadow-elevated hover:bg-destructive/90 hover:shadow-glow transition-all"
             onClick={() => navigate("/kantin/dashboard")}
           >
             <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
