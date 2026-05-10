@@ -46,17 +46,22 @@ export default function SuperAdmin() {
       .catch(() => setMyModules([]));
   }, [user, hasRole]);
 
-  // Poll open alarms count every 30s for badge notification
+  // Poll open alarms count occasionally for badge notification.
+  // Keeping this light prevents the external DB from being flooded by admin tabs.
   useEffect(() => {
     if (!myModules?.includes("alarms")) return;
     let cancelled = false;
+    let inFlight = false;
     const poll = () => {
+      if (inFlight) return;
+      inFlight = true;
       callAdminApi<{ count: number }>("count_open_alarms")
         .then((r) => { if (!cancelled) setOpenAlarms(r.count); })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => { inFlight = false; });
     };
     poll();
-    const id = setInterval(poll, 30_000);
+    const id = setInterval(poll, 120_000);
     const onChange = () => poll();
     window.addEventListener("alarms:changed", onChange);
     return () => { cancelled = true; clearInterval(id); window.removeEventListener("alarms:changed", onChange); };
