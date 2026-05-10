@@ -44,24 +44,53 @@ export default function KasiyerDashboard() {
   useEffect(() => {
     if (!session) { navigate("/kantin-giris", { replace: true }); return; }
     let cancelled = false;
+    let consecutiveFailures = 0;
+
+    const isTransient = (msg: string) =>
+      /timeout|terminated|ECONNRESET|too many|connection slots/i.test(msg);
+
+    const callWithRetry = async <T,>(op: string, params?: any): Promise<T> => {
+      try {
+        return await callCashierApi<T>(op, params);
+      } catch (e: any) {
+        if (isTransient(e?.message ?? "")) {
+          await new Promise((r) => setTimeout(r, 800));
+          return await callCashierApi<T>(op, params);
+        }
+        throw e;
+      }
+    };
+
     const load = async () => {
       try {
-        const [d, l] = await Promise.all([
-          callCashierApi<DashboardData>("canteen_dashboard"),
-          callCashierApi<{ threshold: number; products: LowStockProduct[] }>("low_stock_products", { threshold: 20 }),
-        ]);
+        // Sequential (not parallel) to avoid exhausting the external DB connection pool.
+        const d = await callWithRetry<DashboardData>("canteen_dashboard");
         if (cancelled) return;
         setData(d);
+        const l = await callWithRetry<{ threshold: number; products: LowStockProduct[] }>(
+          "low_stock_products", { threshold: 20 },
+        );
+        if (cancelled) return;
         setLowStock(l.products);
+        consecutiveFailures = 0;
       } catch (e: any) {
-        if (!cancelled) toast({ title: "Yükleme hatası", description: e?.message, variant: "destructive" });
+        consecutiveFailures += 1;
+        // Suppress transient timeout toasts on background refreshes; only show
+        // an error if the very first load fails or we've failed 3+ times in a row.
+        const msg = e?.message ?? "";
+        const showToast =
+          !cancelled && (consecutiveFailures >= 3 || (!data && !isTransient(msg)));
+        if (showToast) {
+          toast({ title: "Yükleme hatası", description: msg, variant: "destructive" });
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     load();
-    const id = setInterval(load, 30_000);
+    const id = setInterval(load, 60_000);
     return () => { cancelled = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, navigate, toast]);
 
   const active = data?.[period];
