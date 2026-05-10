@@ -34,6 +34,9 @@ export default function SuperAdmin() {
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [myModules, setMyModules] = useState<AppModule[] | null>(null);
   const [openAlarms, setOpenAlarms] = useState(0);
+  const [activeTab, setActiveTab] = useState<AppModule | undefined>();
+  const visibleTabs = myModules ? TAB_ORDER.filter((m) => myModules.includes(m)) : [];
+  const defaultTab = visibleTabs[0] ?? "schools";
 
   useEffect(() => {
     if (!loading && !user) navigate("/login", { replace: true });
@@ -46,21 +49,30 @@ export default function SuperAdmin() {
       .catch(() => setMyModules([]));
   }, [user, hasRole]);
 
-  // Poll open alarms count every 30s for badge notification
   useEffect(() => {
-    if (!myModules?.includes("alarms")) return;
+    if (!activeTab && visibleTabs.length > 0) setActiveTab(defaultTab);
+  }, [activeTab, defaultTab, visibleTabs.length]);
+
+  // Poll open alarms count occasionally for badge notification.
+  // Keeping this light prevents the external DB from being flooded by admin tabs.
+  useEffect(() => {
+    if (activeTab !== "alarms" || !myModules?.includes("alarms")) return;
     let cancelled = false;
+    let inFlight = false;
     const poll = () => {
+      if (inFlight) return;
+      inFlight = true;
       callAdminApi<{ count: number }>("count_open_alarms")
         .then((r) => { if (!cancelled) setOpenAlarms(r.count); })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => { inFlight = false; });
     };
     poll();
-    const id = setInterval(poll, 30_000);
+    const id = setInterval(poll, 120_000);
     const onChange = () => poll();
     window.addEventListener("alarms:changed", onChange);
     return () => { cancelled = true; clearInterval(id); window.removeEventListener("alarms:changed", onChange); };
-  }, [myModules]);
+  }, [activeTab, myModules]);
 
   if (loading || !user) {
     return <div className="flex min-h-screen items-center justify-center">Yükleniyor…</div>;
@@ -104,8 +116,6 @@ export default function SuperAdmin() {
   }
 
   const hasMod = (m: AppModule) => myModules.includes(m);
-  const visibleTabs = TAB_ORDER.filter(hasMod);
-  const defaultTab = visibleTabs[0] ?? "schools";
 
   return (
     <main className="min-h-screen bg-background p-6">
@@ -130,7 +140,7 @@ export default function SuperAdmin() {
             Henüz hiçbir modüle yetkiniz tanımlanmamış. Yöneticinize başvurun.
           </CardContent></Card>
         ) : (
-          <Tabs defaultValue={defaultTab} className="space-y-4">
+          <Tabs value={activeTab ?? defaultTab} onValueChange={(value) => setActiveTab(value as AppModule)} className="space-y-4">
             <TabsList className="flex-wrap h-auto">
               {visibleTabs.map((m) => (
                 <TabsTrigger key={m} value={m} className="relative">
