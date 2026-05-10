@@ -34,7 +34,7 @@ export default function SuperAdmin() {
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [myModules, setMyModules] = useState<AppModule[] | null>(null);
   const [openAlarms, setOpenAlarms] = useState(0);
-  const [activeTab, setActiveTab] = useState<AppModule | undefined>();
+  const [activeTab, setActiveTab] = useState<AppModule | undefined>("dashboard");
   const visibleTabs = myModules ? TAB_ORDER.filter((m) => myModules.includes(m)) : [];
   const defaultTab = visibleTabs[0] ?? "schools";
 
@@ -50,8 +50,9 @@ export default function SuperAdmin() {
   }, [user, hasRole]);
 
   useEffect(() => {
-    if (!activeTab && visibleTabs.length > 0) setActiveTab(defaultTab);
-  }, [activeTab, defaultTab, visibleTabs.length]);
+    if (visibleTabs.length === 0) return;
+    if (!activeTab || !visibleTabs.includes(activeTab)) setActiveTab(defaultTab);
+  }, [activeTab, defaultTab, visibleTabs]);
 
   // Poll open alarms count occasionally for badge notification.
   // Keeping this light prevents the external DB from being flooded by admin tabs.
