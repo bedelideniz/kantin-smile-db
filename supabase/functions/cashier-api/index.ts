@@ -482,9 +482,22 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
     const r = await query(
       `SELECT t.id, t.tx_no, t.total_amount, t.balance_after, t.created_at, t.status, t.refunded_amount,
               s.full_name AS student_name, s.class_name AS student_class,
-              EXISTS(SELECT 1 FROM transaction_alarms a WHERE a.transaction_id = t.id) AS has_alarm
+              la.id              AS last_alarm_id,
+              la.status          AS last_alarm_status,
+              la.reason          AS last_alarm_reason,
+              la.resolution_note AS last_alarm_resolution_note,
+              la.resolved_at     AS last_alarm_resolved_at,
+              la.created_at      AS last_alarm_created_at,
+              (la.id IS NOT NULL AND la.status = 'open') AS has_alarm
          FROM transactions t
          JOIN students s ON s.id = t.student_id
+         LEFT JOIN LATERAL (
+           SELECT a.id, a.status, a.reason, a.resolution_note, a.resolved_at, a.created_at
+             FROM transaction_alarms a
+            WHERE a.transaction_id = t.id
+            ORDER BY a.created_at DESC
+            LIMIT 1
+         ) la ON TRUE
         WHERE t.cashier_id = $1
         ORDER BY t.created_at DESC LIMIT $2`,
       [ctx.cashierId, p.limit],
