@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 
@@ -46,8 +46,8 @@ export function useAuth() {
     };
   }, [user]);
 
-  const hasRole = (r: AppRole) => !!roles?.some((x) => x.role === r);
-  const signOut = () => supabase.auth.signOut();
+  const hasRole = useCallback((r: AppRole) => !!roles?.some((x) => x.role === r), [roles]);
+  const signOut = useCallback(() => supabase.auth.signOut(), []);
 
   return { session, user, roles, loading, hasRole, signOut };
 }
