@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LogOut, QrCode, Search, Trash2, X, Plus, Minus,
   CreditCard, CircleDot, Wallet, ShoppingCart, AlertTriangle, GraduationCap, Sparkles, Barcode, Loader2, ShieldOff,
-  Receipt, Bell,
+  Receipt, Bell, LayoutDashboard,
 } from "lucide-react";
 import {
   callCashierApi,
