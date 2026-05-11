@@ -693,6 +693,83 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
     return { topups: r.rows };
   },
 
+  dashboard_home: async (ctx, params) => {
+    await requireModule(ctx.userId, "dashboard");
+    const limit = Math.min(Math.max(Number(params?.limit ?? 12), 1), 100);
+    const sql = `
+      WITH ranges AS (
+        SELECT
+          (now() AT TIME ZONE 'Europe/Istanbul')::date AS today,
+          ((now() AT TIME ZONE 'Europe/Istanbul')::date - interval '6 days')::date AS d7,
+          ((now() AT TIME ZONE 'Europe/Istanbul')::date - interval '29 days')::date AS d30
+      ),
+      tu AS (
+        SELECT
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date = (SELECT today FROM ranges) THEN amount END),0) AS d,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d7    FROM ranges) THEN amount END),0) AS w,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d30   FROM ranges) THEN amount END),0) AS m,
+          COALESCE(SUM(amount),0) AS t
+        FROM wallet_topups
+      ),
+      cp AS (
+        SELECT
+          COALESCE(SUM(CASE WHEN status='paid' AND (paid_at AT TIME ZONE 'Europe/Istanbul')::date = (SELECT today FROM ranges) THEN payout_amount END),0) AS d,
+          COALESCE(SUM(CASE WHEN status='paid' AND (paid_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d7    FROM ranges) THEN payout_amount END),0) AS w,
+          COALESCE(SUM(CASE WHEN status='paid' AND (paid_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d30   FROM ranges) THEN payout_amount END),0) AS m,
+          COALESCE(SUM(CASE WHEN status='paid' THEN payout_amount END),0) AS t,
+          COALESCE(SUM(CASE WHEN status IN ('pending','payable') THEN payout_amount END),0) AS owed
+        FROM canteen_payouts
+      ),
+      dn AS (
+        SELECT
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date = (SELECT today FROM ranges) THEN amount END),0) AS d,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d7    FROM ranges) THEN amount END),0) AS w,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d30   FROM ranges) THEN amount END),0) AS m,
+          COALESCE(SUM(amount),0) AS t
+        FROM donations WHERE status='completed'
+      ),
+      dd AS (
+        SELECT
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date = (SELECT today FROM ranges) THEN amount END),0) AS d,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d7    FROM ranges) THEN amount END),0) AS w,
+          COALESCE(SUM(CASE WHEN (created_at AT TIME ZONE 'Europe/Istanbul')::date >= (SELECT d30   FROM ranges) THEN amount END),0) AS m,
+          COALESCE(SUM(amount),0) AS t
+        FROM donation_distributions
+      ),
+      bal AS (
+        SELECT COALESCE(SUM(balance),0) AS student_balances FROM students
+      ),
+      pool AS (
+        SELECT COALESCE(SUM(balance),0) AS pool_balances FROM school_donation_pools
+      ),
+      recent AS (
+        SELECT COALESCE(json_agg(row_to_json(x)), '[]'::json) AS items
+        FROM (
+          SELECT t.id, s.name AS school_name, t.amount, t.created_at
+            FROM wallet_topups t
+            JOIN schools s ON s.id = t.school_id
+           ORDER BY t.created_at DESC
+           LIMIT $1
+        ) x
+      )
+      SELECT json_build_object(
+        'stats', json_build_object(
+          'topups',     json_build_object('today',tu.d,'week',tu.w,'month',tu.m,'total',tu.t),
+          'payouts',    json_build_object('today',cp.d,'week',cp.w,'month',cp.m,'total',cp.t,'owed',cp.owed),
+          'donations',  json_build_object('today',dn.d,'week',dn.w,'month',dn.m,'total',dn.t),
+          'distributions', json_build_object('today',dd.d,'week',dd.w,'month',dd.m,'total',dd.t),
+          'pool_balance', (tu.t - cp.t - dd.t),
+          'student_balances', bal.student_balances,
+          'donation_pool_balances', pool.pool_balances
+        ),
+        'topups', recent.items
+      ) AS payload
+      FROM tu, cp, dn, dd, bal, pool, recent
+    `;
+    const r = await query<{ payload: any }>(sql, [limit]);
+    return r.rows[0]?.payload ?? { stats: {}, topups: [] };
+  },
+
   // Owner-only: report whether the calling user is the owner (no module grants)
   whoami: async (ctx) => {
     const owner = await isOwner(ctx.userId);
