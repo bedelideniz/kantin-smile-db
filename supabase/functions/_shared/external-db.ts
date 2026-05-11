@@ -36,6 +36,10 @@ export function getPool(): Pool {
     // Keep the pool tiny and aggressively close idle connections so we don't
     // exhaust the external DB's max_connections limit.
     max: 1,
+    // Never keep a PostgreSQL backend session around after it has served a
+    // request. This avoids stale catalog/relcache state after external DB
+    // migrations, restores, or constraint recreation.
+    maxUses: 1,
     idleTimeoutMillis: 1_500,
     // Keep connection attempts below the edge-function gateway timeout.
     // If the external DB is saturated, fail fast and let the caller retry.
@@ -46,9 +50,8 @@ export function getPool(): Pool {
   _pool.on("error", (err: unknown) => {
     console.warn("pg pool error:", err instanceof Error ? err.message : err);
   });
-  // On every new physical connection, clear any cached plans/temp state so we
-  // never carry over a stale plan referencing a dropped/recreated constraint
-  // (Postgres "cache lookup failed for constraint <oid>" error).
+  // Best-effort safety for pooled physical connections. Transaction code below
+  // also awaits DISCARD ALL before BEGIN, because pool events are not awaitable.
   _pool.on("connect", (client: any) => {
     client.query("DISCARD ALL").catch(() => {});
   });
@@ -120,6 +123,10 @@ export async function withTransaction<T>(
       const pool = getPool();
       client = await pool.connect();
       try {
+        // Await a full session reset before starting the transaction. This is
+        // the reliable fix for stale constraint OIDs such as
+        // "cache lookup failed for constraint 16712".
+        await client.query("DISCARD ALL");
         await client.query("BEGIN");
         const result = await fn(client);
         await client.query("COMMIT");
@@ -128,7 +135,9 @@ export async function withTransaction<T>(
         try { await client.query("ROLLBACK"); } catch { /* ignore */ }
         throw e;
       } finally {
-        client.release();
+        // Destroy transaction connections instead of returning them to the pool;
+        // write paths must never reuse a backend that may hold stale relcache.
+        client.release(true);
       }
     } catch (e) {
       lastErr = e;
