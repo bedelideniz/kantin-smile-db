@@ -119,7 +119,26 @@ export default function SuperAdmin() {
 
   const renderContent = () => {
     switch (active) {
-      case "dashboard": return <AdminDashboard openAlarms={openAlarms} />;
+      case "dashboard": return (
+        <div className="space-y-4">
+          <AdminDashboard openAlarms={openAlarms} />
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Altyapı</CardTitle>
+              <CardDescription>Hızlı erişim</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={runMigration} disabled={running}>
+                  {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
+                </Button>
+                <Button variant="secondary" onClick={pingDb}>DB Bağlantısını Test Et</Button>
+              </div>
+              {pingResult && <pre className="overflow-auto rounded bg-muted p-3 text-xs">{pingResult}</pre>}
+            </CardContent>
+          </Card>
+        </div>
+      );
       case "schools": return <Card><CardContent className="pt-6"><SchoolsManager /></CardContent></Card>;
       case "students": return <StudentsBySchool />;
       case "marketers": return <Card><CardContent className="pt-6"><MarketersManager /></CardContent></Card>;
