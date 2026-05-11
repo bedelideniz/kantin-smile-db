@@ -4,8 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminDashboard from "@/components/admin/AdminDashboard";
 import SchoolsManager from "@/components/admin/SchoolsManager";
 import NetgsmSettings from "@/components/admin/NetgsmSettings";
 import PaymentSettings from "@/components/admin/PaymentSettings";
@@ -32,10 +34,9 @@ export default function SuperAdmin() {
   const [running, setRunning] = useState(false);
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [myModules, setMyModules] = useState<AppModule[] | null>(null);
-  const [activeTab, setActiveTab] = useState<AppModule | undefined>("dashboard");
+  const [active, setActive] = useState<AppModule>("dashboard");
   const [openAlarms, setOpenAlarms] = useState<number>(0);
   const visibleTabs = myModules ? TAB_ORDER.filter((m) => myModules.includes(m)) : [];
-  const defaultTab = visibleTabs[0] ?? "schools";
 
   useEffect(() => {
     if (!loading && !user) navigate("/login", { replace: true });
@@ -50,10 +51,9 @@ export default function SuperAdmin() {
 
   useEffect(() => {
     if (visibleTabs.length === 0) return;
-    if (!activeTab || !visibleTabs.includes(activeTab)) setActiveTab(defaultTab);
-  }, [activeTab, defaultTab, visibleTabs]);
+    if (!visibleTabs.includes(active)) setActive(visibleTabs[0]);
+  }, [active, visibleTabs]);
 
-  // Fetch open alarm count when alarms module is available; refresh on tab change & event
   useEffect(() => {
     if (!myModules?.includes("alarms")) return;
     const refresh = () => {
@@ -64,8 +64,9 @@ export default function SuperAdmin() {
     refresh();
     const handler = () => refresh();
     window.addEventListener("alarms:changed", handler);
-    return () => window.removeEventListener("alarms:changed", handler);
-  }, [myModules, activeTab]);
+    const id = setInterval(refresh, 30_000);
+    return () => { window.removeEventListener("alarms:changed", handler); clearInterval(id); };
+  }, [myModules, active]);
 
   if (loading || !user) {
     return <div className="flex min-h-screen items-center justify-center">Yükleniyor…</div>;
@@ -77,9 +78,7 @@ export default function SuperAdmin() {
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle>Yetkisiz</CardTitle>
-            <CardDescription>
-              Bu hesabın SüperAdmin rolü yok.
-            </CardDescription>
+            <CardDescription>Bu hesabın SüperAdmin rolü yok.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             <p className="text-sm text-muted-foreground break-all">user_id: <code>{user.id}</code></p>
@@ -108,99 +107,80 @@ export default function SuperAdmin() {
     return <div className="flex min-h-screen items-center justify-center">Yetkiler yükleniyor…</div>;
   }
 
-  const hasMod = (m: AppModule) => myModules.includes(m);
+  if (visibleTabs.length === 0) {
+    return (
+      <main className="flex min-h-screen items-center justify-center p-4">
+        <Card><CardContent className="p-6 text-sm text-muted-foreground">
+          Henüz hiçbir modüle yetkiniz tanımlanmamış. Yöneticinize başvurun.
+        </CardContent></Card>
+      </main>
+    );
+  }
 
-  return (
-    <main className="min-h-screen bg-background p-6">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">SüperAdmin Paneli</h1>
-            <p className="text-sm text-muted-foreground">{user.email}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {hasMod("infrastructure") && (
+  const renderContent = () => {
+    switch (active) {
+      case "dashboard": return <AdminDashboard openAlarms={openAlarms} />;
+      case "schools": return <Card><CardContent className="pt-6"><SchoolsManager /></CardContent></Card>;
+      case "students": return <StudentsBySchool />;
+      case "marketers": return <Card><CardContent className="pt-6"><MarketersManager /></CardContent></Card>;
+      case "splashes": return <Card><CardContent className="pt-6"><SchoolSplashesManager /></CardContent></Card>;
+      case "announcements": return <Card><CardContent className="pt-6"><CanteenAnnouncementsManager /></CardContent></Card>;
+      case "donations": return <Card><CardContent className="pt-6"><DonationManagersManager /></CardContent></Card>;
+      case "payments": return <Card><CardContent className="pt-6"><PaymentSettings /></CardContent></Card>;
+      case "sms": return (
+        <div className="space-y-4">
+          <Card><CardContent className="pt-6"><NetgsmSettings /></CardContent></Card>
+          <Card><CardContent className="pt-6"><ParentWelcomeSmsSettings /></CardContent></Card>
+        </div>
+      );
+      case "alarms": return <AlarmsManager />;
+      case "payouts": return <CanteenPayoutsManager />;
+      case "logs": return <SaleLogsManager />;
+      case "staff": return <StaffManager />;
+      case "infrastructure": return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Faz 0 — Altyapı</CardTitle>
+            <CardDescription>Kendi PostgreSQL sunucunuzdaki şemayı kurun ve bağlantıyı test edin.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2">
               <Button onClick={runMigration} disabled={running}>
                 {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
               </Button>
-            )}
-            <Button variant="outline" onClick={signOut}>Çıkış</Button>
-          </div>
-        </header>
+              <Button variant="secondary" onClick={pingDb}>DB Bağlantısını Test Et</Button>
+            </div>
+            {pingResult && <pre className="overflow-auto rounded bg-muted p-3 text-xs">{pingResult}</pre>}
+          </CardContent>
+        </Card>
+      );
+      default: return null;
+    }
+  };
 
-        {visibleTabs.length === 0 ? (
-          <Card><CardContent className="p-6 text-sm text-muted-foreground">
-            Henüz hiçbir modüle yetkiniz tanımlanmamış. Yöneticinize başvurun.
-          </CardContent></Card>
-        ) : (
-          <Tabs value={activeTab ?? defaultTab} onValueChange={(value) => setActiveTab(value as AppModule)} className="space-y-4">
-            <TabsList className="flex-wrap h-auto">
-              {visibleTabs.map((m) => (
-                <TabsTrigger key={m} value={m} className="relative">
-                  {MODULE_LABELS[m]}
-                  {m === "alarms" && openAlarms > 0 && (
-                    <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
-                      {openAlarms}
-                    </span>
-                  )}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            {hasMod("dashboard") && (
-              <TabsContent value="dashboard">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>TV Dashboard</CardTitle>
-                    <CardDescription>Televizyonda sürekli açık tutmak için tam ekran canlı gösterge paneli.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button onClick={() => window.open("/dashboard", "_blank")}>Tam Ekran Aç</Button>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            )}
-            {hasMod("schools") && <TabsContent value="schools"><Card><CardContent className="pt-6"><SchoolsManager /></CardContent></Card></TabsContent>}
-            {hasMod("students") && <TabsContent value="students"><StudentsBySchool /></TabsContent>}
-            {hasMod("marketers") && <TabsContent value="marketers"><Card><CardContent className="pt-6"><MarketersManager /></CardContent></Card></TabsContent>}
-            {hasMod("splashes") && <TabsContent value="splashes"><Card><CardContent className="pt-6"><SchoolSplashesManager /></CardContent></Card></TabsContent>}
-            {hasMod("announcements") && <TabsContent value="announcements"><Card><CardContent className="pt-6"><CanteenAnnouncementsManager /></CardContent></Card></TabsContent>}
-            {hasMod("donations") && <TabsContent value="donations"><Card><CardContent className="pt-6"><DonationManagersManager /></CardContent></Card></TabsContent>}
-            {hasMod("payments") && <TabsContent value="payments"><Card><CardContent className="pt-6"><PaymentSettings /></CardContent></Card></TabsContent>}
-            {hasMod("sms") && (
-              <TabsContent value="sms">
-                <div className="space-y-4">
-                  <Card><CardContent className="pt-6"><NetgsmSettings /></CardContent></Card>
-                  <Card><CardContent className="pt-6"><ParentWelcomeSmsSettings /></CardContent></Card>
-                </div>
-              </TabsContent>
-            )}
-            {hasMod("alarms") && <TabsContent value="alarms"><AlarmsManager /></TabsContent>}
-            {hasMod("payouts") && <TabsContent value="payouts"><CanteenPayoutsManager /></TabsContent>}
-            {hasMod("logs") && <TabsContent value="logs"><SaleLogsManager /></TabsContent>}
-            {hasMod("staff") && <TabsContent value="staff"><StaffManager /></TabsContent>}
-            {hasMod("infrastructure") && (
-              <TabsContent value="infrastructure">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Faz 0 — Altyapı</CardTitle>
-                    <CardDescription>Kendi PostgreSQL sunucunuzdaki şemayı kurun ve bağlantıyı test edin.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      <Button onClick={runMigration} disabled={running}>
-                        {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
-                      </Button>
-                      <Button variant="secondary" onClick={pingDb}>DB Bağlantısını Test Et</Button>
-                    </div>
-                    {pingResult && <pre className="overflow-auto rounded bg-muted p-3 text-xs">{pingResult}</pre>}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            )}
-          </Tabs>
-        )}
+  return (
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AdminSidebar
+          modules={visibleTabs}
+          active={active}
+          onSelect={setActive}
+          openAlarms={openAlarms}
+        />
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur">
+            <SidebarTrigger />
+            <div className="flex-1 min-w-0">
+              <h1 className="text-base font-semibold truncate">{MODULE_LABELS[active]}</h1>
+              <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={signOut}>Çıkış</Button>
+          </header>
+          <main className="flex-1 p-6">
+            <div className="mx-auto max-w-7xl">{renderContent()}</div>
+          </main>
+        </div>
       </div>
-    </main>
+    </SidebarProvider>
   );
 }
