@@ -8,6 +8,7 @@ import {
   Tooltip as RTooltip, XAxis, YAxis, Legend,
 } from "recharts";
 import { ExternalLink } from "lucide-react";
+import DBHealthBadge from "./DBHealthBadge";
 
 type Bucket = { today: number; week: number; month: number; total: number };
 type Stats = {
