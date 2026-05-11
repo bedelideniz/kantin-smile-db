@@ -132,8 +132,10 @@ export async function withTransaction<T>(
       }
     } catch (e) {
       lastErr = e;
-      // Only retry if we never got into the transaction body (i.e. connect failed).
-      if (!client && isTransient(e)) {
+      // Retry if connect failed, or if we hit a stale-catalog error mid-tx
+      // (recreating the pool drops the poisoned backend connection).
+      const transient = isTransient(e);
+      if (transient && (!client || /cache lookup failed/i.test(e instanceof Error ? e.message : String(e)))) {
         await recreatePool();
         await sleep(250 + Math.floor(Math.random() * 150));
         continue;
