@@ -8,6 +8,7 @@ import {
   Tooltip as RTooltip, XAxis, YAxis, Legend,
 } from "recharts";
 import { ExternalLink } from "lucide-react";
+import DBHealthBadge from "./DBHealthBadge";
 
 type Bucket = { today: number; week: number; month: number; total: number };
 type Stats = {
@@ -87,9 +88,12 @@ export default function AdminDashboard({ openAlarms }: { openAlarms: number }) {
           <h2 className="text-xl font-semibold">Genel Bakış</h2>
           <p className="text-sm text-muted-foreground">Tüm okul/kantin bazlı toplam akış</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => window.open("/dashboard", "_blank")}>
-          <ExternalLink className="mr-1.5 h-4 w-4" /> TV Dashboard
-        </Button>
+        <div className="flex items-center gap-2">
+          <DBHealthBadge />
+          <Button variant="outline" size="sm" onClick={() => window.open("/dashboard", "_blank")}>
+            <ExternalLink className="mr-1.5 h-4 w-4" /> TV Dashboard
+          </Button>
+        </div>
       </div>
 
       {!stats ? (
