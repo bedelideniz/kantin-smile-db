@@ -121,6 +121,9 @@ Deno.serve(async (req) => {
       } else {
         authUserId = created.data.user!.id;
       }
+      // Clear any stale references to this auth user on other admin rows
+      // to avoid the app_users_auth_user_id_key unique constraint conflict.
+      await query("UPDATE app_users SET auth_user_id = NULL, updated_at = now() WHERE auth_user_id = $1 AND id <> $2", [authUserId, adminRow.id]);
       await query("UPDATE app_users SET auth_user_id = $1, updated_at = now() WHERE id = $2", [authUserId, adminRow.id]);
     } else {
       // Reset password for this login session.
