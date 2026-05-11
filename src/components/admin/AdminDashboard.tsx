@@ -20,6 +20,7 @@ type Stats = {
   donation_pool_balances: number;
 };
 type Topup = { id: string; school_name: string; amount: number | string; created_at: string };
+type DashboardHome = { stats: Stats; topups: Topup[] };
 
 const fmt = (n: number | null | undefined) =>
   Number(n ?? 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
@@ -43,15 +44,25 @@ export default function AdminDashboard({ openAlarms }: { openAlarms: number }) {
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      callAdminApi<Stats>("dashboard_stats").then((r) => !cancelled && setStats(r)).catch(() => {});
-      callAdminApi<{ topups: Topup[] }>("recent_topups", { limit: 12 })
-        .then((r) => !cancelled && setTopups(r.topups ?? [])).catch(() => {});
-      callAdminApi<{ ok: boolean; credit: number | null; amount: number | null }>("sms_balance")
-        .then((r) => !cancelled && setSms(r)).catch(() => setSms({ ok: false, credit: null, amount: null }));
+      callAdminApi<DashboardHome>("dashboard_home", { limit: 12 })
+        .then((r) => {
+          if (cancelled) return;
+          setStats(r.stats);
+          setTopups(r.topups ?? []);
+        })
+        .catch(() => {});
     };
     load();
     const id = setInterval(load, 30_000);
     return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    callAdminApi<{ ok: boolean; credit: number | null; amount: number | null }>("sms_balance")
+      .then((r) => !cancelled && setSms(r))
+      .catch(() => !cancelled && setSms({ ok: false, credit: null, amount: null }));
+    return () => { cancelled = true; };
   }, []);
 
   const trendData = stats ? [
