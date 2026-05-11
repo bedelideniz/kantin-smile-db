@@ -46,6 +46,12 @@ export function getPool(): Pool {
   _pool.on("error", (err: unknown) => {
     console.warn("pg pool error:", err instanceof Error ? err.message : err);
   });
+  // On every new physical connection, clear any cached plans/temp state so we
+  // never carry over a stale plan referencing a dropped/recreated constraint
+  // (Postgres "cache lookup failed for constraint <oid>" error).
+  _pool.on("connect", (client: any) => {
+    client.query("DISCARD ALL").catch(() => {});
+  });
   return _pool;
 }
 
@@ -57,6 +63,8 @@ const TRANSIENT_PATTERNS = [
   /timeout exceeded when trying to connect/i,
   /ECONNRESET/i,
   /ETIMEDOUT/i,
+  // Stale relcache after a concurrent DDL — recycling the pool fixes it.
+  /cache lookup failed/i,
 ];
 
 function isTransient(err: unknown): boolean {
