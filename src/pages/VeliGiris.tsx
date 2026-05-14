@@ -61,20 +61,44 @@ export default function VeliGiris() {
   };
 
   return (
-    <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <img
-            src={logo}
-            alt="KantinPay — Okulun Dijital Cüzdanı"
-            className="h-32 w-auto object-contain"
-          />
-          <p className="mt-1 text-sm font-medium text-primary/70">Veli Paneli</p>
+    <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden p-4"
+      style={{
+        background:
+          "radial-gradient(1200px 600px at 10% -10%, hsl(218 65% 22% / 0.18), transparent 60%)," +
+          "radial-gradient(900px 500px at 110% 10%, hsl(45 85% 60% / 0.15), transparent 60%)," +
+          "linear-gradient(180deg, hsl(220 30% 97%) 0%, hsl(220 30% 94%) 100%)",
+      }}
+    >
+      {/* Decorative glass blobs */}
+      <div className="pointer-events-none absolute -top-24 -left-20 h-72 w-72 rounded-full opacity-40 blur-3xl"
+        style={{ background: "radial-gradient(circle, hsl(218 70% 35%) 0%, transparent 70%)" }} />
+      <div className="pointer-events-none absolute -bottom-32 -right-16 h-80 w-80 rounded-full opacity-40 blur-3xl"
+        style={{ background: "radial-gradient(circle, hsl(45 85% 60%) 0%, transparent 70%)" }} />
+
+      <div className="relative w-full max-w-sm">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <div className="rounded-3xl bg-white/70 p-5 shadow-xl backdrop-blur-xl ring-1 ring-white/60">
+            <img
+              src={logo}
+              alt="KantinPay — Okulun Dijital Cüzdanı"
+              className="h-44 w-auto object-contain drop-shadow-sm"
+            />
+          </div>
+          <span
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white shadow-md"
+            style={{ background: "linear-gradient(135deg, hsl(218 65% 22%) 0%, hsl(218 50% 32%) 100%)" }}
+          >
+            Veli Paneli
+          </span>
         </div>
-        <Card>
+        <Card className="border-white/60 bg-white/70 shadow-2xl backdrop-blur-xl"
+          style={{ borderRadius: "1.75rem" }}
+        >
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
-              {step === "phone" ? <Smartphone className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                {step === "phone" ? <Smartphone className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+              </span>
               {step === "phone" ? "Telefon ile giriş" : "Doğrulama kodu"}
             </CardTitle>
             <CardDescription>
