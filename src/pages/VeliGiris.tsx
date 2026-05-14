@@ -26,6 +26,13 @@ export default function VeliGiris() {
     if (getParentSession()) navigate("/veli", { replace: true });
   }, [navigate]);
 
+  useEffect(() => {
+    if (step === "otp" && code.length === 6 && !loading) {
+      verifyOtp();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, step]);
+
   const formatPhone = (raw: string) => raw.replace(/\D+/g, "").slice(0, 11);
 
   const requestOtp = async () => {
