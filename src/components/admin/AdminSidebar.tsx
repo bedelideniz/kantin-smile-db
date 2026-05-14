@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, School, Users, Megaphone, Image as ImageIcon, HandCoins,
-  CreditCard, MessageSquare, BellRing, Wallet, ScrollText, UserCog, Server,
+  CreditCard, MessageSquare, BellRing, Wallet, ScrollText, UserCog, Server, Sparkles,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -14,6 +14,7 @@ const ICONS: Record<AppModule, React.ComponentType<{ className?: string }>> = {
   students: Users,
   marketers: Megaphone,
   splashes: ImageIcon,
+  stories: Sparkles,
   announcements: Megaphone,
   donations: HandCoins,
   payments: CreditCard,

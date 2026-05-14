@@ -17,6 +17,7 @@ import {
 import logo from "@/assets/kantinpay-logo.png";
 import BottomNav from "@/components/veli/BottomNav";
 import ParentSplash from "@/components/veli/ParentSplash";
+import ParentStories from "@/components/veli/ParentStories";
 import PhotoUploadModal from "@/components/veli/PhotoUploadModal";
 import StudentSettingsModal from "@/components/veli/StudentSettingsModal";
 import NotificationsBell from "@/components/veli/NotificationsBell";
@@ -185,6 +186,9 @@ export default function VeliPanel() {
       </header>
 
       <div className="mx-auto max-w-md space-y-4 p-4">
+        {/* Stories — Instagram-style reels */}
+        <ParentStories schoolId={selected?.school_id ?? null} />
+
         {/* Student switcher */}
         {session.students.length === 0 ? (
           <Card>

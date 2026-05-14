@@ -916,6 +916,65 @@ const HANDLERS: Record<string, Handler> = {
     );
     return { school_id: p.school_id, slot: p.slot, deleted: true };
   },
+  // ===== School stories (per-school Instagram-style reels for parent panel) =====
+  list_school_stories: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      `SELECT s.id AS school_id, s.name AS school_name,
+              ss.id AS story_id, ss.image_url, ss.link_url, ss.title,
+              ss.sort_order, ss.is_active, ss.updated_at, ss.created_at
+         FROM schools s
+         LEFT JOIN school_stories ss ON ss.school_id = s.id
+        ORDER BY s.name ASC, ss.sort_order ASC NULLS LAST, ss.created_at ASC`,
+    );
+    return r.rows;
+  },
+  upsert_school_story: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      story_id: z.string().uuid().optional(),
+      school_id: z.string().uuid(),
+      image_url: z.string().trim().url().max(2048),
+      link_url: z.string().trim().url().max(2048).nullable().optional(),
+      title: z.string().trim().max(120).nullable().optional(),
+      sort_order: z.number().int().optional(),
+      is_active: z.boolean().optional().default(true),
+    }).parse(params);
+    if (p.story_id) {
+      const r = await query(
+        `UPDATE school_stories
+            SET image_url=$2, link_url=$3, title=$4, is_active=$5,
+                sort_order = COALESCE($6, sort_order), updated_at=now()
+          WHERE id=$1
+          RETURNING id, school_id, image_url, link_url, title, sort_order, is_active`,
+        [p.story_id, p.image_url, p.link_url ?? null, p.title ?? null, p.is_active, p.sort_order ?? null],
+      );
+      if (r.rowCount === 0) throw new HttpError(404, "Hikaye bulunamadı");
+      return r.rows[0];
+    }
+    // Default sort_order = max+1 for that school
+    let order = p.sort_order;
+    if (order == null) {
+      const m = await query<{ m: number | null }>(
+        "SELECT COALESCE(MAX(sort_order), -1) + 1 AS m FROM school_stories WHERE school_id=$1",
+        [p.school_id],
+      );
+      order = Number(m.rows[0]?.m ?? 0);
+    }
+    const r = await query(
+      `INSERT INTO school_stories (school_id, image_url, link_url, title, sort_order, is_active)
+       VALUES ($1,$2,$3,$4,$5,$6)
+       RETURNING id, school_id, image_url, link_url, title, sort_order, is_active`,
+      [p.school_id, p.image_url, p.link_url ?? null, p.title ?? null, order, p.is_active],
+    );
+    return r.rows[0];
+  },
+  delete_school_story: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({ story_id: z.string().uuid() }).parse(params);
+    await query("DELETE FROM school_stories WHERE id=$1", [p.story_id]);
+    return { story_id: p.story_id, deleted: true };
+  },
   // ===== Donation managers (super_admin manages per-school donation operators) =====
   list_donation_managers: async (ctx) => {
     requireSuperAdmin(ctx);

@@ -689,6 +689,25 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: "0021_school_stories",
+    description: "Per-school Instagram-style story reels (multiple images per school) shown above student switcher in parent panel.",
+    sql: `
+      CREATE TABLE IF NOT EXISTS school_stories (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
+        image_url TEXT NOT NULL,
+        link_url TEXT,
+        title TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_school_stories_school
+        ON school_stories(school_id, sort_order, created_at);
+    `,
+  },
 ];
 
 
