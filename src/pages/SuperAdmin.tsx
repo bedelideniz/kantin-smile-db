@@ -21,10 +21,11 @@ import AlarmsManager from "@/components/admin/AlarmsManager";
 import SaleLogsManager from "@/components/admin/SaleLogsManager";
 import CanteenPayoutsManager from "@/components/admin/CanteenPayoutsManager";
 import CanteenAnnouncementsManager from "@/components/admin/CanteenAnnouncementsManager";
+import SchoolStoriesManager from "@/components/admin/SchoolStoriesManager";
 import { callAdminApi, MODULE_LABELS, type AppModule } from "@/lib/adminApi";
 
 const TAB_ORDER: AppModule[] = [
-  "dashboard","schools","students","marketers","splashes","announcements","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
+  "dashboard","schools","students","marketers","splashes","stories","announcements","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
 ];
 
 export default function SuperAdmin() {
@@ -143,6 +144,7 @@ export default function SuperAdmin() {
       case "students": return <StudentsBySchool />;
       case "marketers": return <Card><CardContent className="pt-6"><MarketersManager /></CardContent></Card>;
       case "splashes": return <Card><CardContent className="pt-6"><SchoolSplashesManager /></CardContent></Card>;
+      case "stories": return <Card><CardContent className="pt-6"><SchoolStoriesManager /></CardContent></Card>;
       case "announcements": return <Card><CardContent className="pt-6"><CanteenAnnouncementsManager /></CardContent></Card>;
       case "donations": return <Card><CardContent className="pt-6"><DonationManagersManager /></CardContent></Card>;
       case "payments": return <Card><CardContent className="pt-6"><PaymentSettings /></CardContent></Card>;
