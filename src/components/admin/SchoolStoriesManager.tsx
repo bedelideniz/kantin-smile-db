@@ -200,35 +200,15 @@ export default function SchoolStoriesManager() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              {current.stories.map((s) => (
-                <Card key={s.id} className="overflow-hidden">
-                  <div className="relative flex aspect-[9/16] items-center justify-center bg-muted">
-                    <img src={s.image_url} alt={s.title ?? ""} className="h-full w-full object-cover" />
-                    {s.is_active ? (
-                      <Badge className="absolute right-2 top-2">Aktif</Badge>
-                    ) : (
-                      <Badge className="absolute right-2 top-2" variant="outline">Pasif</Badge>
-                    )}
-                    <Badge variant="secondary" className="absolute left-2 top-2">#{s.sort_order + 1}</Badge>
-                  </div>
-                  <CardContent className="space-y-2 p-3">
-                    {s.title && <p className="truncate text-sm font-medium">{s.title}</p>}
-                    {s.link_url && <p className="truncate text-xs text-muted-foreground">🔗 {s.link_url}</p>}
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="flex-1"
-                        onClick={() => setEditing({ schoolId: current.school_id, schoolName: current.school_name, current: s })}>
-                        <Pencil className="mr-1 h-3.5 w-3.5" /> Düzenle
-                      </Button>
-                      <Button size="sm" variant="ghost"
-                        onClick={() => setDeleting({ schoolName: current.school_name, story: s })}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <ReorderableStoryGrid
+              key={current.school_id}
+              schoolId={current.school_id}
+              schoolName={current.school_name}
+              stories={current.stories}
+              onEdit={(s) => setEditing({ schoolId: current.school_id, schoolName: current.school_name, current: s })}
+              onDelete={(s) => setDeleting({ schoolName: current.school_name, story: s })}
+              onReordered={load}
+            />
           )}
         </>
       )}
