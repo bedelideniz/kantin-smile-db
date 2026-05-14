@@ -126,68 +126,77 @@ export default function VeliPanel() {
   if (!session) return <main className="flex min-h-[100dvh] items-center justify-center">Yükleniyor...</main>;
 
   return (
-    <main className="min-h-[100dvh] bg-gradient-to-b from-primary/5 via-background to-background pb-12">
-      {/* Top bar — vivid gradient */}
+    <main className="min-h-[100dvh] bg-[hsl(var(--background))] pb-12">
+      {/* Premium navy header — rounded bottom, contains brand + stories */}
       <header
-        className="sticky top-0 z-20 px-4 py-3 text-primary-foreground shadow-lg"
-        style={{ background: "var(--gradient-primary)" }}
+        className="relative z-20 px-5 pb-8 pt-[max(2.5rem,env(safe-area-inset-top))] text-primary-foreground shadow-xl"
+        style={{
+          background: "linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(218 60% 14%) 100%)",
+          borderBottomLeftRadius: "2rem",
+          borderBottomRightRadius: "2rem",
+        }}
       >
-        <div className="mx-auto flex max-w-md items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white p-1.5 shadow-md ring-2 ring-white/40">
-              <img src={logo} alt="KantinPay" className="h-full w-full object-contain" />
+        <div className="mx-auto max-w-md">
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/10 p-1.5 backdrop-blur-sm">
+                <img src={logo} alt="KantinPay" className="h-full w-full object-contain" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="truncate text-sm font-bold tracking-tight">
+                  {selected?.school_name ?? "Veli Paneli"}
+                </h1>
+                <p className="truncate text-[10px] font-semibold uppercase tracking-wider text-white/55">
+                  Veli Paneli • {session.phone}
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold leading-tight">
-                {selected?.school_name ?? "Veli Paneli"}
-              </h1>
-              <p className="truncate text-xs text-primary-foreground/75">{session.phone}</p>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={refresh}
+                disabled={refreshing}
+                aria-label="Yenile"
+                className="h-9 w-9 rounded-full border border-white/10 bg-white/5 text-white/85 hover:bg-white/15 hover:text-white"
+              >
+                <RefreshCcw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              </Button>
+              <NotificationsBell />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSettingsOpen(true)}
+                disabled={!selected}
+                aria-label="Ayarlar"
+                className="relative h-9 w-9 rounded-full border border-white/10 bg-white/5 text-white/85 hover:bg-white/15 hover:text-white"
+              >
+                <Settings className="h-4 w-4" />
+                {selected?.card_lost && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive" />
+                  </span>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={logout}
+                aria-label="Çıkış"
+                className="h-9 w-9 rounded-full border border-white/10 bg-white/5 text-white/85 hover:bg-white/15 hover:text-white"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={refresh}
-              disabled={refreshing}
-              aria-label="Yenile"
-              className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
-            >
-              <RefreshCcw className={`h-5 w-5 ${refreshing ? "animate-spin" : ""}`} />
-            </Button>
-            <NotificationsBell />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSettingsOpen(true)}
-              disabled={!selected}
-              aria-label="Ayarlar"
-              className="relative text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
-            >
-              <Settings className="h-5 w-5" />
-              {selected?.card_lost && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive" />
-                </span>
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={logout}
-              aria-label="Çıkış"
-              className="text-primary-foreground hover:bg-white/15 hover:text-primary-foreground"
-            >
-              <LogOut className="h-5 w-5" />
-            </Button>
-          </div>
+
+          {/* Stories inside header */}
+          <ParentStories schoolId={selected?.school_id ?? null} variant="dark" />
         </div>
       </header>
 
-      <div className="mx-auto max-w-md space-y-4 p-4">
-        {/* Stories — Instagram-style reels */}
-        <ParentStories schoolId={selected?.school_id ?? null} />
+      <div className="mx-auto -mt-6 max-w-md space-y-5 px-5 pt-2 relative z-30">
 
         {/* Student switcher */}
         {session.students.length === 0 ? (
