@@ -402,3 +402,114 @@ function StoryEditDialog({ data, onClose, onSaved }: {
     </Dialog>
   );
 }
+
+function ReorderableStoryGrid({
+  schoolId, schoolName, stories, onEdit, onDelete, onReordered,
+}: {
+  schoolId: string;
+  schoolName: string;
+  stories: Story[];
+  onEdit: (s: Story) => void;
+  onDelete: (s: Story) => void;
+  onReordered: () => void;
+}) {
+  const { toast } = useToast();
+  const [items, setItems] = useState<Story[]>(stories);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Sync when parent stories change (e.g. after add/delete reload)
+  useEffect(() => { setItems(stories); }, [stories]);
+
+  const persist = async (next: Story[]) => {
+    setSaving(true);
+    try {
+      await callOp("reorder_school_stories", {
+        school_id: schoolId,
+        story_ids: next.map((x) => x.id),
+      });
+      toast({ title: "Sıra güncellendi" });
+      onReordered();
+    } catch (e: any) {
+      toast({ title: "Sıralanamadı", description: e?.message, variant: "destructive" });
+      setItems(stories); // revert
+    } finally { setSaving(false); }
+  };
+
+  const handleDrop = (toIdx: number) => {
+    if (dragIdx === null || dragIdx === toIdx) {
+      setDragIdx(null); setOverIdx(null); return;
+    }
+    const next = items.slice();
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setItems(next);
+    setDragIdx(null); setOverIdx(null);
+    void persist(next);
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">
+        💡 Kartları sürükleyip bırakarak sırasını değiştirebilirsiniz.
+        {saving && <span className="ml-2 inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> kaydediliyor…</span>}
+      </p>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {items.map((s, idx) => (
+          <Card
+            key={s.id}
+            draggable
+            onDragStart={(e) => {
+              setDragIdx(idx);
+              e.dataTransfer.effectAllowed = "move";
+              try { e.dataTransfer.setData("text/plain", s.id); } catch { /* noop */ }
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              if (overIdx !== idx) setOverIdx(idx);
+            }}
+            onDragLeave={() => { if (overIdx === idx) setOverIdx(null); }}
+            onDrop={(e) => { e.preventDefault(); handleDrop(idx); }}
+            onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
+            className={cn(
+              "overflow-hidden transition",
+              dragIdx === idx && "opacity-50",
+              overIdx === idx && dragIdx !== null && dragIdx !== idx && "ring-2 ring-primary",
+            )}
+          >
+            <div className="relative flex aspect-[9/16] items-center justify-center bg-muted">
+              <img src={s.image_url} alt={s.title ?? ""} className="h-full w-full object-cover" />
+              {s.is_active ? (
+                <Badge className="absolute right-2 top-2">Aktif</Badge>
+              ) : (
+                <Badge className="absolute right-2 top-2" variant="outline">Pasif</Badge>
+              )}
+              <Badge variant="secondary" className="absolute left-2 top-2">#{idx + 1}</Badge>
+              <div
+                className="absolute bottom-2 right-2 flex h-8 w-8 cursor-grab items-center justify-center rounded-full bg-background/90 text-muted-foreground shadow-sm backdrop-blur active:cursor-grabbing"
+                aria-label="Sürükle"
+                title="Sürükle"
+              >
+                <GripVertical className="h-4 w-4" />
+              </div>
+            </div>
+            <CardContent className="space-y-2 p-3">
+              {s.title && <p className="truncate text-sm font-medium">{s.title}</p>}
+              {s.link_url && <p className="truncate text-xs text-muted-foreground">🔗 {s.link_url}</p>}
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => onEdit(s)}>
+                  <Pencil className="mr-1 h-3.5 w-3.5" /> Düzenle
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => onDelete(s)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
