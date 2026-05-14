@@ -234,7 +234,9 @@ export default function VeliPanel() {
                     </div>
                   </div>
                 </div>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <span className="rounded-lg bg-muted/60 p-1.5">
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </span>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[calc(100vw-2rem)] max-w-sm">
