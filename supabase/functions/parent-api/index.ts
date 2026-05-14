@@ -169,6 +169,19 @@ const PUBLIC_OPS: Record<string, Handler> = {
     if (r.rowCount === 0) return null;
     return r.rows[0];
   },
+  list_school_stories: async (_req, params) => {
+    const p = z.object({ school_id: z.string().uuid() }).parse(params);
+    const r = await query<{
+      id: string; image_url: string; link_url: string | null; title: string | null;
+    }>(
+      `SELECT id, image_url, link_url, title
+         FROM school_stories
+        WHERE school_id=$1 AND is_active=TRUE
+        ORDER BY sort_order ASC, created_at ASC`,
+      [p.school_id],
+    );
+    return r.rows;
+  },
   get_school_donation_info: async (_req, params) => {
     const p = z.object({ school_id: z.string().uuid() }).parse(params);
     const r = await query<{ presets: string[] | null; is_enabled: boolean; thank_you_message: string | null }>(
