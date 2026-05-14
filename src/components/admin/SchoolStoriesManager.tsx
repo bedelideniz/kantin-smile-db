@@ -20,7 +20,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Image as ImageIcon, Loader2, Pencil, Plus, Sparkles, Trash2, Upload } from "lucide-react";
+import { GripVertical, Image as ImageIcon, Loader2, Pencil, Plus, Sparkles, Trash2, Upload } from "lucide-react";
 
 interface Row {
   school_id: string;
