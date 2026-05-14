@@ -13,6 +13,7 @@ interface Story {
 
 interface Props {
   schoolId: string | null;
+  variant?: "light" | "dark";
 }
 
 const STORY_DURATION_MS = 5000;
@@ -30,7 +31,8 @@ function writeSeen(schoolId: string, set: Set<string>) {
   try { localStorage.setItem(seenKey(schoolId), JSON.stringify(Array.from(set))); } catch { /* ignore */ }
 }
 
-export default function ParentStories({ schoolId }: Props) {
+export default function ParentStories({ schoolId, variant = "light" }: Props) {
+  const isDark = variant === "dark";
   const [stories, setStories] = useState<Story[]>([]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
@@ -104,7 +106,7 @@ export default function ParentStories({ schoolId }: Props) {
 
   return (
     <>
-      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {stories.map((s, i) => {
           const isSeen = seen.has(s.id);
           return (
@@ -112,24 +114,35 @@ export default function ParentStories({ schoolId }: Props) {
               key={s.id}
               type="button"
               onClick={() => openAt(i)}
-              className="flex shrink-0 flex-col items-center gap-1.5 focus:outline-none"
+              className={`flex shrink-0 flex-col items-center gap-2 focus:outline-none ${
+                isDark && isSeen ? "opacity-60" : ""
+              }`}
               aria-label={s.title ?? "Hikaye"}
             >
               <span
-                className="rounded-full p-[2.5px] transition-transform active:scale-95"
+                className="rounded-full p-[2px] shadow-lg transition-transform active:scale-95"
                 style={{
                   background: isSeen
-                    ? "hsl(var(--muted-foreground) / 0.35)"
-                    : "var(--gradient-gold, linear-gradient(135deg, hsl(var(--gold)), hsl(var(--primary))))",
+                    ? isDark
+                      ? "hsl(0 0% 100% / 0.18)"
+                      : "hsl(var(--muted-foreground) / 0.35)"
+                    : "linear-gradient(135deg, hsl(var(--gold)) 0%, hsl(45 85% 75%) 100%)",
+                  boxShadow: isSeen ? "none" : "0 4px 14px hsl(var(--gold) / 0.35)",
                 }}
               >
-                <span className="block rounded-full bg-background p-[2px]">
-                  <span className="block h-16 w-16 overflow-hidden rounded-full bg-muted">
+                <span
+                  className={`block rounded-full p-[3px] ${isDark ? "bg-[hsl(var(--primary))]" : "bg-background"}`}
+                >
+                  <span className="block h-[60px] w-[60px] overflow-hidden rounded-full bg-muted">
                     <img src={s.image_url} alt="" className="h-full w-full object-cover" loading="lazy" />
                   </span>
                 </span>
               </span>
-              <span className="line-clamp-1 max-w-[72px] text-center text-[11px] font-medium text-foreground/80">
+              <span
+                className={`line-clamp-1 max-w-[72px] text-center text-[10px] font-bold uppercase tracking-wide ${
+                  isDark ? "text-white/80" : "text-foreground/80"
+                }`}
+              >
                 {s.title ?? "Hikaye"}
               </span>
             </button>
