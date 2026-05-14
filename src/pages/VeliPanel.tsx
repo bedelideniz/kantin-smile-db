@@ -211,7 +211,7 @@ export default function VeliPanel() {
         ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex w-full items-center justify-between rounded-2xl border border-accent/30 bg-card px-4 py-3 text-left shadow-md transition hover:shadow-lg">
+              <button className="flex w-full items-center justify-between rounded-2xl border border-white bg-white/95 px-4 py-3.5 text-left shadow-xl shadow-primary/10 backdrop-blur-xl transition hover:shadow-2xl">
                 <div className="flex items-center gap-3">
                   <div
                     className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-accent-foreground shadow-sm"
@@ -286,49 +286,56 @@ export default function VeliPanel() {
         {/* Balance card — vivid balance gradient */}
         {selected && (
           <Card
-            className="relative overflow-hidden border-0 text-primary-foreground shadow-xl"
-            style={{ background: "var(--gradient-balance)" }}
+            className="relative overflow-hidden border-0 text-primary-foreground shadow-2xl shadow-primary/30"
+            style={{
+              background: "linear-gradient(135deg, hsl(218 50% 22%) 0%, hsl(218 65% 14%) 100%)",
+              borderRadius: "1.75rem",
+            }}
           >
-            {/* Decorative blobs */}
             <div
-              className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full opacity-30 blur-2xl"
+              className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 rounded-full opacity-20 blur-3xl"
               style={{ background: "hsl(var(--gold))" }}
             />
-            <div
-              className="pointer-events-none absolute -bottom-12 -left-8 h-36 w-36 rounded-full opacity-20 blur-2xl"
-              style={{ background: "hsl(var(--primary-glow))" }}
-            />
-            <CardContent className="relative p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-primary-foreground/80">
-                  <Wallet className="h-3.5 w-3.5" /> Mevcut Bakiye
+            <CardContent className="relative p-6">
+              <div className="mb-6 flex items-start justify-between">
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[hsl(var(--gold))]">
+                    Mevcut Bakiye
+                  </p>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-4xl font-bold tracking-tight">
+                      {Number(selected.balance).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-2xl font-light text-primary-foreground/80">₺</span>
+                  </div>
                 </div>
-                <Badge
-                  className="border-0 text-[10px] font-semibold uppercase tracking-wider text-accent-foreground"
-                  style={{ background: "hsl(var(--gold))" }}
+                <div
+                  className="rounded-lg px-3 py-1 shadow-lg"
+                  style={{ background: "linear-gradient(90deg, hsl(var(--gold)) 0%, hsl(38 65% 45%) 100%)" }}
                 >
-                  KantinPay
-                </Badge>
+                  <span className="text-[9px] font-black tracking-tight text-[hsl(var(--accent-foreground))]">
+                    KANTİNPAY
+                  </span>
+                </div>
               </div>
-              <div className="mt-2 text-4xl font-bold tracking-tight drop-shadow-sm">
-                {fmtTL(selected.balance)}
+              <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-white/65">
+                  <Wallet className="h-3.5 w-3.5" /> {selected.full_name}
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--gold))]">
+                  Cüzdan Aktif
+                </span>
               </div>
-              <div className="mt-1 text-sm text-primary-foreground/80">{selected.full_name}</div>
             </CardContent>
           </Card>
         )}
 
         {/* Transactions */}
         {selected && (
-          <Card className="border-border/60 shadow-md">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <span
-                  className="flex h-7 w-7 items-center justify-center rounded-lg text-primary-foreground"
-                  style={{ background: "var(--gradient-primary)" }}
-                >
-                  <Receipt className="h-4 w-4" />
-                </span>
+          <Card className="border-border/40 shadow-sm" style={{ borderRadius: "1.75rem" }}>
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-base font-extrabold tracking-tight">
+                <span className="block h-6 w-1.5 rounded-full bg-primary" />
                 Son Hareketler
               </CardTitle>
             </CardHeader>
