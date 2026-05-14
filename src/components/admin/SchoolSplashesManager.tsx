@@ -41,6 +41,8 @@ export default function SchoolSplashesManager() {
   const { toast } = useToast();
   const [rows, setRows] = useState<SplashRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSchool, setSelectedSchool] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [editing, setEditing] = useState<SplashRow | null>(null);
   const [deleting, setDeleting] = useState<SplashRow | null>(null);
 
@@ -56,83 +58,130 @@ export default function SchoolSplashesManager() {
 
   useEffect(() => { load(); }, []);
 
+  const current = rows.find((r) => r.school_id === selectedSchool) ?? null;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Veli Splash Ekranları</h2>
-          <p className="text-sm text-muted-foreground">
-            Her okul için veli giriş sonrasında günde bir kez gösterilecek reklam görselini yönetin.
-          </p>
-        </div>
+      <div>
+        <h2 className="text-lg font-semibold">Veli Splash Ekranları</h2>
+        <p className="text-sm text-muted-foreground">
+          Her okul için veli giriş sonrasında günde bir kez gösterilecek reklam görselini yönetin.
+        </p>
       </div>
 
       <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex items-center justify-center py-10">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : rows.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Henüz okul yok.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Okul</TableHead>
-                  <TableHead>Önizleme</TableHead>
-                  <TableHead>Bağlantı</TableHead>
-                  <TableHead>Durum</TableHead>
-                  <TableHead className="text-right">İşlem</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r) => (
-                  <TableRow key={r.school_id}>
-                    <TableCell className="font-medium">{r.school_name}</TableCell>
-                    <TableCell>
-                      {r.image_url ? (
-                        <img src={r.image_url} alt="" className="h-12 w-20 rounded border object-cover" />
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <ImageIcon className="h-3.5 w-3.5" /> yok
-                        </span>
+        <CardContent className="p-4">
+          <Label className="text-xs text-muted-foreground">Önce okul seçin</Label>
+          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={pickerOpen}
+                className="mt-1 w-full justify-between font-normal"
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <School className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  {current ? (
+                    <>
+                      <span className="truncate">{current.school_name}</span>
+                      {current.image_url && (
+                        current.is_active
+                          ? <Badge className="ml-1">Aktif</Badge>
+                          : <Badge variant="secondary" className="ml-1">Pasif</Badge>
                       )}
-                    </TableCell>
-                    <TableCell className="max-w-[260px] truncate text-xs">
-                      {r.link_url ? (
-                        <a href={r.link_url} target="_blank" rel="noopener noreferrer"
-                           className="inline-flex items-center gap-1 text-primary hover:underline">
-                          <LinkIcon className="h-3 w-3" /> {r.link_url}
-                        </a>
-                      ) : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell>
-                      {r.image_url == null ? (
-                        <Badge variant="outline">Tanımsız</Badge>
-                      ) : r.is_active ? (
-                        <Badge>Aktif</Badge>
-                      ) : (
-                        <Badge variant="secondary">Pasif</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(r)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      {r.image_url && (
-                        <Button size="sm" variant="ghost" onClick={() => setDeleting(r)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">Okul seçin…</span>
+                  )}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Okul ara..." />
+                <CommandList>
+                  <CommandEmpty>Okul bulunamadı.</CommandEmpty>
+                  <CommandGroup>
+                    {rows.map((r) => (
+                      <CommandItem
+                        key={r.school_id}
+                        value={r.school_name}
+                        onSelect={() => { setSelectedSchool(r.school_id); setPickerOpen(false); }}
+                      >
+                        <Check className={cn("mr-2 h-4 w-4", selectedSchool === r.school_id ? "opacity-100" : "opacity-0")} />
+                        <span className="flex-1 truncate">{r.school_name}</span>
+                        {r.image_url == null ? (
+                          <Badge variant="outline" className="ml-2">Tanımsız</Badge>
+                        ) : r.is_active ? (
+                          <Badge className="ml-2">Aktif</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="ml-2">Pasif</Badge>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </CardContent>
       </Card>
+
+      {loading ? (
+        <Card><CardContent className="flex items-center justify-center py-10">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </CardContent></Card>
+      ) : !current ? (
+        <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">
+          Splash ekranını görüntülemek için yukarıdan bir okul seçin.
+        </CardContent></Card>
+      ) : (
+        <Card>
+          <CardContent className="space-y-4 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-semibold">{current.school_name}</p>
+                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                  {current.image_url == null ? (
+                    <Badge variant="outline">Tanımsız</Badge>
+                  ) : current.is_active ? (
+                    <Badge>Aktif</Badge>
+                  ) : (
+                    <Badge variant="secondary">Pasif</Badge>
+                  )}
+                  {current.link_url && (
+                    <a href={current.link_url} target="_blank" rel="noopener noreferrer"
+                       className="inline-flex items-center gap-1 truncate text-primary hover:underline">
+                      <LinkIcon className="h-3 w-3" /> {current.link_url}
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <Button size="sm" variant="outline" onClick={() => setEditing(current)}>
+                  <Pencil className="mr-1 h-4 w-4" /> {current.image_url ? "Düzenle" : "Ekle"}
+                </Button>
+                {current.image_url && (
+                  <Button size="sm" variant="ghost" onClick={() => setDeleting(current)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {current.image_url ? (
+              <img src={current.image_url} alt="" className="mx-auto max-h-[60vh] rounded border bg-muted object-contain" />
+            ) : (
+              <div className="flex h-48 flex-col items-center justify-center gap-2 rounded border border-dashed bg-muted text-muted-foreground">
+                <ImageIcon className="h-8 w-8 opacity-40" />
+                <p className="text-sm">Bu okul için splash tanımlı değil.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <SplashEditDialog
         row={editing}
