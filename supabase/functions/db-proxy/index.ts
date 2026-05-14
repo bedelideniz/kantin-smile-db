@@ -975,6 +975,22 @@ const HANDLERS: Record<string, Handler> = {
     await query("DELETE FROM school_stories WHERE id=$1", [p.story_id]);
     return { story_id: p.story_id, deleted: true };
   },
+  reorder_school_stories: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      school_id: z.string().uuid(),
+      story_ids: z.array(z.string().uuid()).min(1),
+    }).parse(params);
+    await query(
+      `UPDATE school_stories AS s
+          SET sort_order = v.ord, updated_at = now()
+         FROM (SELECT UNNEST($2::uuid[]) AS id,
+                      generate_series(0, array_length($2::uuid[], 1) - 1) AS ord) AS v
+        WHERE s.id = v.id AND s.school_id = $1`,
+      [p.school_id, p.story_ids],
+    );
+    return { school_id: p.school_id, count: p.story_ids.length };
+  },
   // ===== Donation managers (super_admin manages per-school donation operators) =====
   list_donation_managers: async (ctx) => {
     requireSuperAdmin(ctx);
