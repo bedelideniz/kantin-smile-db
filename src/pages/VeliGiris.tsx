@@ -84,12 +84,6 @@ export default function VeliGiris() {
               className="h-44 w-auto object-contain drop-shadow-sm"
             />
           </div>
-          <span
-            className="mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-white shadow-md"
-            style={{ background: "linear-gradient(135deg, hsl(218 65% 22%) 0%, hsl(218 50% 32%) 100%)" }}
-          >
-            Veli Paneli
-          </span>
         </div>
         <Card className="border-white/60 bg-white/70 shadow-2xl backdrop-blur-xl"
           style={{ borderRadius: "1.75rem" }}
