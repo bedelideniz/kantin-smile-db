@@ -7,8 +7,11 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Check, ChevronsUpDown, School } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -58,6 +61,7 @@ export default function SchoolStoriesManager() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSchool, setSelectedSchool] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [editing, setEditing] = useState<{ schoolId: string; schoolName: string; current: Story | null } | null>(null);
   const [deleting, setDeleting] = useState<{ schoolName: string; story: Story } | null>(null);
 
@@ -95,46 +99,81 @@ export default function SchoolStoriesManager() {
     return Array.from(map.values());
   }, [rows]);
 
-  useEffect(() => {
-    if (!selectedSchool && groups.length > 0) setSelectedSchool(groups[0].school_id);
-  }, [groups, selectedSchool]);
-
   const current = groups.find((g) => g.school_id === selectedSchool) ?? null;
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Sparkles className="h-5 w-5" /> Veli Hikayeleri
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Veli panelinde, öğrenci seçicinin üzerinde Instagram tarzı yuvarlak hikayeler gösterin. Okul başına birden fazla hikaye ekleyebilirsiniz.
-          </p>
-        </div>
-        <div className="min-w-[260px]">
-          <Label className="text-xs text-muted-foreground">Okul</Label>
-          <Select value={selectedSchool ?? ""} onValueChange={setSelectedSchool}>
-            <SelectTrigger>
-              <SelectValue placeholder="Okul seçin" />
-            </SelectTrigger>
-            <SelectContent>
-              {groups.map((g) => (
-                <SelectItem key={g.school_id} value={g.school_id}>
-                  {g.school_name} {g.stories.length > 0 && `(${g.stories.length})`}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div>
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Sparkles className="h-5 w-5" /> Veli Hikayeleri
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Veli panelinde, öğrenci seçicinin üzerinde Instagram tarzı yuvarlak hikayeler gösterin. Okul başına birden fazla hikaye ekleyebilirsiniz.
+        </p>
       </div>
+
+      <Card>
+        <CardContent className="p-4">
+          <Label className="text-xs text-muted-foreground">Önce okul seçin</Label>
+          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={pickerOpen}
+                className="mt-1 w-full justify-between font-normal"
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <School className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  {current ? (
+                    <>
+                      <span className="truncate">{current.school_name}</span>
+                      {current.stories.length > 0 && (
+                        <Badge variant="secondary" className="ml-1">{current.stories.length}</Badge>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground">Okul seçin…</span>
+                  )}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Okul ara..." />
+                <CommandList>
+                  <CommandEmpty>Okul bulunamadı.</CommandEmpty>
+                  <CommandGroup>
+                    {groups.map((g) => (
+                      <CommandItem
+                        key={g.school_id}
+                        value={g.school_name}
+                        onSelect={() => { setSelectedSchool(g.school_id); setPickerOpen(false); }}
+                      >
+                        <Check className={cn("mr-2 h-4 w-4", selectedSchool === g.school_id ? "opacity-100" : "opacity-0")} />
+                        <span className="flex-1 truncate">{g.school_name}</span>
+                        {g.stories.length > 0 && (
+                          <Badge variant="secondary" className="ml-2">{g.stories.length}</Badge>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </CardContent>
+      </Card>
 
       {loading ? (
         <Card><CardContent className="flex items-center justify-center py-10">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </CardContent></Card>
       ) : !current ? (
-        <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">Okul yok.</CardContent></Card>
+        <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">
+          Hikayeleri görüntülemek için yukarıdan bir okul seçin.
+        </CardContent></Card>
       ) : (
         <>
           <div className="flex items-center justify-between">
