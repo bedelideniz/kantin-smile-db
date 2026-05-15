@@ -32,20 +32,18 @@ export function getPool(): Pool {
     // does not honor rejectUnauthorized:false reliably. Requires `host` (not
     // `hostssl`) entry in pg_hba.conf.
     ssl: false,
-    // Edge functions are short-lived & spawn many isolates concurrently.
-    // Allow a few reusable connections per isolate to avoid the TCP+auth
-    // handshake on every single query (the previous max:1/maxUses:1 setup
-    // caused a fresh connection on every request, adding 100-500ms latency).
-    max: 4,
-    // Recycle physical backends after a sane number of uses so we still drop
-    // any stale catalog/relcache state periodically (migrations, restores).
-    maxUses: 200,
-    idleTimeoutMillis: 30_000,
-    // Keep connection attempts below the edge-function gateway timeout.
-    // If the external DB is saturated, fail fast and let the caller retry.
+    // Edge functions spawn MANY concurrent isolates and the external DB has a
+    // hard `max_connections=100` cap. Keep concurrency per isolate at 1 so we
+    // don't saturate the server, but reuse the physical connection across many
+    // queries — that's the real win (avoids TCP+auth handshake per query, which
+    // was costing 100-500ms when maxUses was 1).
+    max: 1,
+    maxUses: 100,
+    // Reap idle connections quickly so other isolates can grab a slot. The
+    // server also has idle_session_timeout=5min as a safety net.
+    idleTimeoutMillis: 5_000,
     connectionTimeoutMillis: 6_000,
     allowExitOnIdle: true,
-    // Disable per-statement parse caching pressure on the server side.
     keepAlive: true,
   });
   // Swallow background pool errors so a dropped idle connection doesn't crash the isolate.
