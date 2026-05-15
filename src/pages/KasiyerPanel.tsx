@@ -710,6 +710,19 @@ export default function KasiyerPanel() {
                   <p className="truncate text-xs text-white/80">
                     {student.class_name ?? "—"}{student.student_no ? ` • #${student.student_no}` : ""}
                   </p>
+                  {dailyLimit != null && (
+                    <div
+                      className={cn(
+                        "mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                        overDailyLimit
+                          ? "bg-destructive/30 text-white ring-1 ring-destructive"
+                          : "bg-white/20 text-white",
+                      )}
+                    >
+                      Günlük: {fmt(todaySpent)} / {fmt(dailyLimit)} ₺
+                      <span className="opacity-80">· Kalan {fmt(remainingDaily ?? 0)} ₺</span>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-4 flex items-end justify-between gap-3 pr-40">
                   <div>
