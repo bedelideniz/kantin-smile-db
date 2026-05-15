@@ -15,6 +15,8 @@ export interface ParentStudent {
   photo_url?: string | null;
   card_lost?: boolean;
   has_card?: boolean;
+  daily_spend_limit?: number | null;
+  today_spent?: number;
 }
 
 export interface ParentSession {
