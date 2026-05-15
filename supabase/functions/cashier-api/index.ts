@@ -319,7 +319,7 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
     return await withTransaction(async (client) => {
       // Lock student row
       const sr = await client.query(
-        `SELECT id, full_name, balance, is_active, card_lost
+        `SELECT id, full_name, balance, is_active, card_lost, daily_spend_limit
            FROM students WHERE id=$1 AND school_id=$2 FOR UPDATE`,
         [p.student_id, ctx.schoolId],
       );
@@ -327,6 +327,18 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       const student = sr.rows[0];
       if (!student.is_active) throw new HttpError(403, "Öğrenci pasif");
       if (student.card_lost) throw new HttpError(423, "Kart kayıp olarak işaretli");
+
+      // Today's spent so far (Europe/Istanbul day boundary), excludes refunds
+      const tsRes = await client.query(
+        `SELECT COALESCE(SUM(t.total_amount - t.refunded_amount), 0) AS spent
+           FROM transactions t
+          WHERE t.student_id = $1
+            AND t.status = 'completed'
+            AND t.created_at >= date_trunc('day', now() AT TIME ZONE 'Europe/Istanbul') AT TIME ZONE 'Europe/Istanbul'`,
+        [student.id],
+      );
+      const todaySpent = Number(tsRes.rows[0].spent);
+      const dailyLimit = student.daily_spend_limit == null ? null : Number(student.daily_spend_limit);
 
       // Parent-set blocked products check
       const blockedRes = await client.query(
