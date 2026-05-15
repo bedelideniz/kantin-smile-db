@@ -167,28 +167,33 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       nfc_uid: z.string().min(1).optional(),
       query: z.string().min(1).optional(),
     }).parse(params ?? {});
+    const cols = `id, full_name, class_name, student_no, balance, is_active, card_lost, photo_url,
+                  daily_spend_limit,
+                  COALESCE((
+                    SELECT SUM(t.total_amount - t.refunded_amount)
+                      FROM transactions t
+                     WHERE t.student_id = students.id
+                       AND t.status = 'completed'
+                       AND t.created_at >= date_trunc('day', now() AT TIME ZONE 'Europe/Istanbul') AT TIME ZONE 'Europe/Istanbul'
+                  ), 0) AS today_spent`;
     let row;
     if (p.qr_token) {
-      // Accept raw uuid or full URL containing it
       const uuid = p.qr_token.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
       if (!uuid) throw new HttpError(400, "Geçersiz QR kod");
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost, photo_url
-           FROM students WHERE school_id=$1 AND qr_token=$2`,
+        `SELECT ${cols} FROM students WHERE school_id=$1 AND qr_token=$2`,
         [ctx.schoolId, uuid],
       );
       row = r.rows[0];
     } else if (p.nfc_uid) {
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost, photo_url
-           FROM students WHERE school_id=$1 AND nfc_uid=$2`,
+        `SELECT ${cols} FROM students WHERE school_id=$1 AND nfc_uid=$2`,
         [ctx.schoolId, p.nfc_uid.toUpperCase()],
       );
       row = r.rows[0];
     } else if (p.query) {
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost, photo_url
-           FROM students
+        `SELECT ${cols} FROM students
           WHERE school_id=$1 AND is_active=TRUE
             AND (full_name ILIKE $2 OR student_no ILIKE $2)
           ORDER BY full_name ASC LIMIT 20`,
@@ -314,7 +319,7 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
     return await withTransaction(async (client) => {
       // Lock student row
       const sr = await client.query(
-        `SELECT id, full_name, balance, is_active, card_lost
+        `SELECT id, full_name, balance, is_active, card_lost, daily_spend_limit
            FROM students WHERE id=$1 AND school_id=$2 FOR UPDATE`,
         [p.student_id, ctx.schoolId],
       );
@@ -322,6 +327,18 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       const student = sr.rows[0];
       if (!student.is_active) throw new HttpError(403, "Öğrenci pasif");
       if (student.card_lost) throw new HttpError(423, "Kart kayıp olarak işaretli");
+
+      // Today's spent so far (Europe/Istanbul day boundary), excludes refunds
+      const tsRes = await client.query(
+        `SELECT COALESCE(SUM(t.total_amount - t.refunded_amount), 0) AS spent
+           FROM transactions t
+          WHERE t.student_id = $1
+            AND t.status = 'completed'
+            AND t.created_at >= date_trunc('day', now() AT TIME ZONE 'Europe/Istanbul') AT TIME ZONE 'Europe/Istanbul'`,
+        [student.id],
+      );
+      const todaySpent = Number(tsRes.rows[0].spent);
+      const dailyLimit = student.daily_spend_limit == null ? null : Number(student.daily_spend_limit);
 
       // Parent-set blocked products check
       const blockedRes = await client.query(
@@ -362,6 +379,16 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       const balanceBefore = Number(student.balance);
       if (balanceBefore < total) {
         throw new HttpError(402, `Yetersiz bakiye. Mevcut: ${balanceBefore.toFixed(2)} TL, Tutar: ${total.toFixed(2)} TL`);
+      }
+      // Parent-set daily spending limit (Europe/Istanbul day)
+      if (dailyLimit != null) {
+        const remaining = +(dailyLimit - todaySpent).toFixed(2);
+        if (total > remaining) {
+          throw new HttpError(
+            403,
+            `Günlük harcama limiti aşılıyor. Bugünkü harcama: ${todaySpent.toFixed(2)} TL / ${dailyLimit.toFixed(2)} TL · Kalan: ${Math.max(0, remaining).toFixed(2)} TL`,
+          );
+        }
       }
       const balanceAfter = +(balanceBefore - total).toFixed(2);
 

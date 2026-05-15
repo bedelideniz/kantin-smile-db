@@ -58,9 +58,18 @@ async function findStudentsForParent(phoneVariantsList: string[]) {
     id: string; school_id: string; full_name: string; class_name: string | null;
     student_no: string | null; balance: string; is_active: boolean; school_name: string;
     photo_url: string | null; card_lost: boolean; nfc_uid: string | null;
+    daily_spend_limit: string | null; today_spent: string;
   }>(
     `SELECT s.id, s.school_id, s.full_name, s.class_name, s.student_no,
             s.balance, s.is_active, s.photo_url, s.card_lost, s.nfc_uid,
+            s.daily_spend_limit,
+            COALESCE((
+              SELECT SUM(t.total_amount - t.refunded_amount)
+                FROM transactions t
+               WHERE t.student_id = s.id
+                 AND t.status = 'completed'
+                 AND t.created_at >= date_trunc('day', now() AT TIME ZONE 'Europe/Istanbul') AT TIME ZONE 'Europe/Istanbul'
+            ), 0) AS today_spent,
             sc.name AS school_name
        FROM students s
        JOIN schools sc ON sc.id = s.school_id
@@ -157,6 +166,8 @@ const PUBLIC_OPS: Record<string, Handler> = {
         id: s.id, school_id: s.school_id, school_name: s.school_name,
         full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
         balance: Number(s.balance),
+        daily_spend_limit: s.daily_spend_limit == null ? null : Number(s.daily_spend_limit),
+        today_spent: Number(s.today_spent ?? 0),
       })),
     };
   },
@@ -210,6 +221,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
         full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
         balance: Number(s.balance), photo_url: s.photo_url,
         card_lost: !!s.card_lost, has_card: !!s.nfc_uid,
+        daily_spend_limit: s.daily_spend_limit == null ? null : Number(s.daily_spend_limit),
+        today_spent: Number(s.today_spent ?? 0),
       })),
     };
   },
@@ -259,6 +272,31 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     );
     if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
     return { id: r.rows[0].id, card_lost: !!r.rows[0].card_lost };
+  },
+  // Parent sets (or clears) the per-day spending limit for one of their students.
+  // null disables the limit. Cashier API enforces it on every sale.
+  set_daily_limit: async (ctx, params) => {
+    const p = z.object({
+      student_id: z.string().uuid(),
+      daily_spend_limit: z.number().min(0).max(100000).nullable(),
+    }).parse(params);
+    const { variants } = phoneVariants(ctx.phone);
+    const limit = p.daily_spend_limit == null
+      ? null
+      : Math.round(p.daily_spend_limit * 100) / 100;
+    const r = await query(
+      `UPDATE students SET daily_spend_limit = $1, updated_at = now()
+        WHERE id = $2 AND is_active = TRUE
+          AND (parent_phone = ANY($3::text[])
+               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($3::text[]))
+        RETURNING id, daily_spend_limit`,
+      [limit, p.student_id, variants],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
+    return {
+      id: r.rows[0].id,
+      daily_spend_limit: r.rows[0].daily_spend_limit == null ? null : Number(r.rows[0].daily_spend_limit),
+    };
   },
   // List notifications for this parent (across all students sharing this phone).
   list_notifications: async (ctx, params) => {

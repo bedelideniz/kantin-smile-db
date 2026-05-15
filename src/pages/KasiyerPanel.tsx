@@ -35,6 +35,8 @@ interface Student {
   student_no: string | null; balance: number | string;
   card_lost?: boolean;
   photo_url?: string | null;
+  daily_spend_limit?: number | string | null;
+  today_spent?: number | string | null;
 }
 interface CartItem { product_id: string; name: string; price: number; qty: number; catColor: string }
 interface Announcement { slot: number; image_url: string; title: string | null }
@@ -430,7 +432,12 @@ export default function KasiyerPanel() {
   if (!session) return null;
 
   const studentBalance = student ? Number(student.balance) : 0;
-  const insufficient = student && cartTotal > studentBalance;
+  const dailyLimit =
+    student && student.daily_spend_limit != null ? Number(student.daily_spend_limit) : null;
+  const todaySpent = student ? Number(student.today_spent ?? 0) : 0;
+  const remainingDaily = dailyLimit != null ? Math.max(0, +(dailyLimit - todaySpent).toFixed(2)) : null;
+  const overDailyLimit = remainingDaily != null && cartTotal > remainingDaily;
+  const insufficient = student && (cartTotal > studentBalance || overDailyLimit);
   const balanceAfter = studentBalance - cartTotal;
 
   return (
@@ -703,6 +710,19 @@ export default function KasiyerPanel() {
                   <p className="truncate text-xs text-white/80">
                     {student.class_name ?? "—"}{student.student_no ? ` • #${student.student_no}` : ""}
                   </p>
+                  {dailyLimit != null && (
+                    <div
+                      className={cn(
+                        "mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                        overDailyLimit
+                          ? "bg-destructive/30 text-white ring-1 ring-destructive"
+                          : "bg-white/20 text-white",
+                      )}
+                    >
+                      Günlük: {fmt(todaySpent)} / {fmt(dailyLimit)} ₺
+                      <span className="opacity-80">· Kalan {fmt(remainingDaily ?? 0)} ₺</span>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-4 flex items-end justify-between gap-3 pr-40">
                   <div>
@@ -888,7 +908,11 @@ export default function KasiyerPanel() {
               <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive animate-fade-in">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span className="font-medium">
-                  Yetersiz bakiye — Eksik: <strong>{fmt(cartTotal - studentBalance)} ₺</strong>
+                  {overDailyLimit ? (
+                    <>Günlük limit aşılıyor — Kalan: <strong>{fmt(remainingDaily ?? 0)} ₺</strong></>
+                  ) : (
+                    <>Yetersiz bakiye — Eksik: <strong>{fmt(cartTotal - studentBalance)} ₺</strong></>
+                  )}
                 </span>
               </div>
             )}
@@ -907,6 +931,8 @@ export default function KasiyerPanel() {
                 <><CreditCard className="mr-2 h-5 w-5" /> Önce kart okutun</>
               ) : cart.length === 0 ? (
                 <><ShoppingCart className="mr-2 h-5 w-5" /> Sepet boş</>
+              ) : overDailyLimit ? (
+                <><AlertTriangle className="mr-2 h-5 w-5" /> Günlük limit aşıldı</>
               ) : insufficient ? (
                 <><AlertTriangle className="mr-2 h-5 w-5" /> Yetersiz bakiye</>
               ) : (
