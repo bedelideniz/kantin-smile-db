@@ -35,6 +35,8 @@ interface Student {
   student_no: string | null; balance: number | string;
   card_lost?: boolean;
   photo_url?: string | null;
+  daily_spend_limit?: number | string | null;
+  today_spent?: number | string | null;
 }
 interface CartItem { product_id: string; name: string; price: number; qty: number; catColor: string }
 interface Announcement { slot: number; image_url: string; title: string | null }
