@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Loader2, ShieldAlert, ShieldCheck, CreditCard } from "lucide-react";
+import { Loader2, ShieldAlert, ShieldCheck, CreditCard, Wallet } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { callParentApi, type ParentStudent } from "@/lib/parentApi";
 
@@ -15,14 +16,28 @@ interface Props {
   onUpdated: (next: ParentStudent) => void;
 }
 
+const fmtTL = (n: number) =>
+  n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export default function StudentSettingsModal({ open, onOpenChange, student, onUpdated }: Props) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [cardLost, setCardLost] = useState<boolean>(!!student?.card_lost);
 
+  // Daily limit
+  const hasLimitInitial = student?.daily_spend_limit != null;
+  const [limitEnabled, setLimitEnabled] = useState<boolean>(hasLimitInitial);
+  const [limitInput, setLimitInput] = useState<string>(
+    student?.daily_spend_limit != null ? String(student.daily_spend_limit) : "",
+  );
+  const [savingLimit, setSavingLimit] = useState(false);
+
   useEffect(() => {
     setCardLost(!!student?.card_lost);
-  }, [student?.id, student?.card_lost, open]);
+    const has = student?.daily_spend_limit != null;
+    setLimitEnabled(has);
+    setLimitInput(has ? String(student!.daily_spend_limit) : "");
+  }, [student?.id, student?.card_lost, student?.daily_spend_limit, open]);
 
   const handleToggle = async (next: boolean) => {
     if (!student) return;
@@ -52,6 +67,41 @@ export default function StudentSettingsModal({ open, onOpenChange, student, onUp
       setSaving(false);
     }
   };
+
+  const saveLimit = async (nextEnabled: boolean) => {
+    if (!student) return;
+    let value: number | null = null;
+    if (nextEnabled) {
+      const n = Number(limitInput.replace(",", "."));
+      if (!isFinite(n) || n < 0) {
+        toast({ title: "Geçersiz tutar", description: "0 veya pozitif bir sayı girin", variant: "destructive" });
+        return;
+      }
+      value = Math.round(n * 100) / 100;
+    }
+    setSavingLimit(true);
+    try {
+      const r = await callParentApi<{ id: string; daily_spend_limit: number | null }>(
+        "set_daily_limit",
+        { student_id: student.id, daily_spend_limit: value },
+      );
+      onUpdated({ ...student, daily_spend_limit: r.daily_spend_limit });
+      setLimitEnabled(r.daily_spend_limit != null);
+      setLimitInput(r.daily_spend_limit != null ? String(r.daily_spend_limit) : "");
+      toast({
+        title: r.daily_spend_limit == null ? "Günlük limit kaldırıldı" : "Günlük limit güncellendi",
+        description: r.daily_spend_limit == null
+          ? "Öğrenci tüm bakiyesini harcayabilir."
+          : `Yeni limit: ${fmtTL(r.daily_spend_limit)} ₺/gün`,
+      });
+    } catch (e) {
+      toast({ title: "Kaydedilemedi", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setSavingLimit(false);
+    }
+  };
+
+  const todaySpent = Number(student?.today_spent ?? 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -110,6 +160,62 @@ export default function StudentSettingsModal({ open, onOpenChange, student, onUp
                   </span>
                 )}
               </div>
+            </div>
+
+            {/* Daily spend limit */}
+            <div className="rounded-xl border bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Wallet className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold">Günlük Harcama Limiti</div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Açıkken öğrenci günde belirlediğiniz tutardan fazlasını kantinde
+                      harcayamaz. Limit her gece sıfırlanır.
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={limitEnabled}
+                  disabled={savingLimit}
+                  onCheckedChange={(v) => {
+                    setLimitEnabled(v);
+                    if (!v) saveLimit(false);
+                  }}
+                  aria-label="Günlük limit"
+                />
+              </div>
+
+              {limitEnabled && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        inputMode="decimal"
+                        placeholder="0,00"
+                        value={limitInput}
+                        onChange={(e) => setLimitInput(e.target.value.replace(/[^\d,.]/g, ""))}
+                        className="pr-8 text-right"
+                        disabled={savingLimit}
+                      />
+                      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">₺</span>
+                    </div>
+                    <Button onClick={() => saveLimit(true)} disabled={savingLimit}>
+                      {savingLimit ? <Loader2 className="h-4 w-4 animate-spin" /> : "Kaydet"}
+                    </Button>
+                  </div>
+                  {student.daily_spend_limit != null && (
+                    <div className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">
+                      Bugünkü harcama:{" "}
+                      <span className="font-semibold text-foreground">
+                        {fmtTL(todaySpent)} ₺ / {fmtTL(Number(student.daily_spend_limit))} ₺
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}
