@@ -33,18 +33,20 @@ export function getPool(): Pool {
     // `hostssl`) entry in pg_hba.conf.
     ssl: false,
     // Edge functions are short-lived & spawn many isolates concurrently.
-    // Keep the pool tiny and aggressively close idle connections so we don't
-    // exhaust the external DB's max_connections limit.
-    max: 1,
-    // Never keep a PostgreSQL backend session around after it has served a
-    // request. This avoids stale catalog/relcache state after external DB
-    // migrations, restores, or constraint recreation.
-    maxUses: 1,
-    idleTimeoutMillis: 1_500,
+    // Allow a few reusable connections per isolate to avoid the TCP+auth
+    // handshake on every single query (the previous max:1/maxUses:1 setup
+    // caused a fresh connection on every request, adding 100-500ms latency).
+    max: 4,
+    // Recycle physical backends after a sane number of uses so we still drop
+    // any stale catalog/relcache state periodically (migrations, restores).
+    maxUses: 200,
+    idleTimeoutMillis: 30_000,
     // Keep connection attempts below the edge-function gateway timeout.
     // If the external DB is saturated, fail fast and let the caller retry.
     connectionTimeoutMillis: 6_000,
     allowExitOnIdle: true,
+    // Disable per-statement parse caching pressure on the server side.
+    keepAlive: true,
   });
   // Swallow background pool errors so a dropped idle connection doesn't crash the isolate.
   _pool.on("error", (err: unknown) => {
