@@ -58,9 +58,18 @@ async function findStudentsForParent(phoneVariantsList: string[]) {
     id: string; school_id: string; full_name: string; class_name: string | null;
     student_no: string | null; balance: string; is_active: boolean; school_name: string;
     photo_url: string | null; card_lost: boolean; nfc_uid: string | null;
+    daily_spend_limit: string | null; today_spent: string;
   }>(
     `SELECT s.id, s.school_id, s.full_name, s.class_name, s.student_no,
             s.balance, s.is_active, s.photo_url, s.card_lost, s.nfc_uid,
+            s.daily_spend_limit,
+            COALESCE((
+              SELECT SUM(t.total_amount - t.refunded_amount)
+                FROM transactions t
+               WHERE t.student_id = s.id
+                 AND t.status = 'completed'
+                 AND t.created_at >= date_trunc('day', now() AT TIME ZONE 'Europe/Istanbul') AT TIME ZONE 'Europe/Istanbul'
+            ), 0) AS today_spent,
             sc.name AS school_name
        FROM students s
        JOIN schools sc ON sc.id = s.school_id
