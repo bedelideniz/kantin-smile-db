@@ -40,6 +40,7 @@ interface Student {
 }
 interface CartItem { product_id: string; name: string; price: number; qty: number; catColor: string }
 interface Announcement { slot: number; image_url: string; title: string | null }
+interface CashierBootstrap { categories: Category[]; products: Product[]; announcements: Announcement[] }
 interface RecentSale {
   id: string;
   tx_no: number;
@@ -91,7 +92,7 @@ const catColor = (idx: number) => `hsl(var(${CAT_VARS[idx % CAT_VARS.length]}))`
 export default function KasiyerPanel() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const session = getCashierSession();
+  const session = useMemo(() => getCashierSession(), []);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -205,12 +206,10 @@ export default function KasiyerPanel() {
     if (!session) return;
     (async () => {
       try {
-        const cats = await callCashierApiWithRetry<Category[]>("list_categories");
-        const prods = await callCashierApiWithRetry<Product[]>("list_products");
-        const anns = await callCashierApiWithRetry<Announcement[]>("list_announcements").catch(() => []);
-        setCategories(cats);
-        setProducts(prods);
-        setAnnouncements(anns ?? []);
+        const data = await callCashierApiWithRetry<CashierBootstrap>("bootstrap");
+        setCategories(data.categories ?? []);
+        setProducts(data.products ?? []);
+        setAnnouncements(data.announcements ?? []);
       } catch (e: any) {
         const msg = e?.message ?? "";
         if (!isTransientDbError(msg) || !transientLoadWarned.current) {
