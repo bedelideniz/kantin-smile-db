@@ -167,28 +167,33 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       nfc_uid: z.string().min(1).optional(),
       query: z.string().min(1).optional(),
     }).parse(params ?? {});
+    const cols = `id, full_name, class_name, student_no, balance, is_active, card_lost, photo_url,
+                  daily_spend_limit,
+                  COALESCE((
+                    SELECT SUM(t.total_amount - t.refunded_amount)
+                      FROM transactions t
+                     WHERE t.student_id = students.id
+                       AND t.status = 'completed'
+                       AND t.created_at >= date_trunc('day', now() AT TIME ZONE 'Europe/Istanbul') AT TIME ZONE 'Europe/Istanbul'
+                  ), 0) AS today_spent`;
     let row;
     if (p.qr_token) {
-      // Accept raw uuid or full URL containing it
       const uuid = p.qr_token.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
       if (!uuid) throw new HttpError(400, "Geçersiz QR kod");
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost, photo_url
-           FROM students WHERE school_id=$1 AND qr_token=$2`,
+        `SELECT ${cols} FROM students WHERE school_id=$1 AND qr_token=$2`,
         [ctx.schoolId, uuid],
       );
       row = r.rows[0];
     } else if (p.nfc_uid) {
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost, photo_url
-           FROM students WHERE school_id=$1 AND nfc_uid=$2`,
+        `SELECT ${cols} FROM students WHERE school_id=$1 AND nfc_uid=$2`,
         [ctx.schoolId, p.nfc_uid.toUpperCase()],
       );
       row = r.rows[0];
     } else if (p.query) {
       const r = await query(
-        `SELECT id, full_name, class_name, student_no, balance, is_active, card_lost, photo_url
-           FROM students
+        `SELECT ${cols} FROM students
           WHERE school_id=$1 AND is_active=TRUE
             AND (full_name ILIKE $2 OR student_no ILIKE $2)
           ORDER BY full_name ASC LIMIT 20`,
