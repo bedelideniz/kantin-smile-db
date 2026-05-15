@@ -432,7 +432,12 @@ export default function KasiyerPanel() {
   if (!session) return null;
 
   const studentBalance = student ? Number(student.balance) : 0;
-  const insufficient = student && cartTotal > studentBalance;
+  const dailyLimit =
+    student && student.daily_spend_limit != null ? Number(student.daily_spend_limit) : null;
+  const todaySpent = student ? Number(student.today_spent ?? 0) : 0;
+  const remainingDaily = dailyLimit != null ? Math.max(0, +(dailyLimit - todaySpent).toFixed(2)) : null;
+  const overDailyLimit = remainingDaily != null && cartTotal > remainingDaily;
+  const insufficient = student && (cartTotal > studentBalance || overDailyLimit);
   const balanceAfter = studentBalance - cartTotal;
 
   return (
