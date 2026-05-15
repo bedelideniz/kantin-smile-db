@@ -272,8 +272,9 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     );
     if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
     return { id: r.rows[0].id, card_lost: !!r.rows[0].card_lost };
+  },
   // Parent sets (or clears) the per-day spending limit for one of their students.
-  // null/undefined disables the limit. Cashier API enforces it on every sale.
+  // null disables the limit. Cashier API enforces it on every sale.
   set_daily_limit: async (ctx, params) => {
     const p = z.object({
       student_id: z.string().uuid(),
@@ -296,7 +297,6 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       id: r.rows[0].id,
       daily_spend_limit: r.rows[0].daily_spend_limit == null ? null : Number(r.rows[0].daily_spend_limit),
     };
-  },
   },
   // List notifications for this parent (across all students sharing this phone).
   list_notifications: async (ctx, params) => {
