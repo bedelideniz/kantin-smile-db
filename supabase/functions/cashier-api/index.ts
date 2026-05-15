@@ -151,6 +151,37 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
     );
     return r.rows;
   },
+  bootstrap: async (ctx) => {
+    const r = await query(
+      `WITH cats AS (
+         SELECT COALESCE(json_agg(c ORDER BY sort_order ASC, name ASC), '[]'::json) AS data
+           FROM (
+             SELECT id, name, color, sort_order
+               FROM categories
+              WHERE school_id=$1 AND is_active=TRUE
+           ) c
+       ), prods AS (
+         SELECT COALESCE(json_agg(p ORDER BY sort_order ASC, name ASC), '[]'::json) AS data
+           FROM (
+             SELECT id, category_id, name, price, image_url, barcode, stock_tracking, stock_qty, sort_order
+               FROM products
+              WHERE school_id=$1 AND is_active=TRUE
+              LIMIT 500
+           ) p
+       ), anns AS (
+         SELECT COALESCE(json_agg(a ORDER BY slot ASC), '[]'::json) AS data
+           FROM (
+             SELECT slot, image_url, title
+               FROM canteen_announcements
+              WHERE school_id=$1 AND is_active=TRUE
+           ) a
+       )
+       SELECT cats.data AS categories, prods.data AS products, anns.data AS announcements
+         FROM cats, prods, anns`,
+      [ctx.schoolId],
+    );
+    return r.rows[0] ?? { categories: [], products: [], announcements: [] };
+  },
   find_product_by_barcode: async (ctx, params) => {
     const p = z.object({ barcode: z.string().trim().min(4).max(32) }).parse(params ?? {});
     const r = await query(
