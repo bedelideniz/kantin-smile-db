@@ -501,7 +501,7 @@ const HANDLERS: Record<string, Handler> = {
   adjust_student_balance: async (ctx, params) => {
     const p = z.object({
       id: z.string().uuid(),
-      delta: z.number().refine((n) => Math.abs(n) > 0 && Math.abs(n) <= 10000, "Tutar 0-10000 ₺ aralığında olmalı"),
+      delta: z.number().refine((n) => Math.abs(n) > 0 && Math.abs(n) <= 100000, "Tutar 0-100.000 ₺ aralığında olmalı"),
       school_id: z.string().uuid().optional(),
     }).parse(params);
     const schoolId = resolveSchoolScope(ctx, p.school_id);
