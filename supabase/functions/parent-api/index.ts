@@ -221,6 +221,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
         full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
         balance: Number(s.balance), photo_url: s.photo_url,
         card_lost: !!s.card_lost, has_card: !!s.nfc_uid,
+        daily_spend_limit: s.daily_spend_limit == null ? null : Number(s.daily_spend_limit),
+        today_spent: Number(s.today_spent ?? 0),
       })),
     };
   },
