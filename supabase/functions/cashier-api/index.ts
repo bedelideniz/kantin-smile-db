@@ -380,6 +380,16 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       if (balanceBefore < total) {
         throw new HttpError(402, `Yetersiz bakiye. Mevcut: ${balanceBefore.toFixed(2)} TL, Tutar: ${total.toFixed(2)} TL`);
       }
+      // Parent-set daily spending limit (Europe/Istanbul day)
+      if (dailyLimit != null) {
+        const remaining = +(dailyLimit - todaySpent).toFixed(2);
+        if (total > remaining) {
+          throw new HttpError(
+            403,
+            `Günlük harcama limiti aşılıyor. Bugünkü harcama: ${todaySpent.toFixed(2)} TL / ${dailyLimit.toFixed(2)} TL · Kalan: ${Math.max(0, remaining).toFixed(2)} TL`,
+          );
+        }
+      }
       const balanceAfter = +(balanceBefore - total).toFixed(2);
 
       // Update balance
