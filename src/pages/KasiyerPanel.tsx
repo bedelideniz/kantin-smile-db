@@ -908,7 +908,11 @@ export default function KasiyerPanel() {
               <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive animate-fade-in">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span className="font-medium">
-                  Yetersiz bakiye — Eksik: <strong>{fmt(cartTotal - studentBalance)} ₺</strong>
+                  {overDailyLimit ? (
+                    <>Günlük limit aşılıyor — Kalan: <strong>{fmt(remainingDaily ?? 0)} ₺</strong></>
+                  ) : (
+                    <>Yetersiz bakiye — Eksik: <strong>{fmt(cartTotal - studentBalance)} ₺</strong></>
+                  )}
                 </span>
               </div>
             )}
@@ -927,6 +931,8 @@ export default function KasiyerPanel() {
                 <><CreditCard className="mr-2 h-5 w-5" /> Önce kart okutun</>
               ) : cart.length === 0 ? (
                 <><ShoppingCart className="mr-2 h-5 w-5" /> Sepet boş</>
+              ) : overDailyLimit ? (
+                <><AlertTriangle className="mr-2 h-5 w-5" /> Günlük limit aşıldı</>
               ) : insufficient ? (
                 <><AlertTriangle className="mr-2 h-5 w-5" /> Yetersiz bakiye</>
               ) : (
