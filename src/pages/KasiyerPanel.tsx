@@ -92,7 +92,7 @@ const catColor = (idx: number) => `hsl(var(${CAT_VARS[idx % CAT_VARS.length]}))`
 export default function KasiyerPanel() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const session = getCashierSession();
+  const session = useMemo(() => getCashierSession(), []);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
