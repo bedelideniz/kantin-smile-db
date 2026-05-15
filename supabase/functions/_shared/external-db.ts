@@ -41,10 +41,9 @@ export function getPool(): Pool {
     maxUses: 100,
     // Reap idle connections quickly so other isolates can grab a slot. The
     // server also has idle_session_timeout=5min as a safety net.
-    // Keep the warm connection alive between rapid POS actions (card scans,
-    // sales). Closing it after 5s forced a fresh TCP+auth handshake on every
-    // scan, adding 200-500ms. 60s keeps it warm without saturating the server.
-    idleTimeoutMillis: 60_000,
+    // Keep the warm connection briefly for back-to-back POS actions, but don't
+    // hold scarce DB slots for a full minute across many edge isolates.
+    idleTimeoutMillis: 15_000,
     connectionTimeoutMillis: 6_000,
     allowExitOnIdle: true,
     keepAlive: true,
