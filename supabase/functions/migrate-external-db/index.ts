@@ -731,6 +731,32 @@ Deno.serve(async (req) => {
 
     const results: { version: string; status: string; error?: string }[] = [];
 
+    // Repair: drop orphan referential-integrity triggers whose constraint OID
+    // points to a missing or non-FK constraint. These cause the runtime error
+    // "constraint NNNN is not a foreign key constraint" on insert/update/delete.
+    try {
+      const repaired: string[] = [];
+      await withTransaction(async (client) => {
+        const r = await client.query(`
+          SELECT t.tgname, t.tgrelid::regclass::text AS tbl
+            FROM pg_trigger t
+            LEFT JOIN pg_constraint c ON c.oid = t.tgconstraint
+           WHERE t.tgconstraint <> 0
+             AND t.tgisinternal = true
+             AND (c.oid IS NULL OR c.contype <> 'f')
+             AND t.tgfoid::regproc::text LIKE 'RI_FKey_%'
+        `);
+        for (const row of r.rows as Array<{ tgname: string; tbl: string }>) {
+          await client.query(`DROP TRIGGER IF EXISTS "${row.tgname}" ON ${row.tbl}`);
+          repaired.push(`${row.tbl}.${row.tgname}`);
+        }
+      });
+      results.push({ version: "_repair_orphan_ri_triggers", status: repaired.length ? `dropped ${repaired.length}` : "ok" });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      results.push({ version: "_repair_orphan_ri_triggers", status: "failed", error: msg });
+    }
+
     for (const m of MIGRATIONS) {
       if (appliedSet.has(m.version)) {
         try {
