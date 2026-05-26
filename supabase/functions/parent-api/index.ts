@@ -691,8 +691,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     if (!(await parentOwnsStudent(p.student_id, variants))) {
       throw new HttpError(403, "Bu öğrenciye erişim yok");
     }
-    const primary = await query<{ parent_phone: string; parent_full_name: string | null }>(
-      "SELECT parent_phone, parent_full_name FROM students WHERE id=$1",
+    const primary = await query<{ parent_phone: string | null }>(
+      "SELECT parent_phone FROM students WHERE id=$1",
       [p.student_id],
     );
     const co = await query<{ id: string; phone: string; full_name: string | null; created_at: string }>(
