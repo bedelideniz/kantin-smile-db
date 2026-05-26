@@ -77,6 +77,7 @@ async function findStudentsForParent(phoneVariantsList: string[]) {
         AND (
           s.parent_phone = ANY($1::text[])
           OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($1::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = s.id AND (cp.phone = ANY($1::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($1::text[])))
           OR EXISTS (
             SELECT 1 FROM student_co_parents cp
              WHERE cp.student_id = s.id
@@ -100,6 +101,7 @@ async function parentOwnsStudent(studentId: string, variants: string[]): Promise
           AND (
             s.parent_phone = ANY($2::text[])
             OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = s.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[])))
             OR EXISTS (
               SELECT 1 FROM student_co_parents cp
                WHERE cp.student_id = s.id
@@ -273,7 +275,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
          JOIN schools sc ON sc.id = s.school_id
         WHERE s.id = $1 AND s.is_active = TRUE
           AND (s.parent_phone = ANY($2::text[])
-               OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+               OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = s.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
@@ -298,7 +301,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       `UPDATE students SET card_lost = $1, updated_at = now()
         WHERE id = $2 AND is_active = TRUE
           AND (parent_phone = ANY($3::text[])
-               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($3::text[]))
+               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($3::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($3::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($3::text[]))))
         RETURNING id, card_lost`,
       [p.card_lost, p.student_id, variants],
     );
@@ -320,7 +324,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       `UPDATE students SET daily_spend_limit = $1, updated_at = now()
         WHERE id = $2 AND is_active = TRUE
           AND (parent_phone = ANY($3::text[])
-               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($3::text[]))
+               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($3::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($3::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($3::text[]))))
         RETURNING id, daily_spend_limit`,
       [limit, p.student_id, variants],
     );
@@ -396,7 +401,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       `SELECT id, school_id, photo_url FROM students
         WHERE id=$1 AND is_active=TRUE
           AND (parent_phone = ANY($2::text[])
-               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
@@ -469,7 +475,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const own = await query<{ id: string }>(
       `SELECT id FROM students WHERE id=$1 AND is_active=TRUE
         AND (parent_phone = ANY($2::text[])
-             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
@@ -534,7 +541,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const own = await query<{ school_id: string }>(
       `SELECT school_id FROM students WHERE id=$1 AND is_active=TRUE
         AND (parent_phone = ANY($2::text[])
-             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
@@ -556,7 +564,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const own = await query<{ id: string }>(
       `SELECT id FROM students WHERE id=$1 AND is_active=TRUE
         AND (parent_phone = ANY($2::text[])
-             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
@@ -576,7 +585,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const own = await query<{ school_id: string }>(
       `SELECT school_id FROM students WHERE id=$1 AND is_active=TRUE
         AND (parent_phone = ANY($2::text[])
-             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
@@ -619,7 +629,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
         `SELECT id, school_id, balance, full_name FROM students
           WHERE id=$1 AND is_active=TRUE
             AND (parent_phone = ANY($2::text[])
-                 OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))
+                 OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))
           FOR UPDATE`,
         [p.student_id, variants],
       );
