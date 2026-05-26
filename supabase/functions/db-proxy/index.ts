@@ -1353,7 +1353,7 @@ Deno.serve(async (req) => {
     }
     console.error("db-proxy error:", msg);
     return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
