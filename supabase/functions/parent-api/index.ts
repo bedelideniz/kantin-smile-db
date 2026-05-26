@@ -355,10 +355,17 @@ const PUBLIC_OPS: Record<string, Handler> = {
 
 const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise<unknown>> = {
   me: async (ctx) => {
-    const { variants } = phoneVariants(ctx.phone);
-    const students = await findStudentsForParent(variants);
+    const { canonical, variants } = phoneVariants(ctx.phone);
+    const [students, pr] = await Promise.all([
+      findStudentsForParent(variants),
+      query<{ must_change: boolean }>(
+        "SELECT must_change FROM parent_pins WHERE phone=$1",
+        [canonical],
+      ),
+    ]);
     return {
       phone: ctx.phone,
+      must_change: !!pr.rows[0]?.must_change,
       students: students.map((s) => ({
         id: s.id, school_id: s.school_id, school_name: s.school_name,
         full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
