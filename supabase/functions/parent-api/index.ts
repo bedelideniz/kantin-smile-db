@@ -680,6 +680,109 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
 
     return { ok: true, ...result };
   },
+
+  // ---------- Co-parents (eş / diğer veli) ----------
+
+  // List all co-parents for a student. Returns the original parent_phone too,
+  // so the UI can display the full list. The original parent is marked primary.
+  list_co_parents: async (ctx, params) => {
+    const p = z.object({ student_id: z.string().uuid() }).parse(params);
+    const { variants } = phoneVariants(ctx.phone);
+    if (!(await parentOwnsStudent(p.student_id, variants))) {
+      throw new HttpError(403, "Bu öğrenciye erişim yok");
+    }
+    const primary = await query<{ parent_phone: string; parent_full_name: string | null }>(
+      "SELECT parent_phone, parent_full_name FROM students WHERE id=$1",
+      [p.student_id],
+    );
+    const co = await query<{ id: string; phone: string; full_name: string | null; created_at: string }>(
+      `SELECT id, phone, full_name, created_at
+         FROM student_co_parents
+        WHERE student_id=$1
+        ORDER BY created_at ASC`,
+      [p.student_id],
+    );
+    return {
+      primary: primary.rows[0] ?? null,
+      co_parents: co.rows,
+    };
+  },
+
+  // Invite another parent for a student. Sends an SMS with a deep link to /veli-giris.
+  // Idempotent: re-inviting the same phone re-sends SMS but does not create a duplicate row.
+  invite_co_parent: async (ctx, params) => {
+    const p = z.object({
+      student_id: z.string().uuid(),
+      full_name: z.string().trim().min(2).max(100),
+      phone: z.string().trim().min(10).max(20),
+    }).parse(params);
+
+    const { canonical: callerCanonical, variants: callerVariants } = phoneVariants(ctx.phone);
+    if (!(await parentOwnsStudent(p.student_id, callerVariants))) {
+      throw new HttpError(403, "Bu öğrenciye erişim yok");
+    }
+
+    const { canonical: inviteeCanonical } = phoneVariants(p.phone);
+    if (inviteeCanonical.length < 10) {
+      throw new HttpError(400, "Geçersiz telefon numarası");
+    }
+    if (inviteeCanonical === callerCanonical) {
+      throw new HttpError(400, "Kendi numaranızı ekleyemezsiniz");
+    }
+
+    // Throttle: max 5 invites from one phone in last 10 minutes
+    const recent = await query<{ c: number }>(
+      `SELECT COUNT(*)::int AS c FROM student_co_parents
+        WHERE invited_by_phone=$1 AND created_at > now() - interval '10 minutes'`,
+      [callerCanonical],
+    );
+    if ((recent.rows[0]?.c ?? 0) >= 5) {
+      throw new HttpError(429, "Çok fazla davet. Lütfen birkaç dakika sonra tekrar deneyin.");
+    }
+
+    // Fetch student name for SMS body
+    const sRes = await query<{ full_name: string }>(
+      "SELECT full_name FROM students WHERE id=$1",
+      [p.student_id],
+    );
+    const studentName = sRes.rows[0]?.full_name ?? "öğrenciniz";
+
+    await query(
+      `INSERT INTO student_co_parents (student_id, phone, full_name, invited_by_phone)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (student_id, phone)
+       DO UPDATE SET full_name = EXCLUDED.full_name`,
+      [p.student_id, inviteeCanonical, p.full_name, callerCanonical],
+    );
+
+    const message =
+      `KantinPay: ${p.full_name}, ${studentName} icin ek veli olarak eklendiniz. ` +
+      `Kendi numaranizla giris yapin: https://dash.kantinpay.com/veli-giris`;
+    const sms = await sendSms(inviteeCanonical, message);
+    if (!sms.ok) {
+      console.error("[parent-api] invite SMS failed", { status: sms.status, raw: sms.raw });
+      // Don't roll back the invite — they can still log in. Surface the error to UI.
+      throw new HttpError(502, `Davet kaydedildi fakat SMS gönderilemedi (${sms.status})`);
+    }
+    return { ok: true };
+  },
+
+  remove_co_parent: async (ctx, params) => {
+    const p = z.object({
+      student_id: z.string().uuid(),
+      co_parent_id: z.string().uuid(),
+    }).parse(params);
+    const { variants } = phoneVariants(ctx.phone);
+    if (!(await parentOwnsStudent(p.student_id, variants))) {
+      throw new HttpError(403, "Bu öğrenciye erişim yok");
+    }
+    const r = await query(
+      "DELETE FROM student_co_parents WHERE id=$1 AND student_id=$2 RETURNING id",
+      [p.co_parent_id, p.student_id],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Kayıt bulunamadı");
+    return { ok: true };
+  },
 };
 
 const BodySchema = z.object({
