@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Loader2, ShieldAlert, ShieldCheck, CreditCard, Wallet } from "lucide-react";
+import { Loader2, ShieldAlert, ShieldCheck, CreditCard, Wallet, Users, UserPlus, Trash2 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { callParentApi, type ParentStudent } from "@/lib/parentApi";
 
