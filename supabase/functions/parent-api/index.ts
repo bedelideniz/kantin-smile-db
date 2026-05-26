@@ -373,6 +373,34 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     await query("DELETE FROM parent_sessions WHERE token=$1", [ctx.token]);
     return { ok: true };
   },
+  // Change PIN. If the row is flagged `must_change=true` (first login or after
+  // forgot_pin), `current_pin` is NOT required. Otherwise current_pin is required.
+  change_pin: async (ctx, params) => {
+    const p = z.object({
+      current_pin: z.string().regex(/^\d{6}$/).optional(),
+      new_pin: z.string().regex(/^\d{6}$/, "Yeni PIN 6 haneli olmalıdır"),
+    }).parse(params);
+    const { canonical } = phoneVariants(ctx.phone);
+    const pr = await query<{ pin_hash: string; must_change: boolean }>(
+      "SELECT pin_hash, must_change FROM parent_pins WHERE phone=$1",
+      [canonical],
+    );
+    if (pr.rowCount === 0) throw new HttpError(404, "PIN kaydı bulunamadı");
+    if (!pr.rows[0].must_change) {
+      if (!p.current_pin) throw new HttpError(400, "Mevcut PIN zorunlu");
+      const ok = await bcrypt.compare(p.current_pin, pr.rows[0].pin_hash);
+      if (!ok) throw new HttpError(401, "Mevcut PIN hatalı");
+    }
+    if (p.current_pin && p.current_pin === p.new_pin) {
+      throw new HttpError(400, "Yeni PIN, mevcut PIN ile aynı olamaz");
+    }
+    const newHash = await bcrypt.hash(p.new_pin, 10);
+    await query(
+      "UPDATE parent_pins SET pin_hash=$2, must_change=FALSE, updated_at=now() WHERE phone=$1",
+      [canonical, newHash],
+    );
+    return { ok: true };
+  },
   // Verify a student belongs to this parent and return its current details.
   get_student: async (ctx, params) => {
     const p = z.object({ student_id: z.string().uuid() }).parse(params);
