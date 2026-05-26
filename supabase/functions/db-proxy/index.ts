@@ -32,23 +32,32 @@ const HANDLERS: Record<string, Handler> = {
   create_school: async (ctx, params) => {
     requireSuperAdmin(ctx);
     const p = SchoolInputSchema.parse(params);
-    const school = await withTransaction(async (client) => {
-      const ins = await client.query(
-        `INSERT INTO schools (name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, payout_hold_days, is_active)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-         RETURNING id, name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, payout_hold_days, is_active, created_at`,
-        [p.name, p.province ?? null, p.district ?? null, p.admin_full_name, p.admin_phone, p.min_topup_amount, p.commission_rate, p.commission_free_after_days, p.payout_hold_days, p.is_active],
-      );
-      const s = ins.rows[0];
-      await client.query(
-        `INSERT INTO app_users (school_id, full_name, phone, role, is_active)
-         VALUES ($1,$2,$3,'school_admin',TRUE)
-         ON CONFLICT (phone) DO UPDATE SET school_id = EXCLUDED.school_id,
-           full_name = EXCLUDED.full_name, role = 'school_admin', is_active = TRUE, updated_at = now()`,
-        [s.id, p.admin_full_name, p.admin_phone],
-      );
-      return s;
-    });
+    let school;
+    try {
+      school = await withTransaction(async (client) => {
+        const ins = await client.query(
+          `INSERT INTO schools (name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, payout_hold_days, is_active)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           RETURNING id, name, province, district, admin_full_name, admin_phone, min_topup_amount, commission_rate, commission_free_after_days, payout_hold_days, is_active, created_at`,
+          [p.name, p.province ?? null, p.district ?? null, p.admin_full_name, p.admin_phone, p.min_topup_amount, p.commission_rate, p.commission_free_after_days, p.payout_hold_days, p.is_active],
+        );
+        const s = ins.rows[0];
+        await client.query(
+          `INSERT INTO app_users (school_id, full_name, phone, role, is_active)
+           VALUES ($1,$2,$3,'school_admin',TRUE)
+           ON CONFLICT (phone) DO UPDATE SET school_id = EXCLUDED.school_id,
+             full_name = EXCLUDED.full_name, role = 'school_admin', is_active = TRUE, updated_at = now()`,
+          [s.id, p.admin_full_name, p.admin_phone],
+        );
+        return s;
+      });
+    } catch (e: any) {
+      if (e?.code === "23505" && String(e?.constraint ?? e?.message ?? "").includes("admin_phone")) {
+        throw new HttpError(409, "Bu telefon numarası ile kayıtlı bir okul zaten var. Lütfen farklı bir numara kullanın.");
+      }
+      throw e;
+    }
+
 
     let smsResult: { ok: boolean; status: string } = { ok: false, status: "skipped" };
     try {
