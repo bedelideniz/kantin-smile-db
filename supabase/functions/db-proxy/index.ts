@@ -1333,8 +1333,10 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     if (e instanceof HttpError) {
-      return new Response(JSON.stringify({ error: e.message }), {
-        status: e.status,
+      // Return 200 with error body so supabase-js doesn't surface a FunctionsHttpError
+      // (which triggers the Lovable runtime-error overlay). The client checks `data.error`.
+      return new Response(JSON.stringify({ error: e.message, status: e.status }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
