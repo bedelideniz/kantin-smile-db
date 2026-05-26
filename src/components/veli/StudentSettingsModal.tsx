@@ -33,12 +33,84 @@ export default function StudentSettingsModal({ open, onOpenChange, student, onUp
   );
   const [savingLimit, setSavingLimit] = useState(false);
 
+  // Co-parents (eş / diğer veli)
+  interface CoParent { id: string; phone: string; full_name: string | null; created_at: string }
+  const [coParents, setCoParents] = useState<CoParent[]>([]);
+  const [primaryPhone, setPrimaryPhone] = useState<string | null>(null);
+  const [loadingCo, setLoadingCo] = useState(false);
+  const [inviteName, setInviteName] = useState("");
+  const [invitePhone, setInvitePhone] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
   useEffect(() => {
     setCardLost(!!student?.card_lost);
     const has = student?.daily_spend_limit != null;
     setLimitEnabled(has);
     setLimitInput(has ? String(student!.daily_spend_limit) : "");
   }, [student?.id, student?.card_lost, student?.daily_spend_limit, open]);
+
+  const loadCoParents = async (sid: string) => {
+    setLoadingCo(true);
+    try {
+      const r = await callParentApi<{ primary: { parent_phone: string | null } | null; co_parents: CoParent[] }>(
+        "list_co_parents", { student_id: sid },
+      );
+      setCoParents(r.co_parents ?? []);
+      setPrimaryPhone(r.primary?.parent_phone ?? null);
+    } catch (e) {
+      toast({ title: "Veliler yüklenemedi", description: (e as Error).message, variant: "destructive" });
+    } finally { setLoadingCo(false); }
+  };
+
+  useEffect(() => {
+    if (open && student?.id) {
+      loadCoParents(student.id);
+      setInviteName("");
+      setInvitePhone("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, student?.id]);
+
+  const formatPhone = (raw: string) => raw.replace(/\D+/g, "").slice(0, 11);
+
+  const handleInvite = async () => {
+    if (!student) return;
+    const name = inviteName.trim();
+    const digits = formatPhone(invitePhone);
+    if (name.length < 2) {
+      toast({ title: "Ad soyad girin", variant: "destructive" });
+      return;
+    }
+    if (digits.length < 10) {
+      toast({ title: "Geçersiz numara", description: "10 haneli cep numarası girin", variant: "destructive" });
+      return;
+    }
+    setInviting(true);
+    try {
+      await callParentApi("invite_co_parent", { student_id: student.id, full_name: name, phone: digits });
+      toast({ title: "Davet gönderildi", description: `${name} numarasına giriş bilgisi SMS ile iletildi.` });
+      setInviteName(""); setInvitePhone("");
+      await loadCoParents(student.id);
+    } catch (e) {
+      toast({ title: "Davet gönderilemedi", description: (e as Error).message, variant: "destructive" });
+    } finally { setInviting(false); }
+  };
+
+  const handleRemove = async (id: string) => {
+    if (!student) return;
+    if (!confirm("Bu veliyi öğrenciden kaldırmak istediğinize emin misiniz?")) return;
+    setRemovingId(id);
+    try {
+      await callParentApi("remove_co_parent", { student_id: student.id, co_parent_id: id });
+      setCoParents((cur) => cur.filter((x) => x.id !== id));
+      toast({ title: "Veli kaldırıldı" });
+    } catch (e) {
+      toast({ title: "İşlem başarısız", description: (e as Error).message, variant: "destructive" });
+    } finally { setRemovingId(null); }
+  };
+
+
 
   const handleToggle = async (next: boolean) => {
     if (!student) return;
