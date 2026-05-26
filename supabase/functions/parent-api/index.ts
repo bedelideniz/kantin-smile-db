@@ -74,12 +74,43 @@ async function findStudentsForParent(phoneVariantsList: string[]) {
        FROM students s
        JOIN schools sc ON sc.id = s.school_id
       WHERE s.is_active = TRUE
-        AND (s.parent_phone = ANY($1::text[])
-             OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($1::text[]))
+        AND (
+          s.parent_phone = ANY($1::text[])
+          OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($1::text[])
+          OR EXISTS (
+            SELECT 1 FROM student_co_parents cp
+             WHERE cp.student_id = s.id
+               AND (cp.phone = ANY($1::text[])
+                    OR regexp_replace(cp.phone, '\\D', '', 'g') = ANY($1::text[]))
+          )
+        )
       ORDER BY sc.name ASC, s.full_name ASC`,
     [phoneVariantsList],
   );
   return r.rows;
+}
+
+// Returns true if the given phone (any variant) owns this student via either
+// students.parent_phone OR student_co_parents.
+async function parentOwnsStudent(studentId: string, variants: string[]): Promise<boolean> {
+  const r = await query<{ ok: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM students s
+        WHERE s.id = $1 AND s.is_active = TRUE
+          AND (
+            s.parent_phone = ANY($2::text[])
+            OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($2::text[])
+            OR EXISTS (
+              SELECT 1 FROM student_co_parents cp
+               WHERE cp.student_id = s.id
+                 AND (cp.phone = ANY($2::text[])
+                      OR regexp_replace(cp.phone, '\\D', '', 'g') = ANY($2::text[]))
+            )
+          )
+     ) AS ok`,
+    [studentId, variants],
+  );
+  return !!r.rows[0]?.ok;
 }
 
 type Handler = (req: Request, params: any) => Promise<unknown>;
