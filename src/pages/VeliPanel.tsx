@@ -52,6 +52,7 @@ export default function VeliPanel() {
   useEffect(() => {
     const s = getParentSession();
     if (!s) { navigate("/veli-giris", { replace: true }); return; }
+    if (s.must_change) { navigate("/veli-giris", { replace: true }); return; }
     setSession(s);
     const stored = getSelectedStudentId();
     const initial = s.students.find((c) => c.id === stored)?.id ?? s.students[0]?.id ?? null;
