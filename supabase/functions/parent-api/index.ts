@@ -101,7 +101,6 @@ async function parentOwnsStudent(studentId: string, variants: string[]): Promise
           AND (
             s.parent_phone = ANY($2::text[])
             OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($2::text[])
-             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = s.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[])))
             OR EXISTS (
               SELECT 1 FROM student_co_parents cp
                WHERE cp.student_id = s.id
