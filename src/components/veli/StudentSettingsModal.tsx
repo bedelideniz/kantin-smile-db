@@ -178,7 +178,7 @@ export default function StudentSettingsModal({ open, onOpenChange, student, onUp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Öğrenci Ayarları</DialogTitle>
           <DialogDescription>
