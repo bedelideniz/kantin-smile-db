@@ -114,7 +114,8 @@ const PUBLIC_OPS: Record<string, Handler> = {
     const message = `KantinPay veli giris kodunuz: ${code} (${childNames}). Kod 10 dakika gecerlidir.`;
     const sms = await sendSms(canonical, message);
     if (!sms.ok) {
-      throw new HttpError(502, "SMS gönderilemedi. Lütfen daha sonra tekrar deneyin.");
+      console.error("[parent-api] SMS failed", { status: sms.status, raw: sms.raw });
+      throw new HttpError(502, `SMS gönderilemedi (${sms.status}): ${sms.raw?.slice(0, 200) ?? "bilinmeyen hata"}`);
     }
     return { ok: true, student_count: students.length };
   },
