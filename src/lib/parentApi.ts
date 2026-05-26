@@ -23,6 +23,7 @@ export interface ParentSession {
   token: string;
   expires_at: string;
   phone: string;
+  must_change?: boolean;
   students: ParentStudent[];
 }
 
