@@ -74,12 +74,44 @@ async function findStudentsForParent(phoneVariantsList: string[]) {
        FROM students s
        JOIN schools sc ON sc.id = s.school_id
       WHERE s.is_active = TRUE
-        AND (s.parent_phone = ANY($1::text[])
-             OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($1::text[]))
+        AND (
+          s.parent_phone = ANY($1::text[])
+          OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($1::text[])
+             
+          OR EXISTS (
+            SELECT 1 FROM student_co_parents cp
+             WHERE cp.student_id = s.id
+               AND (cp.phone = ANY($1::text[])
+                    OR regexp_replace(cp.phone, '\\D', '', 'g') = ANY($1::text[]))
+          )
+        )
       ORDER BY sc.name ASC, s.full_name ASC`,
     [phoneVariantsList],
   );
   return r.rows;
+}
+
+// Returns true if the given phone (any variant) owns this student via either
+// students.parent_phone OR student_co_parents.
+async function parentOwnsStudent(studentId: string, variants: string[]): Promise<boolean> {
+  const r = await query<{ ok: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1 FROM students s
+        WHERE s.id = $1 AND s.is_active = TRUE
+          AND (
+            s.parent_phone = ANY($2::text[])
+            OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($2::text[])
+            OR EXISTS (
+              SELECT 1 FROM student_co_parents cp
+               WHERE cp.student_id = s.id
+                 AND (cp.phone = ANY($2::text[])
+                      OR regexp_replace(cp.phone, '\\D', '', 'g') = ANY($2::text[]))
+            )
+          )
+     ) AS ok`,
+    [studentId, variants],
+  );
+  return !!r.rows[0]?.ok;
 }
 
 type Handler = (req: Request, params: any) => Promise<unknown>;
@@ -242,7 +274,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
          JOIN schools sc ON sc.id = s.school_id
         WHERE s.id = $1 AND s.is_active = TRUE
           AND (s.parent_phone = ANY($2::text[])
-               OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+               OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = s.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (r.rowCount === 0) throw new HttpError(404, "Öğrenci bulunamadı");
@@ -267,7 +300,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       `UPDATE students SET card_lost = $1, updated_at = now()
         WHERE id = $2 AND is_active = TRUE
           AND (parent_phone = ANY($3::text[])
-               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($3::text[]))
+               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($3::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($3::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($3::text[]))))
         RETURNING id, card_lost`,
       [p.card_lost, p.student_id, variants],
     );
@@ -289,7 +323,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       `UPDATE students SET daily_spend_limit = $1, updated_at = now()
         WHERE id = $2 AND is_active = TRUE
           AND (parent_phone = ANY($3::text[])
-               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($3::text[]))
+               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($3::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($3::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($3::text[]))))
         RETURNING id, daily_spend_limit`,
       [limit, p.student_id, variants],
     );
@@ -365,7 +400,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       `SELECT id, school_id, photo_url FROM students
         WHERE id=$1 AND is_active=TRUE
           AND (parent_phone = ANY($2::text[])
-               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+               OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
@@ -438,7 +474,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const own = await query<{ id: string }>(
       `SELECT id FROM students WHERE id=$1 AND is_active=TRUE
         AND (parent_phone = ANY($2::text[])
-             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
@@ -503,7 +540,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const own = await query<{ school_id: string }>(
       `SELECT school_id FROM students WHERE id=$1 AND is_active=TRUE
         AND (parent_phone = ANY($2::text[])
-             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
@@ -525,7 +563,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const own = await query<{ id: string }>(
       `SELECT id FROM students WHERE id=$1 AND is_active=TRUE
         AND (parent_phone = ANY($2::text[])
-             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
@@ -545,7 +584,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const own = await query<{ school_id: string }>(
       `SELECT school_id FROM students WHERE id=$1 AND is_active=TRUE
         AND (parent_phone = ANY($2::text[])
-             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))`,
+             OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))`,
       [p.student_id, variants],
     );
     if (own.rowCount === 0) throw new HttpError(403, "Bu öğrenciye erişim yok");
@@ -588,7 +628,8 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
         `SELECT id, school_id, balance, full_name FROM students
           WHERE id=$1 AND is_active=TRUE
             AND (parent_phone = ANY($2::text[])
-                 OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[]))
+                 OR regexp_replace(parent_phone, '\\D', '', 'g') = ANY($2::text[])
+             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = students.id AND (cp.phone = ANY($2::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($2::text[]))))
           FOR UPDATE`,
         [p.student_id, variants],
       );
@@ -638,6 +679,109 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     });
 
     return { ok: true, ...result };
+  },
+
+  // ---------- Co-parents (eş / diğer veli) ----------
+
+  // List all co-parents for a student. Returns the original parent_phone too,
+  // so the UI can display the full list. The original parent is marked primary.
+  list_co_parents: async (ctx, params) => {
+    const p = z.object({ student_id: z.string().uuid() }).parse(params);
+    const { variants } = phoneVariants(ctx.phone);
+    if (!(await parentOwnsStudent(p.student_id, variants))) {
+      throw new HttpError(403, "Bu öğrenciye erişim yok");
+    }
+    const primary = await query<{ parent_phone: string | null }>(
+      "SELECT parent_phone FROM students WHERE id=$1",
+      [p.student_id],
+    );
+    const co = await query<{ id: string; phone: string; full_name: string | null; created_at: string }>(
+      `SELECT id, phone, full_name, created_at
+         FROM student_co_parents
+        WHERE student_id=$1
+        ORDER BY created_at ASC`,
+      [p.student_id],
+    );
+    return {
+      primary: primary.rows[0] ?? null,
+      co_parents: co.rows,
+    };
+  },
+
+  // Invite another parent for a student. Sends an SMS with a deep link to /veli-giris.
+  // Idempotent: re-inviting the same phone re-sends SMS but does not create a duplicate row.
+  invite_co_parent: async (ctx, params) => {
+    const p = z.object({
+      student_id: z.string().uuid(),
+      full_name: z.string().trim().min(2).max(100),
+      phone: z.string().trim().min(10).max(20),
+    }).parse(params);
+
+    const { canonical: callerCanonical, variants: callerVariants } = phoneVariants(ctx.phone);
+    if (!(await parentOwnsStudent(p.student_id, callerVariants))) {
+      throw new HttpError(403, "Bu öğrenciye erişim yok");
+    }
+
+    const { canonical: inviteeCanonical } = phoneVariants(p.phone);
+    if (inviteeCanonical.length < 10) {
+      throw new HttpError(400, "Geçersiz telefon numarası");
+    }
+    if (inviteeCanonical === callerCanonical) {
+      throw new HttpError(400, "Kendi numaranızı ekleyemezsiniz");
+    }
+
+    // Throttle: max 5 invites from one phone in last 10 minutes
+    const recent = await query<{ c: number }>(
+      `SELECT COUNT(*)::int AS c FROM student_co_parents
+        WHERE invited_by_phone=$1 AND created_at > now() - interval '10 minutes'`,
+      [callerCanonical],
+    );
+    if ((recent.rows[0]?.c ?? 0) >= 5) {
+      throw new HttpError(429, "Çok fazla davet. Lütfen birkaç dakika sonra tekrar deneyin.");
+    }
+
+    // Fetch student name for SMS body
+    const sRes = await query<{ full_name: string }>(
+      "SELECT full_name FROM students WHERE id=$1",
+      [p.student_id],
+    );
+    const studentName = sRes.rows[0]?.full_name ?? "öğrenciniz";
+
+    await query(
+      `INSERT INTO student_co_parents (student_id, phone, full_name, invited_by_phone)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (student_id, phone)
+       DO UPDATE SET full_name = EXCLUDED.full_name`,
+      [p.student_id, inviteeCanonical, p.full_name, callerCanonical],
+    );
+
+    const message =
+      `KantinPay: ${p.full_name}, ${studentName} icin ek veli olarak eklendiniz. ` +
+      `Kendi numaranizla giris yapin: https://dash.kantinpay.com/veli-giris`;
+    const sms = await sendSms(inviteeCanonical, message);
+    if (!sms.ok) {
+      console.error("[parent-api] invite SMS failed", { status: sms.status, raw: sms.raw });
+      // Don't roll back the invite — they can still log in. Surface the error to UI.
+      throw new HttpError(502, `Davet kaydedildi fakat SMS gönderilemedi (${sms.status})`);
+    }
+    return { ok: true };
+  },
+
+  remove_co_parent: async (ctx, params) => {
+    const p = z.object({
+      student_id: z.string().uuid(),
+      co_parent_id: z.string().uuid(),
+    }).parse(params);
+    const { variants } = phoneVariants(ctx.phone);
+    if (!(await parentOwnsStudent(p.student_id, variants))) {
+      throw new HttpError(403, "Bu öğrenciye erişim yok");
+    }
+    const r = await query(
+      "DELETE FROM student_co_parents WHERE id=$1 AND student_id=$2 RETURNING id",
+      [p.co_parent_id, p.student_id],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Kayıt bulunamadı");
+    return { ok: true };
   },
 };
 

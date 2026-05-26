@@ -708,6 +708,25 @@ const MIGRATIONS: Migration[] = [
         ON school_stories(school_id, sort_order, created_at);
     `,
   },
+  {
+    version: "0022_student_co_parents",
+    description: "Co-parents (eş/diğer veli) per student. A parent can invite another phone number to access the same student.",
+    sql: `
+      CREATE TABLE IF NOT EXISTS student_co_parents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        phone TEXT NOT NULL,
+        full_name TEXT,
+        invited_by_phone TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (student_id, phone)
+      );
+      CREATE INDEX IF NOT EXISTS idx_student_co_parents_phone
+        ON student_co_parents(phone);
+      CREATE INDEX IF NOT EXISTS idx_student_co_parents_student
+        ON student_co_parents(student_id);
+    `,
+  },
 ];
 
 
