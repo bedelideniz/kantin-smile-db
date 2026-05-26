@@ -62,7 +62,8 @@ export default function VeliPanel() {
     // Always refresh from backend to pick up newly added siblings
     (async () => {
       try {
-        const r = await callParentApi<{ phone: string; students: ParentStudent[] }>("me");
+        const r = await callParentApi<{ phone: string; must_change?: boolean; students: ParentStudent[] }>("me");
+        if (r.must_change) { navigate("/veli-giris", { replace: true }); return; }
         updateParentStudents(r.students);
         const fresh = getParentSession();
         if (fresh) {
