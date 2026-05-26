@@ -57,7 +57,9 @@ export default function ParentWelcomeSmsSettings() {
         <p className="text-sm text-muted-foreground">
           Excel ile toplu yükleme yapıldığında yeni eklenen velilere bu mesaj gönderilir.
           Değişkenler: <code className="rounded bg-muted px-1">{"{parent_name}"}</code>,{" "}
-          <code className="rounded bg-muted px-1">{"{school_name}"}</code>
+          <code className="rounded bg-muted px-1">{"{school_name}"}</code>,{" "}
+          <code className="rounded bg-muted px-1">{"{pin}"}</code>{" "}
+          <span className="text-xs">(yoksa otomatik olarak mesajın sonuna eklenir)</span>
         </p>
       </div>
       <div className="space-y-2">

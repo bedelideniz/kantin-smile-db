@@ -1111,7 +1111,8 @@ const HANDLERS: Record<string, Handler> = {
       student_id?: string; parent_phone?: string; error?: string;
     };
     const results: RowResult[] = [];
-    const newParentPhones = new Map<string, string>();
+    // phone -> { name, pin }  (PIN only set for brand-new parents)
+    const newParentPhones = new Map<string, { name: string; pin: string }>();
 
     for (let i = 0; i < p.rows.length; i++) {
       const row = p.rows[i];
@@ -1127,12 +1128,25 @@ const HANDLERS: Record<string, Handler> = {
             [phone],
           );
           const isNewParent = existing.rowCount === 0;
+          let pinPlain: string | null = null;
           if (isNewParent) {
             await client.query(
               `INSERT INTO app_users (school_id, full_name, phone, role, is_active)
                VALUES ($1,$2,$3,'parent',TRUE)
                ON CONFLICT (phone) DO NOTHING`,
               [p.school_id, row.parent_full_name, phone],
+            );
+            // Generate & store a 6-digit PIN (forced-change on first login).
+            pinPlain = String(Math.floor(100000 + Math.random() * 900000));
+            const pinHash = await bcrypt.hash(pinPlain, 10);
+            await client.query(
+              `INSERT INTO parent_pins (phone, pin_hash, must_change)
+               VALUES ($1,$2,TRUE)
+               ON CONFLICT (phone) DO UPDATE
+                 SET pin_hash = EXCLUDED.pin_hash,
+                     must_change = TRUE,
+                     updated_at = now()`,
+              [phone, pinHash],
             );
           }
           const sIns = await client.query(
@@ -1141,9 +1155,11 @@ const HANDLERS: Record<string, Handler> = {
              RETURNING id`,
             [p.school_id, row.full_name, row.class_name ?? null, phone],
           );
-          return { studentId: sIns.rows[0].id as string, isNewParent };
+          return { studentId: sIns.rows[0].id as string, isNewParent, pinPlain };
         });
-        if (ins.isNewParent) newParentPhones.set(phone, row.parent_full_name);
+        if (ins.isNewParent && ins.pinPlain) {
+          newParentPhones.set(phone, { name: row.parent_full_name, pin: ins.pinPlain });
+        }
         results.push({ row: i + 1, status: "created", student_id: ins.studentId, parent_phone: phone });
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
@@ -1153,10 +1169,16 @@ const HANDLERS: Record<string, Handler> = {
 
     let smsSent = 0; let smsFailed = 0;
     if (p.send_welcome_sms) {
-      for (const [phone, name] of newParentPhones) {
-        const message = template
-          .replaceAll("{parent_name}", name)
-          .replaceAll("{school_name}", schoolName);
+      for (const [phone, info] of newParentPhones) {
+        let message = template
+          .replaceAll("{parent_name}", info.name)
+          .replaceAll("{school_name}", schoolName)
+          .replaceAll("{pin}", info.pin);
+        // If admin's custom template doesn't include {pin}, append the PIN line
+        // so the parent can always log in.
+        if (!template.includes("{pin}")) {
+          message += ` Giris PIN: ${info.pin}`;
+        }
         try {
           const r = await sendSms(phone, message);
           if (r.ok) smsSent++; else smsFailed++;

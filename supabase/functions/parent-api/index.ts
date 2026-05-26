@@ -10,6 +10,7 @@
 // to operate on per-request via `student_id`.
 import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { z } from "npm:zod@3.23.8";
+import bcrypt from "npm:bcryptjs@2.4.3";
 import { query, withTransaction } from "../_shared/external-db.ts";
 import { generateOtp, normalizePhone, sendSms } from "../_shared/sms.ts";
 
@@ -241,14 +242,130 @@ const PUBLIC_OPS: Record<string, Handler> = {
       thank_you_message: r.rows[0].thank_you_message,
     };
   },
+  // PIN-based login (replaces OTP). Phone + 6-digit PIN.
+  // Returns a normal session token plus `must_change` flag.
+  // If must_change=true, the frontend should immediately force a PIN change
+  // via the protected `change_pin` op before allowing other actions.
+  login_with_pin: async (_req, params) => {
+    const p = z.object({
+      phone: z.string().trim().min(10).max(20),
+      pin: z.string().regex(/^\d{6}$/, "PIN 6 haneli olmalıdır"),
+      remember: z.boolean().optional().default(false),
+    }).parse(params);
+    const { canonical, variants } = phoneVariants(p.phone);
+
+    // Brute-force throttle: max 8 failed attempts in last 10 minutes.
+    const fails = await query<{ c: number }>(
+      `SELECT COUNT(*)::int AS c FROM otp_codes
+        WHERE phone=$1 AND purpose='parent_pin_fail'
+          AND created_at > now() - interval '10 minutes'`,
+      [canonical],
+    );
+    if ((fails.rows[0]?.c ?? 0) >= 8) {
+      throw new HttpError(429, "Çok fazla hatalı deneme. Lütfen birkaç dakika sonra tekrar deneyin.");
+    }
+
+    const pr = await query<{ pin_hash: string; must_change: boolean }>(
+      "SELECT pin_hash, must_change FROM parent_pins WHERE phone=$1",
+      [canonical],
+    );
+    if (pr.rowCount === 0) {
+      throw new HttpError(404, "Bu numara için PIN tanımlı değil. 'Şifremi unuttum' ile yeni PIN isteyin.");
+    }
+    const ok = await bcrypt.compare(p.pin, pr.rows[0].pin_hash);
+    if (!ok) {
+      await query(
+        `INSERT INTO otp_codes (phone, code, purpose, expires_at)
+         VALUES ($1, '------', 'parent_pin_fail', now() + interval '15 minutes')`,
+        [canonical],
+      );
+      throw new HttpError(401, "PIN hatalı");
+    }
+
+    const students = await findStudentsForParent(variants);
+    if (students.length === 0) throw new HttpError(403, "Bu telefona ait aktif öğrenci yok");
+
+    const token = generateToken();
+    const ttlHours = p.remember ? SESSION_TTL_HOURS_REMEMBER : SESSION_TTL_HOURS;
+    const expires = new Date(Date.now() + ttlHours * 3600 * 1000);
+    await query(
+      "INSERT INTO parent_sessions (token, phone, expires_at) VALUES ($1,$2,$3)",
+      [token, canonical, expires.toISOString()],
+    );
+    query("DELETE FROM parent_sessions WHERE expires_at < now()").catch(() => {});
+
+    return {
+      token,
+      expires_at: expires.toISOString(),
+      must_change: pr.rows[0].must_change,
+      students: students.map((s) => ({
+        id: s.id, school_id: s.school_id, school_name: s.school_name,
+        full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
+        balance: Number(s.balance),
+        daily_spend_limit: s.daily_spend_limit == null ? null : Number(s.daily_spend_limit),
+        today_spent: Number(s.today_spent ?? 0),
+      })),
+    };
+  },
+  // Send a fresh random 6-digit PIN via SMS to any phone that has at least one
+  // active student. Resets `must_change` to true so the parent is forced to
+  // change it after login.
+  forgot_pin: async (_req, params) => {
+    const p = z.object({ phone: z.string().trim().min(10).max(20) }).parse(params);
+    const { canonical, variants } = phoneVariants(p.phone);
+    const students = await findStudentsForParent(variants);
+    if (students.length === 0) {
+      throw new HttpError(404, "Bu telefon numarasına kayıtlı öğrenci bulunamadı.");
+    }
+    // Throttle: max 2 reset SMS per phone in 10 minutes.
+    const recent = await query<{ c: number }>(
+      `SELECT COUNT(*)::int AS c FROM otp_codes
+        WHERE phone=$1 AND purpose='parent_pin_reset'
+          AND created_at > now() - interval '10 minutes'`,
+      [canonical],
+    );
+    if ((recent.rows[0]?.c ?? 0) >= 2) {
+      throw new HttpError(429, "Çok fazla istek. Lütfen birkaç dakika sonra tekrar deneyin.");
+    }
+    const pin = generateOtp();
+    const pinHash = await bcrypt.hash(pin, 10);
+    await query(
+      `INSERT INTO parent_pins (phone, pin_hash, must_change)
+       VALUES ($1,$2,TRUE)
+       ON CONFLICT (phone) DO UPDATE
+         SET pin_hash = EXCLUDED.pin_hash,
+             must_change = TRUE,
+             updated_at = now()`,
+      [canonical, pinHash],
+    );
+    await query(
+      `INSERT INTO otp_codes (phone, code, purpose, expires_at)
+       VALUES ($1, $2, 'parent_pin_reset', now() + interval '15 minutes')`,
+      [canonical, pin],
+    );
+    const msg = `KantinPay yeni giris PIN: ${pin}. Giris yaptiktan sonra PIN kodunuzu degistirmeniz gerekir.`;
+    const sms = await sendSms(canonical, msg);
+    if (!sms.ok) {
+      console.error("[parent-api] forgot_pin SMS failed", { status: sms.status, raw: sms.raw });
+      throw new HttpError(502, `SMS gönderilemedi (${sms.status})`);
+    }
+    return { ok: true };
+  },
 };
 
 const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise<unknown>> = {
   me: async (ctx) => {
-    const { variants } = phoneVariants(ctx.phone);
-    const students = await findStudentsForParent(variants);
+    const { canonical, variants } = phoneVariants(ctx.phone);
+    const [students, pr] = await Promise.all([
+      findStudentsForParent(variants),
+      query<{ must_change: boolean }>(
+        "SELECT must_change FROM parent_pins WHERE phone=$1",
+        [canonical],
+      ),
+    ]);
     return {
       phone: ctx.phone,
+      must_change: !!pr.rows[0]?.must_change,
       students: students.map((s) => ({
         id: s.id, school_id: s.school_id, school_name: s.school_name,
         full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
@@ -261,6 +378,34 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
   },
   logout: async (ctx) => {
     await query("DELETE FROM parent_sessions WHERE token=$1", [ctx.token]);
+    return { ok: true };
+  },
+  // Change PIN. If the row is flagged `must_change=true` (first login or after
+  // forgot_pin), `current_pin` is NOT required. Otherwise current_pin is required.
+  change_pin: async (ctx, params) => {
+    const p = z.object({
+      current_pin: z.string().regex(/^\d{6}$/).optional(),
+      new_pin: z.string().regex(/^\d{6}$/, "Yeni PIN 6 haneli olmalıdır"),
+    }).parse(params);
+    const { canonical } = phoneVariants(ctx.phone);
+    const pr = await query<{ pin_hash: string; must_change: boolean }>(
+      "SELECT pin_hash, must_change FROM parent_pins WHERE phone=$1",
+      [canonical],
+    );
+    if (pr.rowCount === 0) throw new HttpError(404, "PIN kaydı bulunamadı");
+    if (!pr.rows[0].must_change) {
+      if (!p.current_pin) throw new HttpError(400, "Mevcut PIN zorunlu");
+      const ok = await bcrypt.compare(p.current_pin, pr.rows[0].pin_hash);
+      if (!ok) throw new HttpError(401, "Mevcut PIN hatalı");
+    }
+    if (p.current_pin && p.current_pin === p.new_pin) {
+      throw new HttpError(400, "Yeni PIN, mevcut PIN ile aynı olamaz");
+    }
+    const newHash = await bcrypt.hash(p.new_pin, 10);
+    await query(
+      "UPDATE parent_pins SET pin_hash=$2, must_change=FALSE, updated_at=now() WHERE phone=$1",
+      [canonical, newHash],
+    );
     return { ok: true };
   },
   // Verify a student belongs to this parent and return its current details.

@@ -727,6 +727,27 @@ const MIGRATIONS: Migration[] = [
         ON student_co_parents(student_id);
     `,
   },
+  {
+    version: "0023_parent_pins",
+    description: "Parent PIN auth: per-phone 6-digit PIN (bcrypt-hashed) with forced-change flag. Replaces OTP-only login for parents.",
+    sql: `
+      CREATE TABLE IF NOT EXISTS parent_pins (
+        phone TEXT PRIMARY KEY,
+        pin_hash TEXT NOT NULL,
+        must_change BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      -- Refresh default welcome template to include the new {pin} placeholder
+      -- (only if admin hasn't customised it yet).
+      UPDATE system_settings
+         SET value = '"Sayin {parent_name}, {school_name} kantin sisteminde hesabiniz aktif. Giris PIN: {pin}. Ilk girisinizde PIN kodunuzu degistirmeniz gerekir. https://dash.kantinpay.com/veli-giris"'::jsonb,
+             updated_at = now()
+       WHERE key = 'parent_welcome_sms_template'
+         AND value = '"Sayin {parent_name}, {school_name} kantin sisteminde hesabiniz aktiftir. Cocugunuzun bakiyesini yonetmek ve yukleme yapmak icin: kantinpay.com"'::jsonb;
+    `,
+  },
 ];
 
 

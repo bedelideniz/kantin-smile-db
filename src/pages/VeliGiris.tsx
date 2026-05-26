@@ -1,69 +1,104 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Smartphone, ShieldCheck, ArrowLeft } from "lucide-react";
+import { Loader2, Smartphone, ShieldCheck, ArrowLeft, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { callParentApi, getParentSession, saveParentSession, type ParentSession } from "@/lib/parentApi";
+import {
+  callParentApi,
+  getParentSession,
+  saveParentSession,
+  type ParentSession,
+} from "@/lib/parentApi";
 import logo from "@/assets/kantinpay-logo.png";
 
-type Step = "phone" | "otp";
+type Step = "phone" | "change_pin";
 
 export default function VeliGiris() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
-  const [code, setCode] = useState("");
-  const [studentCount, setStudentCount] = useState(0);
+  const [pin, setPin] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [newPin2, setNewPin2] = useState("");
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (getParentSession()) navigate("/veli", { replace: true });
+    const s = getParentSession();
+    if (s && !s.must_change) navigate("/veli", { replace: true });
+    if (s && s.must_change) setStep("change_pin");
   }, [navigate]);
-
-  useEffect(() => {
-    if (step === "otp" && code.length === 6 && !loading) {
-      verifyOtp();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, step]);
 
   const formatPhone = (raw: string) => raw.replace(/\D+/g, "").slice(0, 11);
 
-  const requestOtp = async () => {
+  const login = async () => {
     const digits = formatPhone(phone);
     if (digits.length < 10) {
-      toast({ title: "Geçersiz numara", description: "Lütfen 10 haneli cep numarası girin (örn: 5XX XXX XX XX)", variant: "destructive" });
+      toast({ title: "Geçersiz numara", description: "10 haneli cep numarası girin.", variant: "destructive" });
+      return;
+    }
+    if (pin.length !== 6) {
+      toast({ title: "PIN eksik", description: "6 haneli PIN'i girin.", variant: "destructive" });
       return;
     }
     setLoading(true);
     try {
-      const r = await callParentApi<{ ok: boolean; student_count: number }>("login_request", { phone: digits });
-      setStudentCount(r.student_count);
-      setStep("otp");
-      toast({ title: "Kod gönderildi", description: `${digits} numarasına 6 haneli giriş kodu SMS olarak iletildi.` });
+      const session = await callParentApi<Omit<ParentSession, "phone">>("login_with_pin", {
+        phone: digits, pin, remember,
+      });
+      saveParentSession({ ...session, phone: digits });
+      if (session.must_change) {
+        setStep("change_pin");
+        setPin("");
+      } else {
+        navigate("/veli", { replace: true });
+      }
     } catch (e: any) {
       toast({ title: "Giriş yapılamadı", description: e?.message ?? "Bilinmeyen hata", variant: "destructive" });
     } finally { setLoading(false); }
   };
 
-  const verifyOtp = async () => {
-    if (code.length !== 6) {
-      toast({ title: "Eksik kod", description: "6 haneli kodu girin.", variant: "destructive" });
+  const forgot = async () => {
+    const digits = formatPhone(phone);
+    if (digits.length < 10) {
+      toast({ title: "Önce telefonunuzu girin", variant: "destructive" });
       return;
     }
     setLoading(true);
     try {
-      const session = await callParentApi<Omit<ParentSession, "phone">>("login_verify", { phone: formatPhone(phone), code, remember });
-      saveParentSession({ ...session, phone: formatPhone(phone) });
+      await callParentApi("forgot_pin", { phone: digits });
+      toast({
+        title: "Yeni PIN gönderildi",
+        description: `${digits} numarasına yeni 6 haneli PIN SMS olarak iletildi.`,
+      });
+    } catch (e: any) {
+      toast({ title: "Gönderilemedi", description: e?.message ?? "Bilinmeyen hata", variant: "destructive" });
+    } finally { setLoading(false); }
+  };
+
+  const changePin = async () => {
+    if (newPin.length !== 6 || newPin2.length !== 6) {
+      toast({ title: "PIN eksik", description: "Yeni PIN 6 haneli olmalı.", variant: "destructive" });
+      return;
+    }
+    if (newPin !== newPin2) {
+      toast({ title: "PIN'ler eşleşmiyor", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    try {
+      await callParentApi("change_pin", { new_pin: newPin });
+      const cur = getParentSession();
+      if (cur) saveParentSession({ ...cur, must_change: false });
+      toast({ title: "PIN güncellendi" });
       navigate("/veli", { replace: true });
     } catch (e: any) {
-      toast({ title: "Kod doğrulanamadı", description: e?.message ?? "Bilinmeyen hata", variant: "destructive" });
+      toast({ title: "Değiştirilemedi", description: e?.message ?? "Bilinmeyen hata", variant: "destructive" });
     } finally { setLoading(false); }
   };
 
@@ -76,7 +111,6 @@ export default function VeliGiris() {
           "linear-gradient(180deg, hsl(220 30% 97%) 0%, hsl(220 30% 94%) 100%)",
       }}
     >
-      {/* Decorative glass blobs */}
       <div className="pointer-events-none absolute -top-24 -left-20 h-72 w-72 rounded-full opacity-40 blur-3xl"
         style={{ background: "radial-gradient(circle, hsl(218 70% 35%) 0%, transparent 70%)" }} />
       <div className="pointer-events-none absolute -bottom-32 -right-16 h-80 w-80 rounded-full opacity-40 blur-3xl"
@@ -85,103 +119,105 @@ export default function VeliGiris() {
       <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="rounded-3xl bg-white/70 p-5 shadow-xl backdrop-blur-xl ring-1 ring-white/60">
-            <img
-              src={logo}
-              alt="KantinPay — Okulun Dijital Cüzdanı"
-              className="h-44 w-auto object-contain drop-shadow-sm"
-            />
+            <img src={logo} alt="KantinPay" className="h-44 w-auto object-contain drop-shadow-sm" />
           </div>
         </div>
-        <Card className="border-white/60 bg-white/70 shadow-2xl backdrop-blur-xl"
-          style={{ borderRadius: "1.75rem" }}
-        >
+
+        <Card className="border-white/60 bg-white/70 shadow-2xl backdrop-blur-xl" style={{ borderRadius: "1.75rem" }}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                {step === "phone" ? <Smartphone className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+                {step === "phone" ? <Smartphone className="h-5 w-5" /> : <KeyRound className="h-5 w-5" />}
               </span>
-              {step === "phone" ? "Telefon ile giriş" : "Doğrulama kodu"}
+              {step === "phone" ? "Telefon ve PIN ile giriş" : "Yeni PIN belirleyin"}
             </CardTitle>
             <CardDescription>
               {step === "phone"
-                ? "Okula kayıtlı veli numaranıza SMS ile giriş kodu göndereceğiz."
-                : `${formatPhone(phone)} numarasına gelen 6 haneli kodu girin.`}
+                ? "Okul tarafından SMS ile gönderilen 6 haneli PIN kodunu kullanın."
+                : "Güvenliğiniz için 6 haneli yeni bir PIN belirlemeniz gerekiyor."}
             </CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-4">
             {step === "phone" ? (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Cep telefonu</Label>
                   <Input
-                    id="phone"
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel"
+                    id="phone" type="tel" inputMode="numeric" autoComplete="tel"
                     placeholder="5XX XXX XX XX"
                     value={phone}
                     onChange={(e) => setPhone(formatPhone(e.target.value))}
-                    onKeyDown={(e) => e.key === "Enter" && requestOtp()}
                     className="h-12 text-base"
                     disabled={loading}
                   />
                 </div>
-                <Button onClick={requestOtp} disabled={loading} className="h-12 w-full text-base bg-gradient-primary">
+                <div className="space-y-2">
+                  <Label htmlFor="pin">PIN (6 hane)</Label>
+                  <Input
+                    id="pin" type="password" inputMode="numeric" autoComplete="current-password"
+                    pattern="\d{6}" maxLength={6} placeholder="••••••"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D+/g, "").slice(0, 6))}
+                    onKeyDown={(e) => e.key === "Enter" && login()}
+                    className="h-14 text-center text-2xl font-semibold tracking-[0.5em]"
+                    disabled={loading}
+                  />
+                </div>
+                <label className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-3 cursor-pointer select-none">
+                  <Checkbox checked={remember} onCheckedChange={(v) => setRemember(v === true)} disabled={loading} />
+                  <span className="text-sm">Beni hatırla <span className="text-muted-foreground">(30 gün)</span></span>
+                </label>
+                <Button onClick={login} disabled={loading || pin.length !== 6} className="h-12 w-full text-base bg-gradient-primary">
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Kod Gönder
+                  Giriş Yap
+                </Button>
+                <Button variant="ghost" type="button" className="h-10 w-full" onClick={forgot} disabled={loading}>
+                  <ShieldCheck className="mr-2 h-4 w-4" /> Şifremi unuttum (SMS ile yeni PIN)
                 </Button>
               </>
             ) : (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="code">6 haneli kod</Label>
+                  <Label htmlFor="newpin">Yeni PIN</Label>
                   <Input
-                    id="code"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    pattern="\d{6}"
-                    maxLength={6}
-                    placeholder="••••••"
-                    value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D+/g, "").slice(0, 6))}
-                    onKeyDown={(e) => e.key === "Enter" && verifyOtp()}
+                    id="newpin" type="password" inputMode="numeric"
+                    pattern="\d{6}" maxLength={6} placeholder="••••••"
+                    value={newPin}
+                    onChange={(e) => setNewPin(e.target.value.replace(/\D+/g, "").slice(0, 6))}
                     className="h-14 text-center text-2xl font-semibold tracking-[0.5em]"
                     disabled={loading}
                     autoFocus
                   />
-                  {studentCount > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Bu numaraya kayıtlı <strong>{studentCount}</strong> öğrenci bulundu.
-                    </p>
-                  )}
                 </div>
-                <label className="flex items-center gap-2 rounded-md border border-border bg-muted/30 p-3 cursor-pointer select-none">
-                  <Checkbox
-                    checked={remember}
-                    onCheckedChange={(v) => setRemember(v === true)}
+                <div className="space-y-2">
+                  <Label htmlFor="newpin2">Yeni PIN (tekrar)</Label>
+                  <Input
+                    id="newpin2" type="password" inputMode="numeric"
+                    pattern="\d{6}" maxLength={6} placeholder="••••••"
+                    value={newPin2}
+                    onChange={(e) => setNewPin2(e.target.value.replace(/\D+/g, "").slice(0, 6))}
+                    onKeyDown={(e) => e.key === "Enter" && changePin()}
+                    className="h-14 text-center text-2xl font-semibold tracking-[0.5em]"
                     disabled={loading}
                   />
-                  <span className="text-sm">
-                    Beni hatırla <span className="text-muted-foreground">(30 gün tekrar kod istemesin)</span>
-                  </span>
-                </label>
-                <Button onClick={verifyOtp} disabled={loading || code.length !== 6} className="h-12 w-full text-base bg-gradient-primary">
+                </div>
+                <Button onClick={changePin} disabled={loading || newPin.length !== 6 || newPin2.length !== 6} className="h-12 w-full text-base bg-gradient-primary">
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Giriş Yap
+                  PIN'i Kaydet
                 </Button>
                 <Button
-                  variant="ghost"
-                  className="h-10 w-full"
-                  onClick={() => { setStep("phone"); setCode(""); }}
+                  variant="ghost" className="h-10 w-full"
+                  onClick={() => { setStep("phone"); setPin(""); setNewPin(""); setNewPin2(""); }}
                   disabled={loading}
                 >
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Numarayı değiştir
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Vazgeç
                 </Button>
               </>
             )}
           </CardContent>
         </Card>
+
         <p className="mt-4 text-center text-xs text-muted-foreground">
           Numaranız sistemde tanımlı değilse okul yöneticinize başvurun.
         </p>
