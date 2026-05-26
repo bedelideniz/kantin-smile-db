@@ -77,7 +77,7 @@ async function findStudentsForParent(phoneVariantsList: string[]) {
         AND (
           s.parent_phone = ANY($1::text[])
           OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($1::text[])
-             OR EXISTS (SELECT 1 FROM student_co_parents cp WHERE cp.student_id = s.id AND (cp.phone = ANY($1::text[]) OR regexp_replace(cp.phone, '\D', '', 'g') = ANY($1::text[])))
+             
           OR EXISTS (
             SELECT 1 FROM student_co_parents cp
              WHERE cp.student_id = s.id
