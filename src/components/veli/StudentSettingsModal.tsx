@@ -290,6 +290,99 @@ export default function StudentSettingsModal({ open, onOpenChange, student, onUp
                 </div>
               )}
             </div>
+
+            {/* Co-parents (eş / diğer veli) */}
+            <div className="rounded-xl border bg-card p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold">Eş / Diğer Veli</div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Bu öğrenci için başka bir veli (eşiniz vb.) davet edin. Davet ettiğiniz numaraya
+                    SMS gider, kendi numarasıyla giriş yaptığında aynı öğrenci için aksiyon alabilir.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {primaryPhone && (
+                  <div className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                      <div className="font-medium">Birincil veli</div>
+                      <div className="text-xs text-muted-foreground">0{primaryPhone}</div>
+                    </div>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                      Asıl
+                    </span>
+                  </div>
+                )}
+                {loadingCo ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Yükleniyor…
+                  </div>
+                ) : coParents.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Henüz davet edilen ek veli yok.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {coParents.map((cp) => (
+                      <li key={cp.id} className="flex items-center justify-between rounded-md border bg-background px-3 py-2 text-sm">
+                        <div className="min-w-0">
+                          <div className="truncate font-medium">{cp.full_name || "—"}</div>
+                          <div className="text-xs text-muted-foreground">0{cp.phone}</div>
+                        </div>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                          onClick={() => handleRemove(cp.id)}
+                          disabled={removingId === cp.id}
+                          aria-label="Kaldır"
+                        >
+                          {removingId === cp.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="mt-4 space-y-2 rounded-lg border border-dashed p-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <UserPlus className="h-4 w-4" /> Yeni veli davet et
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <Label htmlFor="co-name" className="text-xs">Ad Soyad</Label>
+                    <Input
+                      id="co-name"
+                      placeholder="Örn: Ayşe Yılmaz"
+                      value={inviteName}
+                      onChange={(e) => setInviteName(e.target.value)}
+                      disabled={inviting}
+                      maxLength={100}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="co-phone" className="text-xs">Cep telefonu</Label>
+                    <Input
+                      id="co-phone"
+                      type="tel"
+                      inputMode="numeric"
+                      placeholder="5XX XXX XX XX"
+                      value={invitePhone}
+                      onChange={(e) => setInvitePhone(e.target.value.replace(/\D+/g, "").slice(0, 11))}
+                      disabled={inviting}
+                    />
+                  </div>
+                  <Button onClick={handleInvite} disabled={inviting} className="w-full">
+                    {inviting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                    Davet Gönder
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
