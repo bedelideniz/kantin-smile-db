@@ -273,14 +273,11 @@ const PUBLIC_OPS: Record<string, Handler> = {
       throw new HttpError(429, "Çok fazla hatalı deneme. Lütfen birkaç dakika sonra tekrar deneyin.");
     }
 
-    const pr = await query<{ pin_hash: string; must_change: boolean }>(
-      "SELECT pin_hash, must_change FROM parent_pins WHERE phone=$1",
-      [canonical],
-    );
-    if (pr.rowCount === 0) {
+    const pinRecord = await findParentPin(variants);
+    if (!pinRecord) {
       throw new HttpError(404, "Bu numara için PIN tanımlı değil. 'Şifremi unuttum' ile yeni PIN isteyin.");
     }
-    const ok = await bcrypt.compare(p.pin, pr.rows[0].pin_hash);
+    const ok = await bcrypt.compare(p.pin, pinRecord.pin_hash);
     if (!ok) {
       await query(
         `INSERT INTO otp_codes (phone, code, purpose, expires_at)
@@ -293,19 +290,20 @@ const PUBLIC_OPS: Record<string, Handler> = {
     const students = await findStudentsForParent(variants);
     if (students.length === 0) throw new HttpError(403, "Bu telefona ait aktif öğrenci yok");
 
+    const sessionPhone = pinRecord.phone || canonical;
     const token = generateToken();
     const ttlHours = p.remember ? SESSION_TTL_HOURS_REMEMBER : SESSION_TTL_HOURS;
     const expires = new Date(Date.now() + ttlHours * 3600 * 1000);
     await query(
       "INSERT INTO parent_sessions (token, phone, expires_at) VALUES ($1,$2,$3)",
-      [token, canonical, expires.toISOString()],
+      [token, sessionPhone, expires.toISOString()],
     );
     query("DELETE FROM parent_sessions WHERE expires_at < now()").catch(() => {});
 
     return {
       token,
       expires_at: expires.toISOString(),
-      must_change: pr.rows[0].must_change,
+      must_change: pinRecord.must_change,
       students: students.map((s) => ({
         id: s.id, school_id: s.school_id, school_name: s.school_name,
         full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
