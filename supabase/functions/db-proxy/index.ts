@@ -1253,7 +1253,9 @@ const StudentInputSchema = z.object({
   class_name: z.string().trim().max(50).optional().nullable(),
   student_no: z.string().trim().max(50).optional().nullable(),
   parent_phone: z.string().trim().max(20).optional().nullable(),
+  parent_full_name: z.string().trim().max(255).optional().nullable(),
   balance: z.number().min(0).max(10000).optional(),
+  send_welcome_sms: z.boolean().optional(),
 });
 const StudentUpdateSchema = StudentInputSchema.extend({ id: z.string().uuid() });
 
