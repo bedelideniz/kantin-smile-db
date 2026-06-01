@@ -92,6 +92,14 @@ async function findStudentsForParent(phoneVariantsList: string[]) {
   return r.rows;
 }
 
+async function findParentPin(phoneVariantsList: string[]) {
+  const r = await query<{ phone: string; pin_hash: string; must_change: boolean }>(
+    "SELECT phone, pin_hash, must_change FROM parent_pins WHERE phone = ANY($1::text[]) LIMIT 1",
+    [phoneVariantsList],
+  );
+  return r.rows[0] ?? null;
+}
+
 // Returns true if the given phone (any variant) owns this student via either
 // students.parent_phone OR student_co_parents.
 async function parentOwnsStudent(studentId: string, variants: string[]): Promise<boolean> {
@@ -265,14 +273,11 @@ const PUBLIC_OPS: Record<string, Handler> = {
       throw new HttpError(429, "Çok fazla hatalı deneme. Lütfen birkaç dakika sonra tekrar deneyin.");
     }
 
-    const pr = await query<{ pin_hash: string; must_change: boolean }>(
-      "SELECT pin_hash, must_change FROM parent_pins WHERE phone=$1",
-      [canonical],
-    );
-    if (pr.rowCount === 0) {
+    const pinRecord = await findParentPin(variants);
+    if (!pinRecord) {
       throw new HttpError(404, "Bu numara için PIN tanımlı değil. 'Şifremi unuttum' ile yeni PIN isteyin.");
     }
-    const ok = await bcrypt.compare(p.pin, pr.rows[0].pin_hash);
+    const ok = await bcrypt.compare(p.pin, pinRecord.pin_hash);
     if (!ok) {
       await query(
         `INSERT INTO otp_codes (phone, code, purpose, expires_at)
@@ -285,19 +290,20 @@ const PUBLIC_OPS: Record<string, Handler> = {
     const students = await findStudentsForParent(variants);
     if (students.length === 0) throw new HttpError(403, "Bu telefona ait aktif öğrenci yok");
 
+    const sessionPhone = pinRecord.phone || canonical;
     const token = generateToken();
     const ttlHours = p.remember ? SESSION_TTL_HOURS_REMEMBER : SESSION_TTL_HOURS;
     const expires = new Date(Date.now() + ttlHours * 3600 * 1000);
     await query(
       "INSERT INTO parent_sessions (token, phone, expires_at) VALUES ($1,$2,$3)",
-      [token, canonical, expires.toISOString()],
+      [token, sessionPhone, expires.toISOString()],
     );
     query("DELETE FROM parent_sessions WHERE expires_at < now()").catch(() => {});
 
     return {
       token,
       expires_at: expires.toISOString(),
-      must_change: pr.rows[0].must_change,
+      must_change: pinRecord.must_change,
       students: students.map((s) => ({
         id: s.id, school_id: s.school_id, school_name: s.school_name,
         full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
@@ -387,15 +393,12 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       current_pin: z.string().regex(/^\d{6}$/).optional(),
       new_pin: z.string().regex(/^\d{6}$/, "Yeni PIN 6 haneli olmalıdır"),
     }).parse(params);
-    const { canonical } = phoneVariants(ctx.phone);
-    const pr = await query<{ pin_hash: string; must_change: boolean }>(
-      "SELECT pin_hash, must_change FROM parent_pins WHERE phone=$1",
-      [canonical],
-    );
-    if (pr.rowCount === 0) throw new HttpError(404, "PIN kaydı bulunamadı");
-    if (!pr.rows[0].must_change) {
+    const { canonical, variants } = phoneVariants(ctx.phone);
+    const pinRecord = await findParentPin(variants);
+    if (!pinRecord) throw new HttpError(404, "PIN kaydı bulunamadı");
+    if (!pinRecord.must_change) {
       if (!p.current_pin) throw new HttpError(400, "Mevcut PIN zorunlu");
-      const ok = await bcrypt.compare(p.current_pin, pr.rows[0].pin_hash);
+      const ok = await bcrypt.compare(p.current_pin, pinRecord.pin_hash);
       if (!ok) throw new HttpError(401, "Mevcut PIN hatalı");
     }
     if (p.current_pin && p.current_pin === p.new_pin) {
@@ -404,7 +407,7 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const newHash = await bcrypt.hash(p.new_pin, 10);
     await query(
       "UPDATE parent_pins SET pin_hash=$2, must_change=FALSE, updated_at=now() WHERE phone=$1",
-      [canonical, newHash],
+      [pinRecord.phone || canonical, newHash],
     );
     return { ok: true };
   },
