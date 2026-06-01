@@ -393,15 +393,12 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       current_pin: z.string().regex(/^\d{6}$/).optional(),
       new_pin: z.string().regex(/^\d{6}$/, "Yeni PIN 6 haneli olmalıdır"),
     }).parse(params);
-    const { canonical } = phoneVariants(ctx.phone);
-    const pr = await query<{ pin_hash: string; must_change: boolean }>(
-      "SELECT pin_hash, must_change FROM parent_pins WHERE phone=$1",
-      [canonical],
-    );
-    if (pr.rowCount === 0) throw new HttpError(404, "PIN kaydı bulunamadı");
-    if (!pr.rows[0].must_change) {
+    const { canonical, variants } = phoneVariants(ctx.phone);
+    const pinRecord = await findParentPin(variants);
+    if (!pinRecord) throw new HttpError(404, "PIN kaydı bulunamadı");
+    if (!pinRecord.must_change) {
       if (!p.current_pin) throw new HttpError(400, "Mevcut PIN zorunlu");
-      const ok = await bcrypt.compare(p.current_pin, pr.rows[0].pin_hash);
+      const ok = await bcrypt.compare(p.current_pin, pinRecord.pin_hash);
       if (!ok) throw new HttpError(401, "Mevcut PIN hatalı");
     }
     if (p.current_pin && p.current_pin === p.new_pin) {
@@ -410,7 +407,7 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     const newHash = await bcrypt.hash(p.new_pin, 10);
     await query(
       "UPDATE parent_pins SET pin_hash=$2, must_change=FALSE, updated_at=now() WHERE phone=$1",
-      [canonical, newHash],
+      [pinRecord.phone || canonical, newHash],
     );
     return { ok: true };
   },
