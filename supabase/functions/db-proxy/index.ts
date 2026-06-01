@@ -340,14 +340,71 @@ const HANDLERS: Record<string, Handler> = {
     const p = StudentInputSchema.extend({ school_id: z.string().uuid().optional() }).parse(params);
     const schoolId = resolveSchoolScope(ctx, p.school_id);
     const parentPhone = p.parent_phone ? normalizePhone(p.parent_phone) : null;
-    const r = await query(
-      `INSERT INTO students (school_id, full_name, class_name, student_no, parent_phone, balance, is_active)
-       VALUES ($1,$2,$3,$4,$5,$6,TRUE)
-       RETURNING id, full_name, class_name, student_no, parent_phone, balance,
-                 qr_token, nfc_uid, is_active, created_at`,
-      [schoolId, p.full_name, p.class_name ?? null, p.student_no ?? null, parentPhone, p.balance ?? 0],
-    );
-    return r.rows[0];
+    const sendWelcome = p.send_welcome_sms !== false; // default true
+
+    const created = await withTransaction(async (client) => {
+      let isNewParent = false;
+      let pinPlain: string | null = null;
+      if (parentPhone && parentPhone.length >= 10) {
+        const existing = await client.query(
+          "SELECT id FROM app_users WHERE phone=$1",
+          [parentPhone],
+        );
+        if (existing.rowCount === 0) {
+          isNewParent = true;
+          await client.query(
+            `INSERT INTO app_users (school_id, full_name, phone, role, is_active)
+             VALUES ($1,$2,$3,'parent',TRUE)
+             ON CONFLICT (phone) DO NOTHING`,
+            [schoolId, p.parent_full_name?.trim() || `${p.full_name} Velisi`, parentPhone],
+          );
+          pinPlain = String(Math.floor(100000 + Math.random() * 900000));
+          const pinHash = await bcrypt.hash(pinPlain, 10);
+          await client.query(
+            `INSERT INTO parent_pins (phone, pin_hash, must_change)
+             VALUES ($1,$2,TRUE)
+             ON CONFLICT (phone) DO UPDATE
+               SET pin_hash = EXCLUDED.pin_hash,
+                   must_change = TRUE,
+                   updated_at = now()`,
+            [parentPhone, pinHash],
+          );
+        }
+      }
+      const r = await client.query(
+        `INSERT INTO students (school_id, full_name, class_name, student_no, parent_phone, balance, is_active)
+         VALUES ($1,$2,$3,$4,$5,$6,TRUE)
+         RETURNING id, full_name, class_name, student_no, parent_phone, balance,
+                   qr_token, nfc_uid, is_active, created_at`,
+        [schoolId, p.full_name, p.class_name ?? null, p.student_no ?? null, parentPhone, p.balance ?? 0],
+      );
+      return { student: r.rows[0], isNewParent, pinPlain };
+    });
+
+    let smsStatus: { ok: boolean; status: string } | null = null;
+    if (sendWelcome && created.isNewParent && created.pinPlain && parentPhone) {
+      try {
+        const sr = await query<{ name: string }>("SELECT name FROM schools WHERE id=$1", [schoolId]);
+        const schoolName = sr.rows[0]?.name ?? "";
+        const tplRow = await query<{ value: string }>(
+          "SELECT value FROM system_settings WHERE key = 'parent_welcome_sms_template'",
+        );
+        const rawTpl = tplRow.rows[0]?.value;
+        const template = typeof rawTpl === "string" ? rawTpl
+          : "Sayin {parent_name}, {school_name} kantin sisteminde hesabiniz aktiftir.";
+        const parentName = p.parent_full_name?.trim() || `${p.full_name} Velisi`;
+        let message = template
+          .replaceAll("{parent_name}", parentName)
+          .replaceAll("{school_name}", schoolName)
+          .replaceAll("{pin}", created.pinPlain);
+        if (!template.includes("{pin}")) message += ` Giris PIN: ${created.pinPlain}`;
+        const r = await sendSms(parentPhone, message);
+        smsStatus = { ok: r.ok, status: r.status };
+      } catch (e) {
+        smsStatus = { ok: false, status: e instanceof Error ? e.message : "sms_error" };
+      }
+    }
+    return { ...created.student, sms: smsStatus, new_parent: created.isNewParent };
   },
   update_student: async (ctx, params) => {
     const p = StudentUpdateSchema.extend({ school_id: z.string().uuid().optional() }).parse(params);
