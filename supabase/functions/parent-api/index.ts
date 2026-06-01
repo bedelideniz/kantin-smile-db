@@ -92,6 +92,14 @@ async function findStudentsForParent(phoneVariantsList: string[]) {
   return r.rows;
 }
 
+async function findParentPin(phoneVariantsList: string[]) {
+  const r = await query<{ phone: string; pin_hash: string; must_change: boolean }>(
+    "SELECT phone, pin_hash, must_change FROM parent_pins WHERE phone = ANY($1::text[]) LIMIT 1",
+    [phoneVariantsList],
+  );
+  return r.rows[0] ?? null;
+}
+
 // Returns true if the given phone (any variant) owns this student via either
 // students.parent_phone OR student_co_parents.
 async function parentOwnsStudent(studentId: string, variants: string[]): Promise<boolean> {
