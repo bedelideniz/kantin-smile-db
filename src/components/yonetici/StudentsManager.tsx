@@ -145,8 +145,16 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
           setSaving(false);
           return;
         }
-        await callOp("create_student", { ...scope, ...base, balance: balanceNum });
-        toast({ title: "Öğrenci eklendi" });
+        const created = await callOp<{ sms?: { ok: boolean; status: string } | null }>("create_student", { ...scope, ...base, balance: balanceNum });
+        toast({
+          title: "Öğrenci eklendi",
+          description: !base.parent_phone
+            ? undefined
+            : created?.sms?.ok
+              ? "Veliye giriş PIN'i SMS olarak gönderildi."
+              : `SMS gönderilemedi (${created?.sms?.status ?? "bilinmiyor"}). NetGSM ayarlarını kontrol edin.`,
+          variant: base.parent_phone && created?.sms && !created.sms.ok ? "destructive" : "default",
+        });
       }
       setDialogOpen(false);
       await load(search);

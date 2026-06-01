@@ -358,6 +358,10 @@ const HANDLERS: Record<string, Handler> = {
              ON CONFLICT (phone) DO NOTHING`,
             [schoolId, p.parent_full_name?.trim() || `${p.full_name} Velisi`, parentPhone],
           );
+        }
+        if (sendWelcome) {
+          // A hashed PIN cannot be read back, so every requested welcome SMS
+          // creates a fresh parent PIN. This also covers existing parent phones.
           pinPlain = String(Math.floor(100000 + Math.random() * 900000));
           const pinHash = await bcrypt.hash(pinPlain, 10);
           await client.query(
@@ -382,7 +386,7 @@ const HANDLERS: Record<string, Handler> = {
     });
 
     let smsStatus: { ok: boolean; status: string } | null = null;
-    if (sendWelcome && created.isNewParent && created.pinPlain && parentPhone) {
+    if (sendWelcome && created.pinPlain && parentPhone) {
       try {
         const sr = await query<{ name: string }>("SELECT name FROM schools WHERE id=$1", [schoolId]);
         const schoolName = sr.rows[0]?.name ?? "";
