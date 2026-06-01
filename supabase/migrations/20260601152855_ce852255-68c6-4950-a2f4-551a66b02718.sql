@@ -1,0 +1,1 @@
+DELETE FROM public.user_roles WHERE role='school_admin' AND school_id='a2eceb20-a533-4761-8a30-3feb04bb7629';
