@@ -16,9 +16,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Plus, Trash2, Eye, RefreshCw } from "lucide-react";
+import { Pencil, Plus, Trash2, Eye, RefreshCw, FileText } from "lucide-react";
 import { callMarketerApi, formatPercent, formatTRY, MarketerListItem } from "@/lib/marketerApi";
 import MarketerDetailDialog from "./MarketerDetailDialog";
+import { downloadMarketerContract } from "@/lib/contractPdf";
 
 interface FormState {
   id?: string;
@@ -91,6 +92,16 @@ export default function MarketersManager() {
           phone: form.phone.trim() || null, password: form.password,
           signup_bonus: bonus, commission_share_rate: share, notes: form.notes.trim() || null,
         });
+        // Pazarlamacı oluşturulunca sözleşmeyi otomatik indir
+        try {
+          downloadMarketerContract({
+            full_name: form.full_name.trim(),
+            signup_bonus: bonus,
+            commission_share_rate: share,
+          });
+        } catch (err) {
+          console.error("Sözleşme oluşturulamadı:", err);
+        }
       }
       toast({ title: form.id ? "Güncellendi" : "Pazarlamacı eklendi" });
       setOpen(false);
@@ -171,6 +182,14 @@ export default function MarketersManager() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      <Button size="icon" variant="ghost" title="Sözleşme indir"
+                        onClick={() => downloadMarketerContract({
+                          full_name: m.full_name,
+                          signup_bonus: m.signup_bonus,
+                          commission_share_rate: m.commission_share_rate,
+                        })}>
+                        <FileText className="h-4 w-4" />
+                      </Button>
                       <Button size="icon" variant="ghost" onClick={() => setDetailId(m.id)}>
                         <Eye className="h-4 w-4" />
                       </Button>
