@@ -352,7 +352,17 @@ async function drawLetter(
   // Security note
   doc.setFillColor(255, 248, 232);
   doc.setDrawColor(240, 215, 160);
-  doc.roundedRect(MARGIN, y, PAGE_W - 2 * MARGIN, 18, 2, 2, "FD");
+  doc.setFont(FONT, "normal");
+  doc.setFontSize(8.5);
+  const sec =
+    "PIN'inizi kimseyle paylaşmayın. Kart kaybolur veya çalınırsa veli panelinden anında bloke edin. " +
+    "KantinPay sizden PIN'inizi telefon veya SMS ile asla istemez.";
+  const secLines = doc.splitTextToSize(sec, PAGE_W - 2 * MARGIN - 8);
+  const lineH = 4;
+  const boxH = 8 + secLines.length * lineH + 2;
+  doc.setFillColor(255, 248, 232);
+  doc.setDrawColor(240, 215, 160);
+  doc.roundedRect(MARGIN, y, PAGE_W - 2 * MARGIN, boxH, 2, 2, "FD");
   doc.setFont(FONT, "bold");
   doc.setFontSize(9);
   doc.setTextColor(150, 100, 20);
@@ -360,11 +370,7 @@ async function drawLetter(
   doc.setFont(FONT, "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(110, 80, 30);
-  const sec =
-    "PIN'inizi kimseyle paylaşmayın. Kart kaybolur veya çalınırsa veli panelinden anında bloke edin. " +
-    "KantinPay sizden PIN'inizi telefon veya SMS ile asla istemez.";
-  const secLines = doc.splitTextToSize(sec, PAGE_W - 2 * MARGIN - 8);
-  doc.text(secLines, MARGIN + 4, y + 10);
+  doc.text(secLines, MARGIN + 4, y + 11);
 }
 
 function drawFooter(doc: jsPDF, supportPhone?: string) {
