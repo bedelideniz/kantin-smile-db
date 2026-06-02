@@ -259,6 +259,25 @@ export default function MarketersManager() {
                   onChange={(e) => setForm({ ...form, commission_share_pct: e.target.value })} />
               </div>
             </div>
+            {!form.id && (
+              <>
+                <div className="grid gap-2">
+                  <Label>T.C. Kimlik No</Label>
+                  <Input value={form.tc_no} maxLength={11}
+                    onChange={(e) => setForm({ ...form, tc_no: e.target.value.replace(/\D/g, "") })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>İkametgah Adresi</Label>
+                  <Textarea rows={2} value={form.address}
+                    onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Kuveyt Türk IBAN No</Label>
+                  <Input value={form.iban} placeholder="TR.."
+                    onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase() })} />
+                </div>
+              </>
+            )}
             <div className="grid gap-2">
               <Label>Notlar</Label>
               <Textarea rows={2} value={form.notes}
