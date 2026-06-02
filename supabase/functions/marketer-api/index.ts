@@ -425,16 +425,27 @@ async function handleSuperAdmin(action: string, p: any, _adminId: string): Promi
 
 // ──────────────────────────── MARKETER (SELF) ──────────────────────────────
 
-async function resolveMarketerId(authUserId: string): Promise<string> {
+async function resolveMarketerId(authUserId: string, email?: string | null): Promise<string> {
   const r = await query<{ id: string }>(
     "SELECT id FROM marketers WHERE auth_user_id=$1 AND is_active=TRUE LIMIT 1",
     [authUserId]);
-  if (r.rowCount === 0) throw new HttpError(403, "Pazarlamacı kaydı bulunamadı");
-  return r.rows[0].id;
+  if (r.rowCount && r.rowCount > 0) return r.rows[0].id;
+
+  // Self-heal: link by email if a matching active marketer exists without an auth_user_id
+  if (email) {
+    const byEmail = await query<{ id: string }>(
+      `UPDATE marketers SET auth_user_id=$1, updated_at=now()
+       WHERE lower(email)=lower($2) AND is_active=TRUE AND (auth_user_id IS NULL OR auth_user_id=$1)
+       RETURNING id`,
+      [authUserId, email]);
+    if (byEmail.rowCount && byEmail.rowCount > 0) return byEmail.rows[0].id;
+  }
+  throw new HttpError(403, "Pazarlamacı kaydı bulunamadı");
 }
 
-async function handleMarketerSelf(action: string, _p: any, authUserId: string): Promise<Response> {
-  const marketerId = await resolveMarketerId(authUserId);
+async function handleMarketerSelf(action: string, _p: any, authUserId: string, email?: string | null): Promise<Response> {
+  const marketerId = await resolveMarketerId(authUserId, email);
+
   switch (action) {
     case "me": {
       const me = await query(`
