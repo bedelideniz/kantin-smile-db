@@ -73,7 +73,38 @@ export default function StudentsBySchool() {
       });
     } finally {
       setPrinting(false);
+  }
+
+  async function handlePrintLetters() {
+    if (!selectedSchool) return;
+    setPrintingLetters(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("db-proxy", {
+        body: { op: "list_students", params: { school_id: selectedId } },
+      });
+      if (error) throw new Error(error.message);
+      if (data && (data as any).error) throw new Error((data as any).error);
+      const students = (((data as any)?.data ?? []) as LetterStudent[]).filter((s) => s.full_name);
+      if (students.length === 0) {
+        toast({ title: "Öğrenci bulunamadı", variant: "destructive" });
+        return;
+      }
+      await generateParentLettersPdf({
+        schoolName: selectedSchool.name,
+        students,
+        withCard: true,
+      });
+      toast({ title: "PDF hazır", description: `${students.length} veli mektubu (kart ile) oluşturuldu.` });
+    } catch (e) {
+      toast({
+        title: "PDF oluşturulamadı",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setPrintingLetters(false);
     }
+  }
   }
 
   return (
