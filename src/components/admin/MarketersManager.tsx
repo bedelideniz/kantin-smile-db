@@ -31,11 +31,15 @@ interface FormState {
   commission_share_pct: string; // 0-100 in UI
   is_active: boolean;
   notes: string;
+  tc_no: string;
+  address: string;
+  iban: string;
 }
 
 const emptyForm: FormState = {
   full_name: "", email: "", phone: "", password: "",
   signup_bonus: "0", commission_share_pct: "0", is_active: true, notes: "",
+  tc_no: "", address: "", iban: "",
 };
 
 export default function MarketersManager() {
