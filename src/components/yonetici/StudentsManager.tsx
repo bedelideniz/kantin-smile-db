@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useUsbCardReader } from "@/hooks/useUsbCardReader";
-import { Loader2, Plus, Pencil, Trash2, CreditCard, Wallet, Radio, X, Search } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, CreditCard, Wallet, Radio, X, Search, Mail } from "lucide-react";
+import { generateParentLettersPdf } from "@/lib/letterPdf";
 
 interface Student {
   id: string;
@@ -46,7 +47,7 @@ async function callOp<T = unknown>(op: string, params?: Record<string, unknown>)
 const PHONE_RE = /^[0-9+\s()-]{10,20}$/;
 const fmt = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export default function StudentsManager({ schoolId }: { schoolId?: string } = {}) {
+export default function StudentsManager({ schoolId, schoolName }: { schoolId?: string; schoolName?: string } = {}) {
   const scope = schoolId ? { school_id: schoolId } : {};
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -297,6 +298,35 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
     }
   };
 
+  const printLetter = async (s: Student) => {
+    try {
+      let name = schoolName;
+      if (!name) {
+        try {
+          const schools = await callOp<{ id: string; name: string }[]>("list_schools");
+          name = schoolId
+            ? schools.find((x) => x.id === schoolId)?.name
+            : schools[0]?.name;
+        } catch { /* ignore */ }
+      }
+      await generateParentLettersPdf({
+        schoolName: name || "Okul",
+        students: [{
+          id: s.id,
+          full_name: s.full_name,
+          class_name: s.class_name,
+          student_no: s.student_no,
+          photo_url: s.photo_url,
+          parent_phone: s.parent_phone,
+        }],
+        withCard: true,
+      });
+      toast({ title: "PDF hazır", description: "Veli mektubu indirildi." });
+    } catch (e) {
+      toast({ title: "PDF oluşturulamadı", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -401,6 +431,9 @@ export default function StudentsManager({ schoolId }: { schoolId?: string } = {}
                     <div className="flex justify-end gap-1">
                       <Button size="sm" variant="ghost" onClick={() => openAssignCard(s)} title="Kart ata">
                         <CreditCard className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => printLetter(s)} title="Veli mektubu (PDF)">
+                        <Mail className="h-4 w-4" />
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => { setTopupTarget(s); setTopupAmount(""); }} title="Bakiye düzelt">
                         <Wallet className="h-4 w-4" />

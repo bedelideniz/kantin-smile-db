@@ -6,10 +6,11 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Printer } from "lucide-react";
+import { Loader2, Printer, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import StudentsManager from "@/components/yonetici/StudentsManager";
 import { generateStudentCardsPdf, type CardStudent } from "@/lib/cardPdf";
+import { generateParentLettersPdf, type LetterStudent } from "@/lib/letterPdf";
 
 interface School {
   id: string;
@@ -23,6 +24,7 @@ export default function StudentsBySchool() {
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [printing, setPrinting] = useState(false);
+  const [printingLetters, setPrintingLetters] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -74,6 +76,37 @@ export default function StudentsBySchool() {
     }
   }
 
+  async function handlePrintLetters() {
+    if (!selectedSchool) return;
+    setPrintingLetters(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("db-proxy", {
+        body: { op: "list_students", params: { school_id: selectedId } },
+      });
+      if (error) throw new Error(error.message);
+      if (data && (data as any).error) throw new Error((data as any).error);
+      const students = (((data as any)?.data ?? []) as LetterStudent[]).filter((s) => s.full_name);
+      if (students.length === 0) {
+        toast({ title: "Öğrenci bulunamadı", variant: "destructive" });
+        return;
+      }
+      await generateParentLettersPdf({
+        schoolName: selectedSchool.name,
+        students,
+        withCard: true,
+      });
+      toast({ title: "PDF hazır", description: `${students.length} veli mektubu (kart ile) oluşturuldu.` });
+    } catch (e) {
+      toast({
+        title: "PDF oluşturulamadı",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setPrintingLetters(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -102,8 +135,9 @@ export default function StudentsBySchool() {
             </div>
             <Button
               type="button"
+              variant="outline"
               onClick={handlePrintCards}
-              disabled={!selectedId || printing}
+              disabled={!selectedId || printing || printingLetters}
               className="sm:w-auto"
             >
               {printing ? (
@@ -111,14 +145,27 @@ export default function StudentsBySchool() {
               ) : (
                 <Printer className="mr-2 h-4 w-4" />
               )}
-              Kartları PDF indir
+              Kartları PDF
+            </Button>
+            <Button
+              type="button"
+              onClick={handlePrintLetters}
+              disabled={!selectedId || printing || printingLetters}
+              className="sm:w-auto"
+            >
+              {printingLetters ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="mr-2 h-4 w-4" />
+              )}
+              Mektup + Kart PDF
             </Button>
           </div>
         </CardContent>
       </Card>
 
       {selectedId ? (
-        <StudentsManager key={selectedId} schoolId={selectedId} />
+        <StudentsManager key={selectedId} schoolId={selectedId} schoolName={selectedSchool?.name} />
       ) : (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
