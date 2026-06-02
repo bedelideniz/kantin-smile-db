@@ -425,11 +425,19 @@ export async function generateParentLettersPdf(opts: LetterPdfOptions): Promise<
     await drawLetter(doc, s, schoolName, kantinData, qrData, supportPhone);
 
     if (withCard) {
-      // Tear line and card at bottom of page
+      // Reserved blank area where the physical card will be affixed
       const cardY = PAGE_H - 20 - CARD_H;
-      drawTearLine(doc, cardY - 4);
       const cardX = (PAGE_W - CARD_W) / 2;
-      drawCard(doc, cardX, cardY, s, schoolName, mebData, kantinData, photos[i]);
+      doc.setFillColor(252, 252, 252);
+      doc.setDrawColor(180);
+      doc.setLineWidth(0.3);
+      doc.setLineDashPattern([2, 2], 0);
+      doc.roundedRect(cardX, cardY, CARD_W, CARD_H, 2.5, 2.5, "FD");
+      doc.setLineDashPattern([], 0);
+      doc.setFont(FONT, "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(150, 155, 170);
+      doc.text("Fiziksel kartı buraya yapıştırın", PAGE_W / 2, cardY + CARD_H / 2, { align: "center", baseline: "middle" });
     }
 
     drawFooter(doc, supportPhone);
