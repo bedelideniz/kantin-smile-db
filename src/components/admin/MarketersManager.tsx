@@ -92,6 +92,16 @@ export default function MarketersManager() {
           phone: form.phone.trim() || null, password: form.password,
           signup_bonus: bonus, commission_share_rate: share, notes: form.notes.trim() || null,
         });
+        // Pazarlamacı oluşturulunca sözleşmeyi otomatik indir
+        try {
+          downloadMarketerContract({
+            full_name: form.full_name.trim(),
+            signup_bonus: bonus,
+            commission_share_rate: share,
+          });
+        } catch (err) {
+          console.error("Sözleşme oluşturulamadı:", err);
+        }
       }
       toast({ title: form.id ? "Güncellendi" : "Pazarlamacı eklendi" });
       setOpen(false);
