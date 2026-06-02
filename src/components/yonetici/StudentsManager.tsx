@@ -403,6 +403,9 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
                       <Button size="sm" variant="ghost" onClick={() => openAssignCard(s)} title="Kart ata">
                         <CreditCard className="h-4 w-4" />
                       </Button>
+                      <Button size="sm" variant="ghost" onClick={() => printLetter(s)} title="Veli mektubu (PDF)">
+                        <Mail className="h-4 w-4" />
+                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => { setTopupTarget(s); setTopupAmount(""); }} title="Bakiye düzelt">
                         <Wallet className="h-4 w-4" />
                       </Button>
