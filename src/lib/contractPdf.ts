@@ -12,6 +12,9 @@ export interface ContractData {
   full_name: string;
   signup_bonus: number | string;
   commission_share_rate: number | string; // 0..1
+  tc_no?: string;
+  address?: string;
+  iban?: string;
 }
 
 function registerFonts(doc: jsPDF) {
