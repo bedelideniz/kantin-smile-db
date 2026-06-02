@@ -165,7 +165,7 @@ export default function StudentsBySchool() {
       </Card>
 
       {selectedId ? (
-        <StudentsManager key={selectedId} schoolId={selectedId} />
+        <StudentsManager key={selectedId} schoolId={selectedId} schoolName={selectedSchool?.name} />
       ) : (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
