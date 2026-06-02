@@ -73,6 +73,7 @@ export default function StudentsBySchool() {
       });
     } finally {
       setPrinting(false);
+    }
   }
 
   async function handlePrintLetters() {
