@@ -103,6 +103,9 @@ export default function MarketersManager() {
             full_name: form.full_name.trim(),
             signup_bonus: bonus,
             commission_share_rate: share,
+            tc_no: form.tc_no.trim(),
+            address: form.address.trim(),
+            iban: form.iban.trim(),
           });
         } catch (err) {
           console.error("Sözleşme oluşturulamadı:", err);
