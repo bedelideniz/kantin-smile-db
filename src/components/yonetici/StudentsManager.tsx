@@ -298,6 +298,35 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
     }
   };
 
+  const printLetter = async (s: Student) => {
+    try {
+      let name = schoolName;
+      if (!name) {
+        try {
+          const schools = await callOp<{ id: string; name: string }[]>("list_schools");
+          name = schoolId
+            ? schools.find((x) => x.id === schoolId)?.name
+            : schools[0]?.name;
+        } catch { /* ignore */ }
+      }
+      await generateParentLettersPdf({
+        schoolName: name || "Okul",
+        students: [{
+          id: s.id,
+          full_name: s.full_name,
+          class_name: s.class_name,
+          student_no: s.student_no,
+          photo_url: s.photo_url,
+          parent_phone: s.parent_phone,
+        }],
+        withCard: true,
+      });
+      toast({ title: "PDF hazır", description: "Veli mektubu indirildi." });
+    } catch (e) {
+      toast({ title: "PDF oluşturulamadı", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
