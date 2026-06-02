@@ -24,6 +24,7 @@ export default function StudentsBySchool() {
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [printing, setPrinting] = useState(false);
+  const [printingLetters, setPrintingLetters] = useState(false);
 
   useEffect(() => {
     (async () => {
