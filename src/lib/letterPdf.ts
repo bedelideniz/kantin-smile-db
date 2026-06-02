@@ -353,24 +353,24 @@ async function drawLetter(
   doc.setFillColor(255, 248, 232);
   doc.setDrawColor(240, 215, 160);
   doc.setFont(FONT, "normal");
-  doc.setFontSize(8.5);
+  doc.setFontSize(7.8);
   const sec =
-    "PIN'inizi kimseyle paylaşmayın. Kart kaybolur veya çalınırsa veli panelinden anında bloke edin. " +
-    "KantinPay sizden PIN'inizi telefon veya SMS ile asla istemez.";
+    "PIN'inizi kimseyle paylaşmayın. Kart kaybolur/çalınırsa panelden hemen bloke edin. " +
+    "KantinPay PIN'inizi telefon veya SMS ile istemez.";
   const secLines = doc.splitTextToSize(sec, PAGE_W - 2 * MARGIN - 8);
-  const lineH = 4;
-  const boxH = 8 + secLines.length * lineH + 2;
+  const lineH = 3.5;
+  const boxH = 7 + secLines.length * lineH + 1.5;
   doc.setFillColor(255, 248, 232);
   doc.setDrawColor(240, 215, 160);
   doc.roundedRect(MARGIN, y, PAGE_W - 2 * MARGIN, boxH, 2, 2, "FD");
   doc.setFont(FONT, "bold");
-  doc.setFontSize(9);
+  doc.setFontSize(8.4);
   doc.setTextColor(150, 100, 20);
-  doc.text("Güvenlik", MARGIN + 4, y + 5.5);
+  doc.text("Güvenlik", MARGIN + 4, y + 5);
   doc.setFont(FONT, "normal");
-  doc.setFontSize(8.5);
+  doc.setFontSize(7.8);
   doc.setTextColor(110, 80, 30);
-  doc.text(secLines, MARGIN + 4, y + 11);
+  doc.text(secLines, MARGIN + 4, y + 9.2);
 }
 
 function drawFooter(doc: jsPDF, supportPhone?: string) {
@@ -432,7 +432,7 @@ export async function generateParentLettersPdf(opts: LetterPdfOptions): Promise<
 
     if (withCard) {
       // Reserved blank area where the physical card will be affixed
-      const cardY = PAGE_H - 20 - CARD_H;
+      const cardY = PAGE_H - 13 - CARD_H;
       const cardX = (PAGE_W - CARD_W) / 2;
       doc.setFillColor(252, 252, 252);
       doc.setDrawColor(180);
