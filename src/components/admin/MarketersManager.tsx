@@ -16,9 +16,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Plus, Trash2, Eye, RefreshCw } from "lucide-react";
+import { Pencil, Plus, Trash2, Eye, RefreshCw, FileText } from "lucide-react";
 import { callMarketerApi, formatPercent, formatTRY, MarketerListItem } from "@/lib/marketerApi";
 import MarketerDetailDialog from "./MarketerDetailDialog";
+import { downloadMarketerContract } from "@/lib/contractPdf";
 
 interface FormState {
   id?: string;
