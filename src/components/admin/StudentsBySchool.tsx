@@ -135,8 +135,9 @@ export default function StudentsBySchool() {
             </div>
             <Button
               type="button"
+              variant="outline"
               onClick={handlePrintCards}
-              disabled={!selectedId || printing}
+              disabled={!selectedId || printing || printingLetters}
               className="sm:w-auto"
             >
               {printing ? (
@@ -144,7 +145,20 @@ export default function StudentsBySchool() {
               ) : (
                 <Printer className="mr-2 h-4 w-4" />
               )}
-              Kartları PDF indir
+              Kartları PDF
+            </Button>
+            <Button
+              type="button"
+              onClick={handlePrintLetters}
+              disabled={!selectedId || printing || printingLetters}
+              className="sm:w-auto"
+            >
+              {printingLetters ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Mail className="mr-2 h-4 w-4" />
+              )}
+              Mektup + Kart PDF
             </Button>
           </div>
         </CardContent>
