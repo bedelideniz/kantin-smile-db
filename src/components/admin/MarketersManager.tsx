@@ -71,6 +71,7 @@ export default function MarketersManager() {
       password: "", signup_bonus: String(m.signup_bonus),
       commission_share_pct: String((Number(m.commission_share_rate) * 100).toFixed(2)),
       is_active: m.is_active, notes: m.notes ?? "",
+      tc_no: "", address: "", iban: "",
     });
     setOpen(true);
   };
