@@ -31,11 +31,15 @@ interface FormState {
   commission_share_pct: string; // 0-100 in UI
   is_active: boolean;
   notes: string;
+  tc_no: string;
+  address: string;
+  iban: string;
 }
 
 const emptyForm: FormState = {
   full_name: "", email: "", phone: "", password: "",
   signup_bonus: "0", commission_share_pct: "0", is_active: true, notes: "",
+  tc_no: "", address: "", iban: "",
 };
 
 export default function MarketersManager() {
@@ -67,6 +71,7 @@ export default function MarketersManager() {
       password: "", signup_bonus: String(m.signup_bonus),
       commission_share_pct: String((Number(m.commission_share_rate) * 100).toFixed(2)),
       is_active: m.is_active, notes: m.notes ?? "",
+      tc_no: "", address: "", iban: "",
     });
     setOpen(true);
   };
@@ -98,6 +103,9 @@ export default function MarketersManager() {
             full_name: form.full_name.trim(),
             signup_bonus: bonus,
             commission_share_rate: share,
+            tc_no: form.tc_no.trim(),
+            address: form.address.trim(),
+            iban: form.iban.trim(),
           });
         } catch (err) {
           console.error("Sözleşme oluşturulamadı:", err);
@@ -251,6 +259,25 @@ export default function MarketersManager() {
                   onChange={(e) => setForm({ ...form, commission_share_pct: e.target.value })} />
               </div>
             </div>
+            {!form.id && (
+              <>
+                <div className="grid gap-2">
+                  <Label>T.C. Kimlik No</Label>
+                  <Input value={form.tc_no} maxLength={11}
+                    onChange={(e) => setForm({ ...form, tc_no: e.target.value.replace(/\D/g, "") })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>İkametgah Adresi</Label>
+                  <Textarea rows={2} value={form.address}
+                    onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Kuveyt Türk IBAN No</Label>
+                  <Input value={form.iban} placeholder="TR.."
+                    onChange={(e) => setForm({ ...form, iban: e.target.value.toUpperCase() })} />
+                </div>
+              </>
+            )}
             <div className="grid gap-2">
               <Label>Notlar</Label>
               <Textarea rows={2} value={form.notes}

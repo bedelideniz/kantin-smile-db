@@ -12,6 +12,9 @@ export interface ContractData {
   full_name: string;
   signup_bonus: number | string;
   commission_share_rate: number | string; // 0..1
+  tc_no?: string;
+  address?: string;
+  iban?: string;
 }
 
 function registerFonts(doc: jsPDF) {
@@ -120,9 +123,9 @@ export function generateMarketerContractPdf(data: ContractData): Blob {
   writeParagraph("1.1. ŞİRKET: KantinPay Yazılım ve Otomasyon Hizmetleri Tic. Ltd. Şti. (Bundan sonra \"Şirket\" olarak anılacaktır.)");
   writeParagraph("1.2. SAHA PAZARLAMA PERSONELİ / DANIŞMAN:", { bold: true });
   writeField("Adı Soyadı:", data.full_name || "");
-  writeField("T.C. Kimlik No:", "");
-  writeField("İkametgah Adresi:", "");
-  writeField("Kuveyt Türk IBAN No:", "TR");
+  writeField("T.C. Kimlik No:", data.tc_no || "");
+  writeField("İkametgah Adresi:", data.address || "");
+  writeField("Kuveyt Türk IBAN No:", data.iban ? data.iban : "TR");
   writeParagraph("(Bundan sonra \"Personel\" olarak anılacaktır.)");
 
   // 2. KONU
