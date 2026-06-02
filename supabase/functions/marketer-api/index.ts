@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
 
     // Marketer self actions
     if (MarketerSelfAction.safeParse(action).success) {
-      return await handleMarketerSelf(action, payload ?? {}, ctx.userId);
+      return await handleMarketerSelf(action, payload ?? {}, ctx.userId, ctx.email);
     }
 
     return json({ error: `Unknown action: ${action}` }, 400);
