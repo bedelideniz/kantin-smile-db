@@ -527,7 +527,9 @@ function ReorderableStoryGrid({
           >
             <div className="relative flex aspect-[9/16] items-center justify-center bg-muted">
               <img src={s.image_url} alt={s.title ?? ""} className="h-full w-full object-cover" />
-              {s.is_active ? (
+              {isExpired(s.expires_at) ? (
+                <Badge className="absolute right-2 top-2" variant="destructive">Süresi Doldu</Badge>
+              ) : s.is_active ? (
                 <Badge className="absolute right-2 top-2">Aktif</Badge>
               ) : (
                 <Badge className="absolute right-2 top-2" variant="outline">Pasif</Badge>
@@ -544,6 +546,11 @@ function ReorderableStoryGrid({
             <CardContent className="space-y-2 p-3">
               {s.title && <p className="truncate text-sm font-medium">{s.title}</p>}
               {s.link_url && <p className="truncate text-xs text-muted-foreground">🔗 {s.link_url}</p>}
+              {s.expires_at && (
+                <p className="truncate text-xs text-muted-foreground">
+                  Son: {new Date(s.expires_at).toLocaleDateString("tr-TR")}
+                </p>
+              )}
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" className="flex-1" onClick={() => onEdit(s)}>
                   <Pencil className="mr-1 h-3.5 w-3.5" /> Düzenle
