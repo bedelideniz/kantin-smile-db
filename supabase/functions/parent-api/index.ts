@@ -339,15 +339,25 @@ const PUBLIC_OPS: Record<string, Handler> = {
     }
     const pin = generateOtp();
     const pinHash = await bcrypt.hash(pin, 10);
-    await query(
-      `INSERT INTO parent_pins (phone, pin_hash, must_change)
-       VALUES ($1,$2,TRUE)
-       ON CONFLICT (phone) DO UPDATE
-         SET pin_hash = EXCLUDED.pin_hash,
-             must_change = TRUE,
-             updated_at = now()`,
-      [canonical, pinHash],
+    // Update any existing row matching any phone variant (the stored phone
+    // may use a different format, e.g. with leading 0 or country code).
+    const upd = await query(
+      `UPDATE parent_pins
+          SET pin_hash=$2, must_change=TRUE, updated_at=now()
+        WHERE phone = ANY($1::text[])`,
+      [variants, pinHash],
     );
+    if ((upd.rowCount ?? 0) === 0) {
+      await query(
+        `INSERT INTO parent_pins (phone, pin_hash, must_change)
+         VALUES ($1,$2,TRUE)
+         ON CONFLICT (phone) DO UPDATE
+           SET pin_hash = EXCLUDED.pin_hash,
+               must_change = TRUE,
+               updated_at = now()`,
+        [canonical, pinHash],
+      );
+    }
     await query(
       `INSERT INTO otp_codes (phone, code, purpose, expires_at)
        VALUES ($1, $2, 'parent_pin_reset', now() + interval '15 minutes')`,
