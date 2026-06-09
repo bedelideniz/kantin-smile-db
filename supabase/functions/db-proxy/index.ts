@@ -967,6 +967,11 @@ const HANDLERS: Record<string, Handler> = {
     await query("DELETE FROM school_splashes WHERE school_id=$1", [p.school_id]);
     return { school_id: p.school_id, deleted: true };
   },
+  delete_global_splash: async (ctx) => {
+    requireSuperAdmin(ctx);
+    await query("DELETE FROM global_splashes WHERE id = 1");
+    return { deleted: true };
+  },
   // ===== Canteen announcements (per-school, 4 slots, shown on cashier panel) =====
   list_canteen_announcements: async (ctx) => {
     requireSuperAdmin(ctx);
