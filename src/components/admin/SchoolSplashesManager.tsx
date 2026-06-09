@@ -37,9 +37,12 @@ async function callOp<T = any>(op: string, params: Record<string, unknown> = {})
   return data?.data as T;
 }
 
+const GLOBAL_KEY = "__global__";
+
 export default function SchoolSplashesManager() {
   const { toast } = useToast();
   const [rows, setRows] = useState<SplashRow[]>([]);
+  const [globalSplash, setGlobalSplash] = useState<SplashRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSchool, setSelectedSchool] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -49,8 +52,12 @@ export default function SchoolSplashesManager() {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await callOp<SplashRow[]>("list_school_splashes");
+      const [r, g] = await Promise.all([
+        callOp<SplashRow[]>("list_school_splashes"),
+        callOp<{ school_id: string; school_name: string; image_url: string | null; link_url: string | null; is_active: boolean | null; updated_at: string | null } | null>("get_global_splash"),
+      ]);
       setRows(r);
+      setGlobalSplash(g ? { ...g, school_id: GLOBAL_KEY, school_name: "Tüm Okullar" } : null);
     } catch (e: any) {
       toast({ title: "Yüklenemedi", description: e?.message, variant: "destructive" });
     } finally { setLoading(false); }
@@ -58,7 +65,19 @@ export default function SchoolSplashesManager() {
 
   useEffect(() => { load(); }, []);
 
-  const current = rows.find((r) => r.school_id === selectedSchool) ?? null;
+  const allRows = useMemo(() => {
+    const globalRow: SplashRow = globalSplash ?? {
+      school_id: GLOBAL_KEY,
+      school_name: "Tüm Okullar",
+      image_url: null,
+      link_url: null,
+      is_active: null,
+      updated_at: null,
+    };
+    return [globalRow, ...rows];
+  }, [rows, globalSplash]);
+
+  const current = allRows.find((r) => r.school_id === selectedSchool) ?? null;
 
   return (
     <div className="space-y-4">
