@@ -337,6 +337,7 @@ function StoryEditDialog({ data, onClose, onSaved }: {
         link_url: linkUrl.trim() || null,
         title: title.trim() || null,
         is_active: isActive,
+        expires_at: dateInputToExpiresIso(expiresDate),
       });
       toast({ title: "Kaydedildi" });
       onSaved();
