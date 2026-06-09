@@ -123,7 +123,7 @@ export default function SchoolSplashesManager() {
                 <CommandList>
                   <CommandEmpty>Okul bulunamadı.</CommandEmpty>
                   <CommandGroup>
-                    {rows.map((r) => (
+                    {allRows.map((r) => (
                       <CommandItem
                         key={r.school_id}
                         value={r.school_name}
