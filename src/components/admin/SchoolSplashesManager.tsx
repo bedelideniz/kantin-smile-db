@@ -80,7 +80,7 @@ export default function SchoolSplashesManager() {
       toast({ title: "Yüklenemedi", description: e?.message, variant: "destructive" });
     }
     try {
-      const g = await callOp<{ school_id: string; school_name: string; image_url: string | null; link_url: string | null; is_active: boolean | null; updated_at: string | null } | null>("get_global_splash");
+      const g = await callOp<{ school_id: string; school_name: string; image_url: string | null; link_url: string | null; is_active: boolean | null; expires_at: string | null; updated_at: string | null } | null>("get_global_splash");
       setGlobalSplash(g ? { ...g, school_id: GLOBAL_KEY, school_name: "Tüm Okullar" } : null);
     } catch {
       setGlobalSplash(null);
@@ -97,6 +97,7 @@ export default function SchoolSplashesManager() {
       image_url: null,
       link_url: null,
       is_active: null,
+      expires_at: null,
       updated_at: null,
     };
     return [globalRow, ...rows];
