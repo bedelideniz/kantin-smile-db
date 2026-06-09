@@ -52,15 +52,18 @@ export default function SchoolSplashesManager() {
   const load = async () => {
     setLoading(true);
     try {
-      const [r, g] = await Promise.all([
-        callOp<SplashRow[]>("list_school_splashes"),
-        callOp<{ school_id: string; school_name: string; image_url: string | null; link_url: string | null; is_active: boolean | null; updated_at: string | null } | null>("get_global_splash"),
-      ]);
+      const r = await callOp<SplashRow[]>("list_school_splashes");
       setRows(r);
-      setGlobalSplash(g ? { ...g, school_id: GLOBAL_KEY, school_name: "Tüm Okullar" } : null);
     } catch (e: any) {
       toast({ title: "Yüklenemedi", description: e?.message, variant: "destructive" });
-    } finally { setLoading(false); }
+    }
+    try {
+      const g = await callOp<{ school_id: string; school_name: string; image_url: string | null; link_url: string | null; is_active: boolean | null; updated_at: string | null } | null>("get_global_splash");
+      setGlobalSplash(g ? { ...g, school_id: GLOBAL_KEY, school_name: "Tüm Okullar" } : null);
+    } catch {
+      setGlobalSplash(null);
+    }
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
