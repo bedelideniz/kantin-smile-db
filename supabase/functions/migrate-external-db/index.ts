@@ -748,7 +748,22 @@ const MIGRATIONS: Migration[] = [
          AND value = '"Sayin {parent_name}, {school_name} kantin sisteminde hesabiniz aktiftir. Cocugunuzun bakiyesini yonetmek ve yukleme yapmak icin: kantinpay.com"'::jsonb;
     `,
   },
+  {
+    version: "0024_global_splashes",
+    description: "Global splash screen shown to all schools unless a per-school override exists",
+    sql: `
+      CREATE TABLE IF NOT EXISTS global_splashes (
+        id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+        image_url TEXT NOT NULL,
+        link_url TEXT,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `,
+  },
 ];
+
 
 
 Deno.serve(async (req) => {
