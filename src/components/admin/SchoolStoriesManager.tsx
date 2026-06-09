@@ -31,6 +31,7 @@ interface Row {
   title: string | null;
   sort_order: number | null;
   is_active: boolean | null;
+  expires_at: string | null;
   updated_at: string | null;
 }
 
@@ -41,12 +42,32 @@ interface Story {
   title: string | null;
   sort_order: number;
   is_active: boolean;
+  expires_at: string | null;
 }
 
 interface SchoolGroup {
   school_id: string;
   school_name: string;
   stories: Story[];
+}
+
+function dateInputToExpiresIso(d: string): string | null {
+  if (!d) return null;
+  const [y, m, day] = d.split("-").map(Number);
+  if (!y || !m || !day) return null;
+  return new Date(y, m - 1, day, 23, 59, 59, 999).toISOString();
+}
+function expiresIsoToDateInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function isExpired(iso: string | null): boolean {
+  if (!iso) return false;
+  return new Date(iso).getTime() <= Date.now();
 }
 
 async function callOp<T = any>(op: string, params: Record<string, unknown> = {}): Promise<T> {
