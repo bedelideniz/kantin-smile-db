@@ -941,6 +941,26 @@ const HANDLERS: Record<string, Handler> = {
     );
     return r.rows[0];
   },
+  upsert_global_splash: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      image_url: z.string().trim().url().max(2048),
+      link_url: z.string().trim().url().max(2048).nullable().optional(),
+      is_active: z.boolean().optional().default(true),
+    }).parse(params);
+    const r = await query(
+      `INSERT INTO global_splashes (id, image_url, link_url, is_active, updated_at)
+       VALUES (1, $1, $2, $3, now())
+       ON CONFLICT (id) DO UPDATE
+         SET image_url = EXCLUDED.image_url,
+             link_url  = EXCLUDED.link_url,
+             is_active = EXCLUDED.is_active,
+             updated_at = now()
+       RETURNING id, image_url, link_url, is_active, updated_at`,
+      [p.image_url, p.link_url ?? null, p.is_active],
+    );
+    return r.rows[0];
+  },
   delete_school_splash: async (ctx, params) => {
     requireSuperAdmin(ctx);
     const p = z.object({ school_id: z.string().uuid() }).parse(params);
