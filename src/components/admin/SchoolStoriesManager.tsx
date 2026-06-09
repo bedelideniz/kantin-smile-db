@@ -282,6 +282,7 @@ function StoryEditDialog({ data, onClose, onSaved }: {
   const [linkUrl, setLinkUrl] = useState("");
   const [title, setTitle] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [expiresDate, setExpiresDate] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -291,6 +292,7 @@ function StoryEditDialog({ data, onClose, onSaved }: {
       setLinkUrl(data.current?.link_url ?? "");
       setTitle(data.current?.title ?? "");
       setIsActive(data.current?.is_active ?? true);
+      setExpiresDate(expiresIsoToDateInput(data.current?.expires_at ?? null));
     }
   }, [data]);
 
