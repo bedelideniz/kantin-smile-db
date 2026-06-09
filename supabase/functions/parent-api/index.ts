@@ -311,7 +311,8 @@ const PUBLIC_OPS: Record<string, Handler> = {
       students: students.map((s) => ({
         id: s.id, school_id: s.school_id, school_name: s.school_name,
         full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
-        balance: Number(s.balance),
+        balance: Number(s.balance), photo_url: s.photo_url,
+        card_lost: !!s.card_lost, has_card: !!s.nfc_uid,
         daily_spend_limit: s.daily_spend_limit == null ? null : Number(s.daily_spend_limit),
         today_spent: Number(s.today_spent ?? 0),
       })),
