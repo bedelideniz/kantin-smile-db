@@ -906,7 +906,7 @@ const HANDLERS: Record<string, Handler> = {
     requireSuperAdmin(ctx);
     const r = await query(
       `SELECT s.id AS school_id, s.name AS school_name,
-              ss.image_url, ss.link_url, ss.is_active, ss.updated_at
+              ss.image_url, ss.link_url, ss.is_active, ss.expires_at, ss.updated_at
          FROM schools s
          LEFT JOIN school_splashes ss ON ss.school_id = s.id
         ORDER BY s.name ASC`,
@@ -916,7 +916,7 @@ const HANDLERS: Record<string, Handler> = {
   get_global_splash: async (ctx) => {
     requireSuperAdmin(ctx);
     const r = await query(
-      "SELECT id, image_url, link_url, is_active, updated_at FROM global_splashes WHERE id = 1",
+      "SELECT id, image_url, link_url, is_active, expires_at, updated_at FROM global_splashes WHERE id = 1",
     );
     return r.rows[0] ?? null;
   },
@@ -927,17 +927,19 @@ const HANDLERS: Record<string, Handler> = {
       image_url: z.string().trim().url().max(2048),
       link_url: z.string().trim().url().max(2048).nullable().optional(),
       is_active: z.boolean().optional().default(true),
+      expires_at: z.string().datetime({ offset: true }).nullable().optional(),
     }).parse(params);
     const r = await query(
-      `INSERT INTO school_splashes (school_id, image_url, link_url, is_active, updated_at)
-       VALUES ($1,$2,$3,$4, now())
+      `INSERT INTO school_splashes (school_id, image_url, link_url, is_active, expires_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5, now())
        ON CONFLICT (school_id) DO UPDATE
          SET image_url = EXCLUDED.image_url,
              link_url  = EXCLUDED.link_url,
              is_active = EXCLUDED.is_active,
+             expires_at = EXCLUDED.expires_at,
              updated_at = now()
-       RETURNING school_id, image_url, link_url, is_active, updated_at`,
-      [p.school_id, p.image_url, p.link_url ?? null, p.is_active],
+       RETURNING school_id, image_url, link_url, is_active, expires_at, updated_at`,
+      [p.school_id, p.image_url, p.link_url ?? null, p.is_active, p.expires_at ?? null],
     );
     return r.rows[0];
   },
@@ -947,17 +949,19 @@ const HANDLERS: Record<string, Handler> = {
       image_url: z.string().trim().url().max(2048),
       link_url: z.string().trim().url().max(2048).nullable().optional(),
       is_active: z.boolean().optional().default(true),
+      expires_at: z.string().datetime({ offset: true }).nullable().optional(),
     }).parse(params);
     const r = await query(
-      `INSERT INTO global_splashes (id, image_url, link_url, is_active, updated_at)
-       VALUES (1, $1, $2, $3, now())
+      `INSERT INTO global_splashes (id, image_url, link_url, is_active, expires_at, updated_at)
+       VALUES (1, $1, $2, $3, $4, now())
        ON CONFLICT (id) DO UPDATE
          SET image_url = EXCLUDED.image_url,
              link_url  = EXCLUDED.link_url,
              is_active = EXCLUDED.is_active,
+             expires_at = EXCLUDED.expires_at,
              updated_at = now()
-       RETURNING id, image_url, link_url, is_active, updated_at`,
-      [p.image_url, p.link_url ?? null, p.is_active],
+       RETURNING id, image_url, link_url, is_active, expires_at, updated_at`,
+      [p.image_url, p.link_url ?? null, p.is_active, p.expires_at ?? null],
     );
     return r.rows[0];
   },
