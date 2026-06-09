@@ -407,6 +407,27 @@ function StoryEditDialog({ data, onClose, onSaved }: {
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="expires">Son Gösterim Tarihi (opsiyonel)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="expires"
+                type="date"
+                value={expiresDate}
+                onChange={(e) => setExpiresDate(e.target.value)}
+                className="max-w-[200px]"
+              />
+              {expiresDate && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setExpiresDate("")}>
+                  Temizle
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Belirtilen tarihin günü sonunda (23:59) hikaye otomatik olarak pasife geçer. Boş bırakılırsa süresiz gösterilir.
+            </p>
+          </div>
+
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>
               <Label htmlFor="active">Aktif</Label>
