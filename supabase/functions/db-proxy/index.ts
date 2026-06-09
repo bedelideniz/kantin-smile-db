@@ -913,6 +913,13 @@ const HANDLERS: Record<string, Handler> = {
     );
     return r.rows;
   },
+  get_global_splash: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      "SELECT id, image_url, link_url, is_active, updated_at FROM global_splashes WHERE id = 1",
+    );
+    return r.rows[0] ?? null;
+  },
   upsert_school_splash: async (ctx, params) => {
     requireSuperAdmin(ctx);
     const p = z.object({
