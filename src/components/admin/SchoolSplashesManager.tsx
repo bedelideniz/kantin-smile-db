@@ -335,11 +335,13 @@ function SplashEditDialog({
     }
     setSaving(true);
     try {
+      const expires_at = dateInputToExpiresIso(expiresDate);
       if (isGlobal) {
         await callOp("upsert_global_splash", {
           image_url: imageUrl,
           link_url: linkUrl.trim() || null,
           is_active: isActive,
+          expires_at,
         });
       } else {
         await callOp("upsert_school_splash", {
@@ -347,6 +349,7 @@ function SplashEditDialog({
           image_url: imageUrl,
           link_url: linkUrl.trim() || null,
           is_active: isActive,
+          expires_at,
         });
       }
       toast({ title: "Kaydedildi" });
