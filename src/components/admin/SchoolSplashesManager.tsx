@@ -188,13 +188,18 @@ export default function SchoolSplashesManager() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-semibold">{current.school_name}</p>
-                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   {current.image_url == null ? (
                     <Badge variant="outline">Tanımsız</Badge>
+                  ) : isExpired(current.expires_at) ? (
+                    <Badge variant="destructive">Süresi Doldu</Badge>
                   ) : current.is_active ? (
                     <Badge>Aktif</Badge>
                   ) : (
                     <Badge variant="secondary">Pasif</Badge>
+                  )}
+                  {current.expires_at && (
+                    <span>Son: {new Date(current.expires_at).toLocaleDateString("tr-TR")}</span>
                   )}
                   {current.link_url && (
                     <a href={current.link_url} target="_blank" rel="noopener noreferrer"
