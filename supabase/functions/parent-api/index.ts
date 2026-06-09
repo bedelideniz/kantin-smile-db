@@ -376,12 +376,17 @@ const PUBLIC_OPS: Record<string, Handler> = {
 
 const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise<unknown>> = {
   me: async (ctx) => {
-    const { canonical, variants } = phoneVariants(ctx.phone);
+    const { variants } = phoneVariants(ctx.phone);
     const [students, pr] = await Promise.all([
       findStudentsForParent(variants),
+      // Aggregate across all phone variants. If ANY row has must_change=FALSE,
+      // treat the parent as already migrated — avoids a redirect loop when
+      // duplicate rows with stale `must_change=TRUE` exist.
       query<{ must_change: boolean }>(
-        "SELECT must_change FROM parent_pins WHERE phone=$1",
-        [canonical],
+        `SELECT bool_and(must_change) AS must_change
+           FROM parent_pins
+          WHERE phone = ANY($1::text[])`,
+        [variants],
       ),
     ]);
     return {
