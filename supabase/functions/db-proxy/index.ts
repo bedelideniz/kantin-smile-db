@@ -1028,7 +1028,7 @@ const HANDLERS: Record<string, Handler> = {
     const r = await query(
       `SELECT s.id AS school_id, s.name AS school_name,
               ss.id AS story_id, ss.image_url, ss.link_url, ss.title,
-              ss.sort_order, ss.is_active, ss.updated_at, ss.created_at
+              ss.sort_order, ss.is_active, ss.expires_at, ss.updated_at, ss.created_at
          FROM schools s
          LEFT JOIN school_stories ss ON ss.school_id = s.id
         ORDER BY s.name ASC, ss.sort_order ASC NULLS LAST, ss.created_at ASC`,
@@ -1045,20 +1045,21 @@ const HANDLERS: Record<string, Handler> = {
       title: z.string().trim().max(120).nullable().optional(),
       sort_order: z.number().int().optional(),
       is_active: z.boolean().optional().default(true),
+      expires_at: z.string().datetime({ offset: true }).nullable().optional(),
     }).parse(params);
     if (p.story_id) {
       const r = await query(
         `UPDATE school_stories
             SET image_url=$2, link_url=$3, title=$4, is_active=$5,
-                sort_order = COALESCE($6, sort_order), updated_at=now()
+                sort_order = COALESCE($6, sort_order),
+                expires_at=$7, updated_at=now()
           WHERE id=$1
-          RETURNING id, school_id, image_url, link_url, title, sort_order, is_active`,
-        [p.story_id, p.image_url, p.link_url ?? null, p.title ?? null, p.is_active, p.sort_order ?? null],
+          RETURNING id, school_id, image_url, link_url, title, sort_order, is_active, expires_at`,
+        [p.story_id, p.image_url, p.link_url ?? null, p.title ?? null, p.is_active, p.sort_order ?? null, p.expires_at ?? null],
       );
       if (r.rowCount === 0) throw new HttpError(404, "Hikaye bulunamadı");
       return r.rows[0];
     }
-    // Default sort_order = max+1 for that school
     let order = p.sort_order;
     if (order == null) {
       const m = await query<{ m: number | null }>(
@@ -1068,10 +1069,10 @@ const HANDLERS: Record<string, Handler> = {
       order = Number(m.rows[0]?.m ?? 0);
     }
     const r = await query(
-      `INSERT INTO school_stories (school_id, image_url, link_url, title, sort_order, is_active)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       RETURNING id, school_id, image_url, link_url, title, sort_order, is_active`,
-      [p.school_id, p.image_url, p.link_url ?? null, p.title ?? null, order, p.is_active],
+      `INSERT INTO school_stories (school_id, image_url, link_url, title, sort_order, is_active, expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       RETURNING id, school_id, image_url, link_url, title, sort_order, is_active, expires_at`,
+      [p.school_id, p.image_url, p.link_url ?? null, p.title ?? null, order, p.is_active, p.expires_at ?? null],
     );
     return r.rows[0];
   },
