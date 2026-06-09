@@ -286,6 +286,7 @@ function SplashEditDialog({
   const [imageUrl, setImageUrl] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [expiresDate, setExpiresDate] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -294,6 +295,7 @@ function SplashEditDialog({
       setImageUrl(row.image_url ?? "");
       setLinkUrl(row.link_url ?? "");
       setIsActive(row.is_active ?? true);
+      setExpiresDate(expiresIsoToDateInput(row.expires_at));
     }
   }, [row]);
 
