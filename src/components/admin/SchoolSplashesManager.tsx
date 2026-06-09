@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Image as ImageIcon, Loader2, Pencil, Trash2, Upload, Link as LinkIcon, School, ChevronsUpDown, Check } from "lucide-react";
+import { Image as ImageIcon, Loader2, Pencil, Trash2, Upload, Link as LinkIcon, School, Globe, ChevronsUpDown, Check } from "lucide-react";
 
 interface SplashRow {
   school_id: string;
@@ -37,9 +37,12 @@ async function callOp<T = any>(op: string, params: Record<string, unknown> = {})
   return data?.data as T;
 }
 
+const GLOBAL_KEY = "__global__";
+
 export default function SchoolSplashesManager() {
   const { toast } = useToast();
   const [rows, setRows] = useState<SplashRow[]>([]);
+  const [globalSplash, setGlobalSplash] = useState<SplashRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSchool, setSelectedSchool] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -53,12 +56,31 @@ export default function SchoolSplashesManager() {
       setRows(r);
     } catch (e: any) {
       toast({ title: "Yüklenemedi", description: e?.message, variant: "destructive" });
-    } finally { setLoading(false); }
+    }
+    try {
+      const g = await callOp<{ school_id: string; school_name: string; image_url: string | null; link_url: string | null; is_active: boolean | null; updated_at: string | null } | null>("get_global_splash");
+      setGlobalSplash(g ? { ...g, school_id: GLOBAL_KEY, school_name: "Tüm Okullar" } : null);
+    } catch {
+      setGlobalSplash(null);
+    }
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
-  const current = rows.find((r) => r.school_id === selectedSchool) ?? null;
+  const allRows = useMemo(() => {
+    const globalRow: SplashRow = globalSplash ?? {
+      school_id: GLOBAL_KEY,
+      school_name: "Tüm Okullar",
+      image_url: null,
+      link_url: null,
+      is_active: null,
+      updated_at: null,
+    };
+    return [globalRow, ...rows];
+  }, [rows, globalSplash]);
+
+  const current = allRows.find((r) => r.school_id === selectedSchool) ?? null;
 
   return (
     <div className="space-y-4">
@@ -104,7 +126,7 @@ export default function SchoolSplashesManager() {
                 <CommandList>
                   <CommandEmpty>Okul bulunamadı.</CommandEmpty>
                   <CommandGroup>
-                    {rows.map((r) => (
+                    {allRows.map((r) => (
                       <CommandItem
                         key={r.school_id}
                         value={r.school_name}
@@ -194,8 +216,17 @@ export default function SchoolSplashesManager() {
           <AlertDialogHeader>
             <AlertDialogTitle>Splash silinsin mi?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleting?.school_name}</strong> okulu için splash ekranı tamamen kaldırılacak.
-              Veliler artık reklam görmeyecek.
+              {deleting?.school_id === GLOBAL_KEY ? (
+                <>
+                  <strong>Tüm okullar</strong> için global splash ekranı tamamen kaldırılacak.
+                  Veliler artık bu global reklamı görmeyecek.
+                </>
+              ) : (
+                <>
+                  <strong>{deleting?.school_name}</strong> okulu için splash ekranı tamamen kaldırılacak.
+                  Veliler artık reklam görmeyecek.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -204,7 +235,11 @@ export default function SchoolSplashesManager() {
               onClick={async () => {
                 if (!deleting) return;
                 try {
-                  await callOp("delete_school_splash", { school_id: deleting.school_id });
+                  if (deleting.school_id === GLOBAL_KEY) {
+                    await callOp("delete_global_splash");
+                  } else {
+                    await callOp("delete_school_splash", { school_id: deleting.school_id });
+                  }
                   toast({ title: "Silindi" });
                   setDeleting(null);
                   load();
@@ -241,6 +276,8 @@ function SplashEditDialog({
 
   if (!row) return null;
 
+  const isGlobal = row.school_id === GLOBAL_KEY;
+
   const onPickFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast({ title: "Geçersiz dosya", description: "Lütfen bir görsel seçin.", variant: "destructive" });
@@ -253,7 +290,7 @@ function SplashEditDialog({
     setUploading(true);
     try {
       const ext = file.name.split(".").pop() || "jpg";
-      const path = `${row.school_id}/${Date.now()}.${ext}`;
+      const path = isGlobal ? `global/${Date.now()}.${ext}` : `${row.school_id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("school-splashes")
         .upload(path, file, { upsert: true, contentType: file.type });
@@ -273,12 +310,20 @@ function SplashEditDialog({
     }
     setSaving(true);
     try {
-      await callOp("upsert_school_splash", {
-        school_id: row.school_id,
-        image_url: imageUrl,
-        link_url: linkUrl.trim() || null,
-        is_active: isActive,
-      });
+      if (isGlobal) {
+        await callOp("upsert_global_splash", {
+          image_url: imageUrl,
+          link_url: linkUrl.trim() || null,
+          is_active: isActive,
+        });
+      } else {
+        await callOp("upsert_school_splash", {
+          school_id: row.school_id,
+          image_url: imageUrl,
+          link_url: linkUrl.trim() || null,
+          is_active: isActive,
+        });
+      }
       toast({ title: "Kaydedildi" });
       onSaved();
     } catch (e: any) {

@@ -913,6 +913,13 @@ const HANDLERS: Record<string, Handler> = {
     );
     return r.rows;
   },
+  get_global_splash: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      "SELECT id, image_url, link_url, is_active, updated_at FROM global_splashes WHERE id = 1",
+    );
+    return r.rows[0] ?? null;
+  },
   upsert_school_splash: async (ctx, params) => {
     requireSuperAdmin(ctx);
     const p = z.object({
@@ -934,11 +941,36 @@ const HANDLERS: Record<string, Handler> = {
     );
     return r.rows[0];
   },
+  upsert_global_splash: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      image_url: z.string().trim().url().max(2048),
+      link_url: z.string().trim().url().max(2048).nullable().optional(),
+      is_active: z.boolean().optional().default(true),
+    }).parse(params);
+    const r = await query(
+      `INSERT INTO global_splashes (id, image_url, link_url, is_active, updated_at)
+       VALUES (1, $1, $2, $3, now())
+       ON CONFLICT (id) DO UPDATE
+         SET image_url = EXCLUDED.image_url,
+             link_url  = EXCLUDED.link_url,
+             is_active = EXCLUDED.is_active,
+             updated_at = now()
+       RETURNING id, image_url, link_url, is_active, updated_at`,
+      [p.image_url, p.link_url ?? null, p.is_active],
+    );
+    return r.rows[0];
+  },
   delete_school_splash: async (ctx, params) => {
     requireSuperAdmin(ctx);
     const p = z.object({ school_id: z.string().uuid() }).parse(params);
     await query("DELETE FROM school_splashes WHERE school_id=$1", [p.school_id]);
     return { school_id: p.school_id, deleted: true };
+  },
+  delete_global_splash: async (ctx) => {
+    requireSuperAdmin(ctx);
+    await query("DELETE FROM global_splashes WHERE id = 1");
+    return { deleted: true };
   },
   // ===== Canteen announcements (per-school, 4 slots, shown on cashier panel) =====
   list_canteen_announcements: async (ctx) => {
