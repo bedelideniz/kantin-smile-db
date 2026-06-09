@@ -273,6 +273,8 @@ function SplashEditDialog({
 
   if (!row) return null;
 
+  const isGlobal = row.school_id === GLOBAL_KEY;
+
   const onPickFile = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       toast({ title: "Geçersiz dosya", description: "Lütfen bir görsel seçin.", variant: "destructive" });
@@ -285,7 +287,7 @@ function SplashEditDialog({
     setUploading(true);
     try {
       const ext = file.name.split(".").pop() || "jpg";
-      const path = `${row.school_id}/${Date.now()}.${ext}`;
+      const path = isGlobal ? `global/${Date.now()}.${ext}` : `${row.school_id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("school-splashes")
         .upload(path, file, { upsert: true, contentType: file.type });
@@ -305,12 +307,20 @@ function SplashEditDialog({
     }
     setSaving(true);
     try {
-      await callOp("upsert_school_splash", {
-        school_id: row.school_id,
-        image_url: imageUrl,
-        link_url: linkUrl.trim() || null,
-        is_active: isActive,
-      });
+      if (isGlobal) {
+        await callOp("upsert_global_splash", {
+          image_url: imageUrl,
+          link_url: linkUrl.trim() || null,
+          is_active: isActive,
+        });
+      } else {
+        await callOp("upsert_school_splash", {
+          school_id: row.school_id,
+          image_url: imageUrl,
+          link_url: linkUrl.trim() || null,
+          is_active: isActive,
+        });
+      }
       toast({ title: "Kaydedildi" });
       onSaved();
     } catch (e: any) {
