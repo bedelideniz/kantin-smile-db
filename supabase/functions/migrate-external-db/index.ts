@@ -762,6 +762,18 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: "0025_splash_story_expires_at",
+    description: "Add expires_at to school_splashes, global_splashes and school_stories for auto-deactivation",
+    sql: `
+      ALTER TABLE school_splashes ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+      ALTER TABLE global_splashes ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+      ALTER TABLE school_stories  ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+      CREATE INDEX IF NOT EXISTS idx_school_splashes_expires_at ON school_splashes(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_global_splashes_expires_at ON global_splashes(expires_at);
+      CREATE INDEX IF NOT EXISTS idx_school_stories_expires_at  ON school_stories(expires_at);
+    `,
+  },
 ];
 
 
