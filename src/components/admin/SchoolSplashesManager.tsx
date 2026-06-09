@@ -19,7 +19,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Image as ImageIcon, Loader2, Pencil, Trash2, Upload, Link as LinkIcon, School, ChevronsUpDown, Check } from "lucide-react";
+import { Image as ImageIcon, Loader2, Pencil, Trash2, Upload, Link as LinkIcon, School, Globe, ChevronsUpDown, Check } from "lucide-react";
 
 interface SplashRow {
   school_id: string;
