@@ -420,9 +420,15 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       throw new HttpError(400, "Yeni PIN, mevcut PIN ile aynı olamaz");
     }
     const newHash = await bcrypt.hash(p.new_pin, 10);
+    // Update every parent_pins row that matches any phone variant. Old data
+    // may contain duplicate rows (different phone formats) — updating only
+    // one would leave `must_change=TRUE` on the others and cause a redirect
+    // loop on subsequent `me` calls.
     await query(
-      "UPDATE parent_pins SET pin_hash=$2, must_change=FALSE, updated_at=now() WHERE phone=$1",
-      [pinRecord.phone || canonical, newHash],
+      `UPDATE parent_pins
+          SET pin_hash=$2, must_change=FALSE, updated_at=now()
+        WHERE phone = ANY($1::text[])`,
+      [variants, newHash],
     );
     return { ok: true };
   },
