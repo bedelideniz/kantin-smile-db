@@ -213,8 +213,17 @@ export default function SchoolSplashesManager() {
           <AlertDialogHeader>
             <AlertDialogTitle>Splash silinsin mi?</AlertDialogTitle>
             <AlertDialogDescription>
-              <strong>{deleting?.school_name}</strong> okulu için splash ekranı tamamen kaldırılacak.
-              Veliler artık reklam görmeyecek.
+              {deleting?.school_id === GLOBAL_KEY ? (
+                <>
+                  <strong>Tüm okullar</strong> için global splash ekranı tamamen kaldırılacak.
+                  Veliler artık bu global reklamı görmeyecek.
+                </>
+              ) : (
+                <>
+                  <strong>{deleting?.school_name}</strong> okulu için splash ekranı tamamen kaldırılacak.
+                  Veliler artık reklam görmeyecek.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -223,7 +232,11 @@ export default function SchoolSplashesManager() {
               onClick={async () => {
                 if (!deleting) return;
                 try {
-                  await callOp("delete_school_splash", { school_id: deleting.school_id });
+                  if (deleting.school_id === GLOBAL_KEY) {
+                    await callOp("delete_global_splash");
+                  } else {
+                    await callOp("delete_school_splash", { school_id: deleting.school_id });
+                  }
                   toast({ title: "Silindi" });
                   setDeleting(null);
                   load();
