@@ -27,7 +27,29 @@ interface SplashRow {
   image_url: string | null;
   link_url: string | null;
   is_active: boolean | null;
+  expires_at: string | null;
   updated_at: string | null;
+}
+
+// Convert a YYYY-MM-DD local date to ISO at 23:59:59.999 local time.
+function dateInputToExpiresIso(d: string): string | null {
+  if (!d) return null;
+  const [y, m, day] = d.split("-").map(Number);
+  if (!y || !m || !day) return null;
+  return new Date(y, m - 1, day, 23, 59, 59, 999).toISOString();
+}
+// Convert ISO timestamp back to YYYY-MM-DD local for the input.
+function expiresIsoToDateInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function isExpired(iso: string | null): boolean {
+  if (!iso) return false;
+  return new Date(iso).getTime() <= Date.now();
 }
 
 async function callOp<T = any>(op: string, params: Record<string, unknown> = {}): Promise<T> {
@@ -58,7 +80,7 @@ export default function SchoolSplashesManager() {
       toast({ title: "Yüklenemedi", description: e?.message, variant: "destructive" });
     }
     try {
-      const g = await callOp<{ school_id: string; school_name: string; image_url: string | null; link_url: string | null; is_active: boolean | null; updated_at: string | null } | null>("get_global_splash");
+      const g = await callOp<{ school_id: string; school_name: string; image_url: string | null; link_url: string | null; is_active: boolean | null; expires_at: string | null; updated_at: string | null } | null>("get_global_splash");
       setGlobalSplash(g ? { ...g, school_id: GLOBAL_KEY, school_name: "Tüm Okullar" } : null);
     } catch {
       setGlobalSplash(null);
@@ -75,6 +97,7 @@ export default function SchoolSplashesManager() {
       image_url: null,
       link_url: null,
       is_active: null,
+      expires_at: null,
       updated_at: null,
     };
     return [globalRow, ...rows];
@@ -165,13 +188,18 @@ export default function SchoolSplashesManager() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-semibold">{current.school_name}</p>
-                <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   {current.image_url == null ? (
                     <Badge variant="outline">Tanımsız</Badge>
+                  ) : isExpired(current.expires_at) ? (
+                    <Badge variant="destructive">Süresi Doldu</Badge>
                   ) : current.is_active ? (
                     <Badge>Aktif</Badge>
                   ) : (
                     <Badge variant="secondary">Pasif</Badge>
+                  )}
+                  {current.expires_at && (
+                    <span>Son: {new Date(current.expires_at).toLocaleDateString("tr-TR")}</span>
                   )}
                   {current.link_url && (
                     <a href={current.link_url} target="_blank" rel="noopener noreferrer"
@@ -263,6 +291,7 @@ function SplashEditDialog({
   const [imageUrl, setImageUrl] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [expiresDate, setExpiresDate] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -271,6 +300,7 @@ function SplashEditDialog({
       setImageUrl(row.image_url ?? "");
       setLinkUrl(row.link_url ?? "");
       setIsActive(row.is_active ?? true);
+      setExpiresDate(expiresIsoToDateInput(row.expires_at));
     }
   }, [row]);
 
@@ -310,11 +340,13 @@ function SplashEditDialog({
     }
     setSaving(true);
     try {
+      const expires_at = dateInputToExpiresIso(expiresDate);
       if (isGlobal) {
         await callOp("upsert_global_splash", {
           image_url: imageUrl,
           link_url: linkUrl.trim() || null,
           is_active: isActive,
+          expires_at,
         });
       } else {
         await callOp("upsert_school_splash", {
@@ -322,6 +354,7 @@ function SplashEditDialog({
           image_url: imageUrl,
           link_url: linkUrl.trim() || null,
           is_active: isActive,
+          expires_at,
         });
       }
       toast({ title: "Kaydedildi" });
@@ -376,6 +409,27 @@ function SplashEditDialog({
             />
             <p className="text-xs text-muted-foreground">
               Veli görsele tıkladığında yeni sekmede açılacak. Boş bırakılırsa sadece görüntüleme olur.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="expires">Son Gösterim Tarihi (opsiyonel)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="expires"
+                type="date"
+                value={expiresDate}
+                onChange={(e) => setExpiresDate(e.target.value)}
+                className="max-w-[200px]"
+              />
+              {expiresDate && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setExpiresDate("")}>
+                  Temizle
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Belirtilen tarihin günü sonunda (23:59) splash otomatik olarak pasife geçer. Boş bırakılırsa süresiz gösterilir.
             </p>
           </div>
 

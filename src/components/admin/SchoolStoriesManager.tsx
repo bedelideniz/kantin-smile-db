@@ -31,6 +31,7 @@ interface Row {
   title: string | null;
   sort_order: number | null;
   is_active: boolean | null;
+  expires_at: string | null;
   updated_at: string | null;
 }
 
@@ -41,12 +42,32 @@ interface Story {
   title: string | null;
   sort_order: number;
   is_active: boolean;
+  expires_at: string | null;
 }
 
 interface SchoolGroup {
   school_id: string;
   school_name: string;
   stories: Story[];
+}
+
+function dateInputToExpiresIso(d: string): string | null {
+  if (!d) return null;
+  const [y, m, day] = d.split("-").map(Number);
+  if (!y || !m || !day) return null;
+  return new Date(y, m - 1, day, 23, 59, 59, 999).toISOString();
+}
+function expiresIsoToDateInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function isExpired(iso: string | null): boolean {
+  if (!iso) return false;
+  return new Date(iso).getTime() <= Date.now();
 }
 
 async function callOp<T = any>(op: string, params: Record<string, unknown> = {}): Promise<T> {
@@ -93,6 +114,7 @@ export default function SchoolStoriesManager() {
           title: r.title,
           sort_order: r.sort_order ?? 0,
           is_active: !!r.is_active,
+          expires_at: r.expires_at,
         });
       }
     }
@@ -260,6 +282,7 @@ function StoryEditDialog({ data, onClose, onSaved }: {
   const [linkUrl, setLinkUrl] = useState("");
   const [title, setTitle] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [expiresDate, setExpiresDate] = useState("");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -269,6 +292,7 @@ function StoryEditDialog({ data, onClose, onSaved }: {
       setLinkUrl(data.current?.link_url ?? "");
       setTitle(data.current?.title ?? "");
       setIsActive(data.current?.is_active ?? true);
+      setExpiresDate(expiresIsoToDateInput(data.current?.expires_at ?? null));
     }
   }, [data]);
 
@@ -313,6 +337,7 @@ function StoryEditDialog({ data, onClose, onSaved }: {
         link_url: linkUrl.trim() || null,
         title: title.trim() || null,
         is_active: isActive,
+        expires_at: dateInputToExpiresIso(expiresDate),
       });
       toast({ title: "Kaydedildi" });
       onSaved();
@@ -380,6 +405,27 @@ function StoryEditDialog({ data, onClose, onSaved }: {
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="expires">Son Gösterim Tarihi (opsiyonel)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="expires"
+                type="date"
+                value={expiresDate}
+                onChange={(e) => setExpiresDate(e.target.value)}
+                className="max-w-[200px]"
+              />
+              {expiresDate && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setExpiresDate("")}>
+                  Temizle
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Belirtilen tarihin günü sonunda (23:59) hikaye otomatik olarak pasife geçer. Boş bırakılırsa süresiz gösterilir.
+            </p>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-3">
@@ -481,7 +527,9 @@ function ReorderableStoryGrid({
           >
             <div className="relative flex aspect-[9/16] items-center justify-center bg-muted">
               <img src={s.image_url} alt={s.title ?? ""} className="h-full w-full object-cover" />
-              {s.is_active ? (
+              {isExpired(s.expires_at) ? (
+                <Badge className="absolute right-2 top-2" variant="destructive">Süresi Doldu</Badge>
+              ) : s.is_active ? (
                 <Badge className="absolute right-2 top-2">Aktif</Badge>
               ) : (
                 <Badge className="absolute right-2 top-2" variant="outline">Pasif</Badge>
@@ -498,6 +546,11 @@ function ReorderableStoryGrid({
             <CardContent className="space-y-2 p-3">
               {s.title && <p className="truncate text-sm font-medium">{s.title}</p>}
               {s.link_url && <p className="truncate text-xs text-muted-foreground">🔗 {s.link_url}</p>}
+              {s.expires_at && (
+                <p className="truncate text-xs text-muted-foreground">
+                  Son: {new Date(s.expires_at).toLocaleDateString("tr-TR")}
+                </p>
+              )}
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" className="flex-1" onClick={() => onEdit(s)}>
                   <Pencil className="mr-1 h-3.5 w-3.5" /> Düzenle

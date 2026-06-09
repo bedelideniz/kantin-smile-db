@@ -220,10 +220,18 @@ const PUBLIC_OPS: Record<string, Handler> = {
   get_school_splash: async (_req, params) => {
     const p = z.object({ school_id: z.string().uuid() }).parse(params);
     const r = await query<{ image_url: string; link_url: string | null }>(
-      `SELECT image_url, link_url FROM school_splashes WHERE school_id=$1 AND is_active=TRUE
+      `SELECT image_url, link_url FROM school_splashes
+        WHERE school_id=$1 AND is_active=TRUE
+          AND (expires_at IS NULL OR expires_at > now())
        UNION ALL
-       SELECT image_url, link_url FROM global_splashes WHERE id=1 AND is_active=TRUE
-         AND NOT EXISTS (SELECT 1 FROM school_splashes WHERE school_id=$1 AND is_active=TRUE)
+       SELECT image_url, link_url FROM global_splashes
+        WHERE id=1 AND is_active=TRUE
+          AND (expires_at IS NULL OR expires_at > now())
+          AND NOT EXISTS (
+            SELECT 1 FROM school_splashes
+             WHERE school_id=$1 AND is_active=TRUE
+               AND (expires_at IS NULL OR expires_at > now())
+          )
        LIMIT 1`,
       [p.school_id],
     );
@@ -238,6 +246,7 @@ const PUBLIC_OPS: Record<string, Handler> = {
       `SELECT id, image_url, link_url, title
          FROM school_stories
         WHERE school_id=$1 AND is_active=TRUE
+          AND (expires_at IS NULL OR expires_at > now())
         ORDER BY sort_order ASC, created_at ASC`,
       [p.school_id],
     );
