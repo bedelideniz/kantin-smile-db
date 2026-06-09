@@ -94,7 +94,11 @@ async function findStudentsForParent(phoneVariantsList: string[]) {
 
 async function findParentPin(phoneVariantsList: string[]) {
   const r = await query<{ phone: string; pin_hash: string; must_change: boolean }>(
-    "SELECT phone, pin_hash, must_change FROM parent_pins WHERE phone = ANY($1::text[]) LIMIT 1",
+    `SELECT phone, pin_hash, must_change
+       FROM parent_pins
+      WHERE phone = ANY($1::text[])
+      ORDER BY updated_at DESC, created_at DESC
+      LIMIT 1`,
     [phoneVariantsList],
   );
   return r.rows[0] ?? null;
