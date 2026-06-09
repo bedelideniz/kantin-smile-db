@@ -27,7 +27,29 @@ interface SplashRow {
   image_url: string | null;
   link_url: string | null;
   is_active: boolean | null;
+  expires_at: string | null;
   updated_at: string | null;
+}
+
+// Convert a YYYY-MM-DD local date to ISO at 23:59:59.999 local time.
+function dateInputToExpiresIso(d: string): string | null {
+  if (!d) return null;
+  const [y, m, day] = d.split("-").map(Number);
+  if (!y || !m || !day) return null;
+  return new Date(y, m - 1, day, 23, 59, 59, 999).toISOString();
+}
+// Convert ISO timestamp back to YYYY-MM-DD local for the input.
+function expiresIsoToDateInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function isExpired(iso: string | null): boolean {
+  if (!iso) return false;
+  return new Date(iso).getTime() <= Date.now();
 }
 
 async function callOp<T = any>(op: string, params: Record<string, unknown> = {}): Promise<T> {
