@@ -311,7 +311,8 @@ const PUBLIC_OPS: Record<string, Handler> = {
       students: students.map((s) => ({
         id: s.id, school_id: s.school_id, school_name: s.school_name,
         full_name: s.full_name, class_name: s.class_name, student_no: s.student_no,
-        balance: Number(s.balance),
+        balance: Number(s.balance), photo_url: s.photo_url,
+        card_lost: !!s.card_lost, has_card: !!s.nfc_uid,
         daily_spend_limit: s.daily_spend_limit == null ? null : Number(s.daily_spend_limit),
         today_spent: Number(s.today_spent ?? 0),
       })),
@@ -375,12 +376,17 @@ const PUBLIC_OPS: Record<string, Handler> = {
 
 const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise<unknown>> = {
   me: async (ctx) => {
-    const { canonical, variants } = phoneVariants(ctx.phone);
+    const { variants } = phoneVariants(ctx.phone);
     const [students, pr] = await Promise.all([
       findStudentsForParent(variants),
+      // Aggregate across all phone variants. If ANY row has must_change=FALSE,
+      // treat the parent as already migrated — avoids a redirect loop when
+      // duplicate rows with stale `must_change=TRUE` exist.
       query<{ must_change: boolean }>(
-        "SELECT must_change FROM parent_pins WHERE phone=$1",
-        [canonical],
+        `SELECT bool_and(must_change) AS must_change
+           FROM parent_pins
+          WHERE phone = ANY($1::text[])`,
+        [variants],
       ),
     ]);
     return {
@@ -419,9 +425,15 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
       throw new HttpError(400, "Yeni PIN, mevcut PIN ile aynı olamaz");
     }
     const newHash = await bcrypt.hash(p.new_pin, 10);
+    // Update every parent_pins row that matches any phone variant. Old data
+    // may contain duplicate rows (different phone formats) — updating only
+    // one would leave `must_change=TRUE` on the others and cause a redirect
+    // loop on subsequent `me` calls.
     await query(
-      "UPDATE parent_pins SET pin_hash=$2, must_change=FALSE, updated_at=now() WHERE phone=$1",
-      [pinRecord.phone || canonical, newHash],
+      `UPDATE parent_pins
+          SET pin_hash=$2, must_change=FALSE, updated_at=now()
+        WHERE phone = ANY($1::text[])`,
+      [variants, newHash],
     );
     return { ok: true };
   },
