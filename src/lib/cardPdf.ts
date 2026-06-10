@@ -157,15 +157,22 @@ function drawCard(
   // QR code (right side) — used by cashier scanner to identify student
   const qrSize = 18;
   const qrX = x + CARD_W - qrSize - 2;
-  const qrY = y + barH + (CARD_H - barH - qrSize - 2.5) / 2;
+  const shortCode = (s.qr_token || "").replace(/-/g, "").slice(0, 8).toUpperCase();
+  const qrBlockH = qrSize + 2.2 + 3.4 + 1.2; // qr + gap + code + caption
+  const qrY = y + barH + (CARD_H - barH - qrBlockH) / 2;
   if (qrData) {
     try {
       doc.addImage(qrData, "PNG", qrX, qrY, qrSize, qrSize);
     } catch { /* ignore */ }
+    // Human-readable short code as fallback if QR is damaged
+    doc.setFont(FONT_FAMILY, "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(30, 58, 95);
+    doc.text(shortCode, qrX + qrSize / 2, qrY + qrSize + 3.4, { align: "center" });
     doc.setFont(FONT_FAMILY, "normal");
-    doc.setFontSize(4.6);
+    doc.setFontSize(4.4);
     doc.setTextColor(120, 120, 120);
-    doc.text("KASİYERDE OKUT", qrX + qrSize / 2, qrY + qrSize + 1.6, { align: "center" });
+    doc.text("KOD", qrX + qrSize / 2, qrY + qrSize + 6.2, { align: "center" });
   }
 
   const drawField = (label: string, value: string, yy: number, valueSize = 8) => {

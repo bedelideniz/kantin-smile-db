@@ -195,6 +195,7 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
   lookup_student: async (ctx, params) => {
     const p = z.object({
       qr_token: z.string().min(1).optional(),
+      short_code: z.string().min(1).optional(),
       nfc_uid: z.string().min(1).optional(),
       query: z.string().min(1).optional(),
     }).parse(params ?? {});
@@ -216,6 +217,17 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
         [ctx.schoolId, uuid],
       );
       row = r.rows[0];
+    } else if (p.short_code) {
+      const code = p.short_code.replace(/[^0-9a-f]/gi, "").toLowerCase();
+      if (code.length < 6) throw new HttpError(400, "Kod en az 6 karakter olmalı");
+      const r = await query(
+        `SELECT ${cols} FROM students
+          WHERE school_id=$1 AND qr_token::text LIKE $2 || '%'
+          LIMIT 2`,
+        [ctx.schoolId, code],
+      );
+      if (r.rows.length > 1) throw new HttpError(409, "Birden fazla öğrenci eşleşti, daha uzun kod girin");
+      row = r.rows[0];
     } else if (p.nfc_uid) {
       const r = await query(
         `SELECT ${cols} FROM students WHERE school_id=$1 AND nfc_uid=$2`,
@@ -232,7 +244,7 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       );
       return { matches: r.rows };
     } else {
-      throw new HttpError(400, "qr_token, nfc_uid veya query gerekli");
+      throw new HttpError(400, "qr_token, short_code, nfc_uid veya query gerekli");
     }
     if (!row) throw new HttpError(404, "Öğrenci bulunamadı");
     if (!row.is_active) throw new HttpError(403, "Öğrenci hesabı pasif");
