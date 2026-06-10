@@ -18,8 +18,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useUsbCardReader } from "@/hooks/useUsbCardReader";
-import { Loader2, Plus, Pencil, Trash2, CreditCard, Wallet, Radio, X, Search, Mail } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, CreditCard, Wallet, Radio, X, Search, Mail, QrCode, Printer } from "lucide-react";
 import { generateParentLettersPdf } from "@/lib/letterPdf";
+import { generateStudentCardsPdf } from "@/lib/cardPdf";
 
 interface Student {
   id: string;
@@ -298,19 +299,24 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
     }
   };
 
+  const resolveSchoolName = async (): Promise<string> => {
+    if (schoolName) return schoolName;
+    try {
+      const schools = await callOp<{ id: string; name: string }[]>("list_schools");
+      const found = schoolId
+        ? schools.find((x) => x.id === schoolId)?.name
+        : schools[0]?.name;
+      return found || "Okul";
+    } catch {
+      return "Okul";
+    }
+  };
+
   const printLetter = async (s: Student) => {
     try {
-      let name = schoolName;
-      if (!name) {
-        try {
-          const schools = await callOp<{ id: string; name: string }[]>("list_schools");
-          name = schoolId
-            ? schools.find((x) => x.id === schoolId)?.name
-            : schools[0]?.name;
-        } catch { /* ignore */ }
-      }
+      const name = await resolveSchoolName();
       await generateParentLettersPdf({
-        schoolName: name || "Okul",
+        schoolName: name,
         students: [{
           id: s.id,
           full_name: s.full_name,
@@ -318,10 +324,52 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
           student_no: s.student_no,
           photo_url: s.photo_url,
           parent_phone: s.parent_phone,
+          qr_token: s.qr_token,
         }],
         withCard: true,
       });
       toast({ title: "PDF hazır", description: "Veli mektubu indirildi." });
+    } catch (e) {
+      toast({ title: "PDF oluşturulamadı", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
+  const printCard = async (s: Student) => {
+    try {
+      const name = await resolveSchoolName();
+      await generateStudentCardsPdf({
+        schoolName: name,
+        students: [{
+          id: s.id,
+          full_name: s.full_name,
+          class_name: s.class_name,
+          student_no: s.student_no,
+          photo_url: s.photo_url,
+          qr_token: s.qr_token,
+        }],
+      });
+      toast({ title: "Kart PDF hazır", description: "QR kodlu öğrenci kartı indirildi." });
+    } catch (e) {
+      toast({ title: "PDF oluşturulamadı", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
+  const printAllCards = async () => {
+    if (rows.length === 0) return;
+    try {
+      const name = await resolveSchoolName();
+      await generateStudentCardsPdf({
+        schoolName: name,
+        students: rows.map((s) => ({
+          id: s.id,
+          full_name: s.full_name,
+          class_name: s.class_name,
+          student_no: s.student_no,
+          photo_url: s.photo_url,
+          qr_token: s.qr_token,
+        })),
+      });
+      toast({ title: "Kart PDF hazır", description: `${rows.length} öğrenci kartı indirildi.` });
     } catch (e) {
       toast({ title: "PDF oluşturulamadı", description: (e as Error).message, variant: "destructive" });
     }
@@ -333,7 +381,8 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
         <div>
           <CardTitle>Veli & Öğrenci</CardTitle>
           <CardDescription>
-            Öğrenci kayıtları ve veli telefonları. Kart atamak için satırdaki kart simgesine tıklayıp USB okuyucuya kart okutun.
+            Öğrenci kayıtları ve veli telefonları. Her kartın arkasındaki benzersiz QR kod,
+            kasiyer panelindeki kamera veya USB barkod okuyucu ile okutularak ödeme yapılır.
           </CardDescription>
         </div>
         <div className="flex gap-2">
@@ -343,11 +392,14 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && load(search)}
-              placeholder="İsim, no, veli telefonu, kart"
+              placeholder="İsim, no, veli telefonu"
               className="w-56 pl-8"
             />
           </div>
           <Button variant="outline" onClick={() => load(search)}>Ara</Button>
+          <Button variant="outline" onClick={printAllCards} disabled={rows.length === 0} title="Tüm öğrencilerin QR kartlarını PDF olarak indir">
+            <Printer className="mr-2 h-4 w-4" /> Kartları Yazdır
+          </Button>
           <Button onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" /> Yeni Öğrenci
           </Button>
@@ -371,7 +423,7 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
                 <TableHead>Sınıf / No</TableHead>
                 <TableHead>Veli Telefonu</TableHead>
                 <TableHead>Bakiye</TableHead>
-                <TableHead>Kart</TableHead>
+                <TableHead>Kart Kodu</TableHead>
                 <TableHead>Durum</TableHead>
                 <TableHead className="text-right">İşlemler</TableHead>
               </TableRow>
@@ -410,15 +462,18 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
                   <TableCell className="font-mono text-sm">{s.parent_phone ?? "—"}</TableCell>
                   <TableCell className="font-semibold">{fmt(Number(s.balance))} ₺</TableCell>
                   <TableCell>
-                    {s.nfc_uid ? (
-                      <div className="flex items-center gap-1">
-                        <Badge variant="secondary" className="font-mono text-[10px]">{s.nfc_uid}</Badge>
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeCard(s)} title="Kartı kaldır">
+                    <Badge variant="secondary" className="gap-1 font-mono text-[10px]">
+                      <QrCode className="h-3 w-3" /> QR
+                    </Badge>
+                    {s.nfc_uid && (
+                      <div className="mt-1 flex items-center gap-1">
+                        <Badge variant="outline" className="font-mono text-[9px]" title="Eski NFC kart UID'si (opsiyonel)">
+                          NFC: {s.nfc_uid}
+                        </Badge>
+                        <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => removeCard(s)} title="NFC kaydını kaldır">
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
-                    ) : (
-                      <Badge variant="outline">Atanmamış</Badge>
                     )}
                   </TableCell>
                   <TableCell>
@@ -429,8 +484,8 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => openAssignCard(s)} title="Kart ata">
-                        <CreditCard className="h-4 w-4" />
+                      <Button size="sm" variant="ghost" onClick={() => printCard(s)} title="QR Kartı yazdır (PDF)">
+                        <QrCode className="h-4 w-4" />
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => printLetter(s)} title="Veli mektubu (PDF)">
                         <Mail className="h-4 w-4" />
