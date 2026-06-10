@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LogOut, QrCode, Search, Trash2, X, Plus, Minus,
   CreditCard, CircleDot, Wallet, ShoppingCart, AlertTriangle, GraduationCap, Sparkles, Barcode, Loader2, ShieldOff,
-  Receipt, Bell, LayoutDashboard,
+  Receipt, Bell, LayoutDashboard, KeyRound,
 } from "lucide-react";
 import {
   callCashierApi,
@@ -111,6 +111,8 @@ export default function KasiyerPanel() {
 
   const [qrOpen, setQrOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [manualCode, setManualCode] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -270,13 +272,16 @@ export default function KasiyerPanel() {
   const clearStudent = () => setStudent(null);
 
   const handleStudentCodeResult = async (code: string, sourceLabel: string) => {
-    // Try qr_token first (UUID printed on card back). Fall back to legacy nfc_uid.
+    // Try qr_token first (UUID printed on card back). Fall back to short code, then legacy nfc_uid.
     const isUuidLike = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(code);
+    const isShortHex = !isUuidLike && /^[0-9a-fA-F]{6,16}$/.test(code.trim());
     try {
-      const r = await callCashierApi<{ student: Student }>(
-        "lookup_student",
-        isUuidLike ? { qr_token: code } : { nfc_uid: code },
-      );
+      const params = isUuidLike
+        ? { qr_token: code }
+        : isShortHex
+          ? { short_code: code.trim() }
+          : { nfc_uid: code };
+      const r = await callCashierApi<{ student: Student }>("lookup_student", params);
       if (r.student.card_lost) {
         setStudent(null);
         setLostCardStudent(r.student);
@@ -768,9 +773,12 @@ export default function KasiyerPanel() {
                 </div>
 
                 {/* Fallback options */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button variant="outline" className="h-12 rounded-xl" onClick={() => setQrOpen(true)}>
                     <QrCode className="mr-2 h-4 w-4" /> QR
+                  </Button>
+                  <Button variant="outline" className="h-12 rounded-xl" onClick={() => setCodeOpen(true)}>
+                    <KeyRound className="mr-2 h-4 w-4" /> Kod
                   </Button>
                   <Button variant="outline" className="h-12 rounded-xl" onClick={() => setSearchOpen((v) => !v)}>
                     <Search className="mr-2 h-4 w-4" /> Ara
@@ -958,6 +966,48 @@ export default function KasiyerPanel() {
       </div>
 
       <QrScannerDialog open={qrOpen} onClose={() => setQrOpen(false)} onResult={handleQrResult} />
+
+      {/* Manual short code entry */}
+      <Dialog open={codeOpen} onOpenChange={(o) => { if (!o) { setCodeOpen(false); setManualCode(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Öğrenci Kodu Gir</DialogTitle>
+            <DialogDescription>
+              Kart üzerindeki QR'ın altında yazan 8 haneli kodu girin (örn. 61F1F55D).
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            placeholder="61F1F55D"
+            value={manualCode}
+            maxLength={16}
+            onChange={(e) => setManualCode(e.target.value.replace(/[^0-9a-fA-F]/g, "").toUpperCase())}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && manualCode.trim().length >= 6) {
+                const c = manualCode.trim();
+                setCodeOpen(false);
+                setManualCode("");
+                handleStudentCodeResult(c, "Kod");
+              }
+            }}
+            className="h-12 text-center text-xl font-mono tracking-widest"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCodeOpen(false); setManualCode(""); }}>İptal</Button>
+            <Button
+              disabled={manualCode.trim().length < 6}
+              onClick={() => {
+                const c = manualCode.trim();
+                setCodeOpen(false);
+                setManualCode("");
+                handleStudentCodeResult(c, "Kod");
+              }}
+            >
+              Bul
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Announcement preview modal */}
       <Dialog open={!!previewAnn} onOpenChange={(o) => !o && setPreviewAnn(null)}>
