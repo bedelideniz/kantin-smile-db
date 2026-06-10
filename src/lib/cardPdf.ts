@@ -1,6 +1,7 @@
 // Generates printable student ID cards as a vector PDF.
 // Card dimensions per ISO/IEC 7810 ID-1: 85.6 x 53.98 mm.
 import jsPDF from "jspdf";
+import QRCode from "qrcode";
 import mebLogo from "@/assets/meb-logo.png";
 import kantinLogo from "@/assets/kantinpay-logo.png";
 import dmSansRegular from "@/assets/fonts/dmsans-regular.b64";
@@ -12,6 +13,7 @@ export interface CardStudent {
   class_name: string | null;
   student_no: string | null;
   photo_url: string | null;
+  qr_token: string;
 }
 
 export interface CardPdfOptions {
