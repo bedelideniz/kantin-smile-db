@@ -157,7 +157,7 @@ function drawCard(
   // QR code (right side) — used by cashier scanner to identify student
   const qrSize = 18;
   const qrX = x + CARD_W - qrSize - 2;
-  const qrY = y + barH + 2;
+  const qrY = y + barH + (CARD_H - barH - qrSize - 2.5) / 2;
   if (qrData) {
     try {
       doc.addImage(qrData, "PNG", qrX, qrY, qrSize, qrSize);
