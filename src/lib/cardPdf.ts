@@ -193,20 +193,6 @@ function drawCard(
   drawField("ADI SOYADI", (s.full_name || "").toLocaleUpperCase("tr-TR"), photoY + 3, 8);
   drawField("SINIFI", s.class_name || "-", photoY + 12, 7.5);
   drawField("OKUL NO", s.student_no || "-", photoY + 21, 7.5);
-
-  // KantinPay logo bottom-left (small, next to photo)
-  const kpW = 14;
-  const kpH = 9;
-  try {
-    doc.addImage(
-      kantinData,
-      "PNG",
-      dx,
-      y + CARD_H - kpH - 1.5,
-      kpW,
-      kpH,
-    );
-  } catch { /* ignore */ }
 }
 
 async function buildQr(token: string): Promise<string | null> {
