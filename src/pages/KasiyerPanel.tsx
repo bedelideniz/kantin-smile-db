@@ -270,13 +270,16 @@ export default function KasiyerPanel() {
   const clearStudent = () => setStudent(null);
 
   const handleStudentCodeResult = async (code: string, sourceLabel: string) => {
-    // Try qr_token first (UUID printed on card back). Fall back to legacy nfc_uid.
+    // Try qr_token first (UUID printed on card back). Fall back to short code, then legacy nfc_uid.
     const isUuidLike = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(code);
+    const isShortHex = !isUuidLike && /^[0-9a-fA-F]{6,16}$/.test(code.trim());
     try {
-      const r = await callCashierApi<{ student: Student }>(
-        "lookup_student",
-        isUuidLike ? { qr_token: code } : { nfc_uid: code },
-      );
+      const params = isUuidLike
+        ? { qr_token: code }
+        : isShortHex
+          ? { short_code: code.trim() }
+          : { nfc_uid: code };
+      const r = await callCashierApi<{ student: Student }>("lookup_student", params);
       if (r.student.card_lost) {
         setStudent(null);
         setLostCardStudent(r.student);
