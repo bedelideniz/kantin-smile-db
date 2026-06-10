@@ -299,19 +299,24 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
     }
   };
 
+  const resolveSchoolName = async (): Promise<string> => {
+    if (schoolName) return schoolName;
+    try {
+      const schools = await callOp<{ id: string; name: string }[]>("list_schools");
+      const found = schoolId
+        ? schools.find((x) => x.id === schoolId)?.name
+        : schools[0]?.name;
+      return found || "Okul";
+    } catch {
+      return "Okul";
+    }
+  };
+
   const printLetter = async (s: Student) => {
     try {
-      let name = schoolName;
-      if (!name) {
-        try {
-          const schools = await callOp<{ id: string; name: string }[]>("list_schools");
-          name = schoolId
-            ? schools.find((x) => x.id === schoolId)?.name
-            : schools[0]?.name;
-        } catch { /* ignore */ }
-      }
+      const name = await resolveSchoolName();
       await generateParentLettersPdf({
-        schoolName: name || "Okul",
+        schoolName: name,
         students: [{
           id: s.id,
           full_name: s.full_name,
@@ -324,6 +329,47 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
         withCard: true,
       });
       toast({ title: "PDF hazır", description: "Veli mektubu indirildi." });
+    } catch (e) {
+      toast({ title: "PDF oluşturulamadı", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
+  const printCard = async (s: Student) => {
+    try {
+      const name = await resolveSchoolName();
+      await generateStudentCardsPdf({
+        schoolName: name,
+        students: [{
+          id: s.id,
+          full_name: s.full_name,
+          class_name: s.class_name,
+          student_no: s.student_no,
+          photo_url: s.photo_url,
+          qr_token: s.qr_token,
+        }],
+      });
+      toast({ title: "Kart PDF hazır", description: "QR kodlu öğrenci kartı indirildi." });
+    } catch (e) {
+      toast({ title: "PDF oluşturulamadı", description: (e as Error).message, variant: "destructive" });
+    }
+  };
+
+  const printAllCards = async () => {
+    if (rows.length === 0) return;
+    try {
+      const name = await resolveSchoolName();
+      await generateStudentCardsPdf({
+        schoolName: name,
+        students: rows.map((s) => ({
+          id: s.id,
+          full_name: s.full_name,
+          class_name: s.class_name,
+          student_no: s.student_no,
+          photo_url: s.photo_url,
+          qr_token: s.qr_token,
+        })),
+      });
+      toast({ title: "Kart PDF hazır", description: `${rows.length} öğrenci kartı indirildi.` });
     } catch (e) {
       toast({ title: "PDF oluşturulamadı", description: (e as Error).message, variant: "destructive" });
     }
