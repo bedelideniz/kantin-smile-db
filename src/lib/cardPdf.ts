@@ -90,13 +90,19 @@ function drawCard(
   doc.setLineWidth(0.4);
   doc.line(x + 2, y + barH, x + CARD_W - 2, y + barH);
 
-  // MEB logo on both sides of the header (larger)
+  // MEB logo (left) and KantinPay logo (right) in the header
   const logoSize = 13;
   const logoY = y + (barH - logoSize) / 2;
+  const kpHeaderW = 18;
+  const kpHeaderH = 11;
+  const kpHeaderY = y + (barH - kpHeaderH) / 2;
   try {
     doc.addImage(mebData, "PNG", x + 2, logoY, logoSize, logoSize);
-    doc.addImage(mebData, "PNG", x + CARD_W - logoSize - 2, logoY, logoSize, logoSize);
+    doc.addImage(kantinData, "PNG", x + CARD_W - kpHeaderW - 2, kpHeaderY, kpHeaderW, kpHeaderH);
   } catch { /* ignore */ }
+
+  // Adjust right padding for school name to avoid kantin logo
+  void kpHeaderW;
 
   // School name centered
   doc.setTextColor(30, 58, 95);
