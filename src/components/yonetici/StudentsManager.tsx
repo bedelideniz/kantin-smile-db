@@ -318,6 +318,7 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
           student_no: s.student_no,
           photo_url: s.photo_url,
           parent_phone: s.parent_phone,
+          qr_token: s.qr_token,
         }],
         withCard: true,
       });
