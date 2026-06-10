@@ -76,6 +76,7 @@ function drawCard(
   mebData: string,
   kantinData: string,
   photoData: string | null,
+  qrData: string | null,
 ) {
   // Card background
   doc.setDrawColor(180);
@@ -85,7 +86,6 @@ function drawCard(
 
   // Top header (white background)
   const barH = 14;
-  // Divider line under header
   doc.setDrawColor(30, 58, 95);
   doc.setLineWidth(0.4);
   doc.line(x + 2, y + barH, x + CARD_W - 2, y + barH);
@@ -148,6 +148,20 @@ function drawCard(
   const labelColor: [number, number, number] = [120, 120, 120];
   const valueColor: [number, number, number] = [25, 30, 45];
 
+  // QR code (right side) — used by cashier scanner to identify student
+  const qrSize = 18;
+  const qrX = x + CARD_W - qrSize - 2;
+  const qrY = y + barH + 2;
+  if (qrData) {
+    try {
+      doc.addImage(qrData, "PNG", qrX, qrY, qrSize, qrSize);
+    } catch { /* ignore */ }
+    doc.setFont(FONT_FAMILY, "normal");
+    doc.setFontSize(4.6);
+    doc.setTextColor(120, 120, 120);
+    doc.text("KASİYERDE OKUT", qrX + qrSize / 2, qrY + qrSize + 1.6, { align: "center" });
+  }
+
   const drawField = (label: string, value: string, yy: number, valueSize = 8) => {
     doc.setFont(FONT_FAMILY, "normal");
     doc.setFontSize(5.2);
@@ -156,7 +170,7 @@ function drawCard(
     doc.setFont(FONT_FAMILY, "bold");
     doc.setFontSize(valueSize);
     doc.setTextColor(...valueColor);
-    const maxW = x + CARD_W - dx - 18; // leave room for kantin logo
+    const maxW = qrX - dx - 2; // leave room for the QR
     let v = value || "-";
     let vs = valueSize;
     doc.setFontSize(vs);
@@ -174,19 +188,33 @@ function drawCard(
   drawField("SINIFI", s.class_name || "-", photoY + 12, 7.5);
   drawField("OKUL NO", s.student_no || "-", photoY + 21, 7.5);
 
-  // KantinPay logo bottom-right (larger)
-  const kpW = 18;
-  const kpH = 12;
+  // KantinPay logo bottom-left (small, next to photo)
+  const kpW = 14;
+  const kpH = 9;
   try {
     doc.addImage(
       kantinData,
       "PNG",
-      x + CARD_W - kpW - 2,
+      dx,
       y + CARD_H - kpH - 1.5,
       kpW,
       kpH,
     );
   } catch { /* ignore */ }
+}
+
+async function buildQr(token: string): Promise<string | null> {
+  if (!token) return null;
+  try {
+    return await QRCode.toDataURL(token, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      scale: 6,
+      color: { dark: "#1E3A5F", light: "#FFFFFF" },
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function generateStudentCardsPdf(opts: CardPdfOptions): Promise<void> {
@@ -208,9 +236,10 @@ export async function generateStudentCardsPdf(opts: CardPdfOptions): Promise<voi
     loadLocalImage(kantinLogo),
   ]);
 
-  const photos = await Promise.all(
-    students.map((s) => (s.photo_url ? fetchAsDataUrl(s.photo_url) : Promise.resolve(null))),
-  );
+  const [photos, qrs] = await Promise.all([
+    Promise.all(students.map((s) => (s.photo_url ? fetchAsDataUrl(s.photo_url) : Promise.resolve(null)))),
+    Promise.all(students.map((s) => buildQr(s.qr_token))),
+  ]);
 
   for (let i = 0; i < students.length; i++) {
     const idxOnPage = i % perPage;
@@ -219,7 +248,7 @@ export async function generateStudentCardsPdf(opts: CardPdfOptions): Promise<voi
     const row = Math.floor(idxOnPage / cols);
     const x = gapX + col * (CARD_W + gapX);
     const y = gapY + row * (CARD_H + gapY);
-    drawCard(doc, x, y, students[i], schoolName, mebData, kantinData, photos[i]);
+    drawCard(doc, x, y, students[i], schoolName, mebData, kantinData, photos[i], qrs[i]);
   }
 
   const safeName = schoolName.replace(/[^\p{L}\p{N}\-_ ]/gu, "").replace(/\s+/g, "_");
