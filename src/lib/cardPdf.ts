@@ -90,13 +90,19 @@ function drawCard(
   doc.setLineWidth(0.4);
   doc.line(x + 2, y + barH, x + CARD_W - 2, y + barH);
 
-  // MEB logo on both sides of the header (larger)
+  // MEB logo (left) and KantinPay logo (right) in the header
   const logoSize = 13;
   const logoY = y + (barH - logoSize) / 2;
+  const kpHeaderW = 18;
+  const kpHeaderH = 11;
+  const kpHeaderY = y + (barH - kpHeaderH) / 2;
   try {
     doc.addImage(mebData, "PNG", x + 2, logoY, logoSize, logoSize);
-    doc.addImage(mebData, "PNG", x + CARD_W - logoSize - 2, logoY, logoSize, logoSize);
+    doc.addImage(kantinData, "PNG", x + CARD_W - kpHeaderW - 2, kpHeaderY, kpHeaderW, kpHeaderH);
   } catch { /* ignore */ }
+
+  // Adjust right padding for school name to avoid kantin logo
+  void kpHeaderW;
 
   // School name centered
   doc.setTextColor(30, 58, 95);
@@ -187,20 +193,6 @@ function drawCard(
   drawField("ADI SOYADI", (s.full_name || "").toLocaleUpperCase("tr-TR"), photoY + 3, 8);
   drawField("SINIFI", s.class_name || "-", photoY + 12, 7.5);
   drawField("OKUL NO", s.student_no || "-", photoY + 21, 7.5);
-
-  // KantinPay logo bottom-left (small, next to photo)
-  const kpW = 14;
-  const kpH = 9;
-  try {
-    doc.addImage(
-      kantinData,
-      "PNG",
-      dx,
-      y + CARD_H - kpH - 1.5,
-      kpW,
-      kpH,
-    );
-  } catch { /* ignore */ }
 }
 
 async function buildQr(token: string): Promise<string | null> {
