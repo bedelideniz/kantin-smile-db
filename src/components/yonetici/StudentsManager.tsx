@@ -18,8 +18,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useUsbCardReader } from "@/hooks/useUsbCardReader";
-import { Loader2, Plus, Pencil, Trash2, CreditCard, Wallet, Radio, X, Search, Mail } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, CreditCard, Wallet, Radio, X, Search, Mail, QrCode, Printer } from "lucide-react";
 import { generateParentLettersPdf } from "@/lib/letterPdf";
+import { generateStudentCardsPdf } from "@/lib/cardPdf";
 
 interface Student {
   id: string;
