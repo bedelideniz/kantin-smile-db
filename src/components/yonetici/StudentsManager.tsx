@@ -462,15 +462,18 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
                   <TableCell className="font-mono text-sm">{s.parent_phone ?? "—"}</TableCell>
                   <TableCell className="font-semibold">{fmt(Number(s.balance))} ₺</TableCell>
                   <TableCell>
-                    {s.nfc_uid ? (
-                      <div className="flex items-center gap-1">
-                        <Badge variant="secondary" className="font-mono text-[10px]">{s.nfc_uid}</Badge>
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeCard(s)} title="Kartı kaldır">
+                    <Badge variant="secondary" className="gap-1 font-mono text-[10px]">
+                      <QrCode className="h-3 w-3" /> QR
+                    </Badge>
+                    {s.nfc_uid && (
+                      <div className="mt-1 flex items-center gap-1">
+                        <Badge variant="outline" className="font-mono text-[9px]" title="Eski NFC kart UID'si (opsiyonel)">
+                          NFC: {s.nfc_uid}
+                        </Badge>
+                        <Button size="icon" variant="ghost" className="h-5 w-5" onClick={() => removeCard(s)} title="NFC kaydını kaldır">
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
-                    ) : (
-                      <Badge variant="outline">Atanmamış</Badge>
                     )}
                   </TableCell>
                   <TableCell>
@@ -481,8 +484,8 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => openAssignCard(s)} title="Kart ata">
-                        <CreditCard className="h-4 w-4" />
+                      <Button size="sm" variant="ghost" onClick={() => printCard(s)} title="QR Kartı yazdır (PDF)">
+                        <QrCode className="h-4 w-4" />
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => printLetter(s)} title="Veli mektubu (PDF)">
                         <Mail className="h-4 w-4" />
