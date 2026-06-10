@@ -381,7 +381,8 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
         <div>
           <CardTitle>Veli & Öğrenci</CardTitle>
           <CardDescription>
-            Öğrenci kayıtları ve veli telefonları. Kart atamak için satırdaki kart simgesine tıklayıp USB okuyucuya kart okutun.
+            Öğrenci kayıtları ve veli telefonları. Her kartın arkasındaki benzersiz QR kod,
+            kasiyer panelindeki kamera veya USB barkod okuyucu ile okutularak ödeme yapılır.
           </CardDescription>
         </div>
         <div className="flex gap-2">
@@ -391,11 +392,14 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && load(search)}
-              placeholder="İsim, no, veli telefonu, kart"
+              placeholder="İsim, no, veli telefonu"
               className="w-56 pl-8"
             />
           </div>
           <Button variant="outline" onClick={() => load(search)}>Ara</Button>
+          <Button variant="outline" onClick={printAllCards} disabled={rows.length === 0} title="Tüm öğrencilerin QR kartlarını PDF olarak indir">
+            <Printer className="mr-2 h-4 w-4" /> Kartları Yazdır
+          </Button>
           <Button onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" /> Yeni Öğrenci
           </Button>
