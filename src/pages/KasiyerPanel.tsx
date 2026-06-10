@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   LogOut, QrCode, Search, Trash2, X, Plus, Minus,
   CreditCard, CircleDot, Wallet, ShoppingCart, AlertTriangle, GraduationCap, Sparkles, Barcode, Loader2, ShieldOff,
-  Receipt, Bell, LayoutDashboard,
+  Receipt, Bell, LayoutDashboard, KeyRound,
 } from "lucide-react";
 import {
   callCashierApi,
@@ -111,6 +111,8 @@ export default function KasiyerPanel() {
 
   const [qrOpen, setQrOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [manualCode, setManualCode] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Student[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -771,9 +773,12 @@ export default function KasiyerPanel() {
                 </div>
 
                 {/* Fallback options */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button variant="outline" className="h-12 rounded-xl" onClick={() => setQrOpen(true)}>
                     <QrCode className="mr-2 h-4 w-4" /> QR
+                  </Button>
+                  <Button variant="outline" className="h-12 rounded-xl" onClick={() => setCodeOpen(true)}>
+                    <KeyRound className="mr-2 h-4 w-4" /> Kod
                   </Button>
                   <Button variant="outline" className="h-12 rounded-xl" onClick={() => setSearchOpen((v) => !v)}>
                     <Search className="mr-2 h-4 w-4" /> Ara
