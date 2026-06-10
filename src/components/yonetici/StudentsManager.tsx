@@ -423,7 +423,7 @@ export default function StudentsManager({ schoolId, schoolName }: { schoolId?: s
                 <TableHead>Sınıf / No</TableHead>
                 <TableHead>Veli Telefonu</TableHead>
                 <TableHead>Bakiye</TableHead>
-                <TableHead>Kart</TableHead>
+                <TableHead>Kart Kodu</TableHead>
                 <TableHead>Durum</TableHead>
                 <TableHead className="text-right">İşlemler</TableHead>
               </TableRow>
