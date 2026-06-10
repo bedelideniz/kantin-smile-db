@@ -269,36 +269,46 @@ export default function KasiyerPanel() {
   const clearCart = () => setCart([]);
   const clearStudent = () => setStudent(null);
 
-  const handleQrResult = async (text: string) => {
-    setQrOpen(false);
+  const handleStudentCodeResult = async (code: string, sourceLabel: string) => {
+    // Try qr_token first (UUID printed on card back). Fall back to legacy nfc_uid.
+    const isUuidLike = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(code);
     try {
-      const r = await callCashierApi<{ student: Student }>("lookup_student", { qr_token: text });
+      const r = await callCashierApi<{ student: Student }>(
+        "lookup_student",
+        isUuidLike ? { qr_token: code } : { nfc_uid: code },
+      );
       if (r.student.card_lost) {
         setStudent(null);
         setLostCardStudent(r.student);
         return;
       }
       setStudent(r.student);
-      toast({ title: "Öğrenci bulundu", description: r.student.full_name });
+      const t = toast({
+        title: "Öğrenci tanındı",
+        description: `${r.student.full_name} • Bakiye: ${fmt(Number(r.student.balance))} ₺`,
+      });
+      setTimeout(() => t.dismiss(), 1000);
     } catch (e: any) {
-      toast({ title: "Bulunamadı", description: e?.message, variant: "destructive" });
+      // If UUID lookup failed, try the other path once before giving up.
+      if (isUuidLike && (e?.status === 404 || /bulunamadı|invalid/i.test(e?.message ?? ""))) {
+        try {
+          const r = await callCashierApi<{ student: Student }>("lookup_student", { nfc_uid: code });
+          if (r.student.card_lost) { setStudent(null); setLostCardStudent(r.student); return; }
+          setStudent(r.student);
+          return;
+        } catch { /* fall through to error toast */ }
+      }
+      toast({
+        title: "Kart tanınmadı",
+        description: `${e?.message ?? "Hata"} (${sourceLabel}: ${code})`,
+        variant: "destructive",
+      });
     }
   };
 
-  const handleNfcResult = async (uid: string) => {
-    try {
-      const r = await callCashierApi<{ student: Student }>("lookup_student", { nfc_uid: uid });
-      if (r.student.card_lost) {
-        setStudent(null);
-        setLostCardStudent(r.student);
-        return;
-      }
-      setStudent(r.student);
-      const t = toast({ title: "Öğrenci tanındı", description: `${r.student.full_name} • Bakiye: ${fmt(Number(r.student.balance))} ₺` });
-      setTimeout(() => t.dismiss(), 1000);
-    } catch (e: any) {
-      toast({ title: "Kart tanınmadı", description: `${e?.message ?? "Hata"} (UID: ${uid})`, variant: "destructive" });
-    }
+  const handleQrResult = async (text: string) => {
+    setQrOpen(false);
+    await handleStudentCodeResult(text.trim(), "QR");
   };
 
   const handleMarkCardFound = async () => {
@@ -343,8 +353,9 @@ export default function KasiyerPanel() {
   };
 
   const handleUsbScan = async (code: string) => {
-    // 1) Try to match a product barcode locally first (fast path)
-    const local = products.find((p) => (p.barcode ?? "").toUpperCase() === code);
+    const upper = code.toUpperCase();
+    // 1) Local product barcode match (fast path)
+    const local = products.find((p) => (p.barcode ?? "").toUpperCase() === upper);
     if (local) {
       if (local.stock_tracking && local.stock_qty <= 0) {
         toast({ title: "Stok yok", description: local.name, variant: "destructive" });
@@ -354,7 +365,12 @@ export default function KasiyerPanel() {
       toast({ title: "Sepete eklendi", description: local.name });
       return;
     }
-    // 2) Try server-side product barcode lookup (in case product list is stale)
+    // 2) Looks like a student QR token (UUID) → student lookup
+    if (/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(code)) {
+      await handleStudentCodeResult(code, "QR");
+      return;
+    }
+    // 3) Server-side product barcode lookup
     try {
       const prod = await callCashierApi<Product>("find_product_by_barcode", { barcode: code });
       if (prod.stock_tracking && prod.stock_qty <= 0) {
@@ -365,14 +381,13 @@ export default function KasiyerPanel() {
       toast({ title: "Sepete eklendi", description: prod.name });
       return;
     } catch (e: any) {
-      // Not a known product barcode → treat as student card UID
       if (e?.status && e.status !== 404) {
         toast({ title: "Hata", description: e?.message, variant: "destructive" });
         return;
       }
     }
-    // 3) Fallback: student card lookup
-    await handleNfcResult(code);
+    // 4) Last resort: treat as legacy NFC UID
+    await handleStudentCodeResult(code, "Kart");
   };
 
   const reader = useUsbCardReader({ enabled: !!session, onScan: handleUsbScan });
