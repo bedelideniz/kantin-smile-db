@@ -1343,22 +1343,60 @@ const HANDLERS: Record<string, Handler> = {
       document_id: z.string().uuid().optional(),
       phone: z.string().trim().min(3).max(20).optional(),
       limit: z.number().int().min(1).max(2000).optional().default(500),
+      offset: z.number().int().min(0).max(100000).optional().default(0),
     }).parse(params ?? {});
+
     const where: string[] = [];
     const args: any[] = [];
-    if (p.document_id) { args.push(p.document_id); where.push(`c.document_id = $${args.length}`); }
+    if (p.document_id) {
+      args.push(p.document_id);
+      where.push(`EXISTS (SELECT 1 FROM legal_consents c2 WHERE c2.parent_phone = c.parent_phone AND c2.document_id = $${args.length})`);
+    }
     if (p.phone) {
       const digits = p.phone.replace(/\D+/g, "");
-      args.push(`%${digits}%`); where.push(`regexp_replace(c.parent_phone,'\\D','','g') ILIKE $${args.length}`);
+      args.push(`%${digits}%`);
+      where.push(`regexp_replace(c.parent_phone,'\\D','','g') ILIKE $${args.length}`);
     }
+
+    // One row per parent_phone; aggregate all accepted documents.
     const sql = `
-      SELECT c.id, c.parent_phone, c.document_id, c.document_slug, c.document_version,
-             c.accepted_at, c.ip, c.user_agent, d.title AS document_title
-        FROM legal_consents c
-        JOIN legal_documents d ON d.id = c.document_id
-       ${where.length ? "WHERE " + where.join(" AND ") : ""}
-       ORDER BY c.accepted_at DESC
-       LIMIT ${p.limit}`;
+      WITH agg AS (
+        SELECT c.parent_phone,
+               MAX(c.accepted_at) AS last_accepted_at,
+               (ARRAY_AGG(c.ip ORDER BY c.accepted_at DESC) FILTER (WHERE c.ip IS NOT NULL))[1] AS ip,
+               (ARRAY_AGG(c.user_agent ORDER BY c.accepted_at DESC) FILTER (WHERE c.user_agent IS NOT NULL))[1] AS user_agent,
+               jsonb_agg(
+                 jsonb_build_object(
+                   'document_id', c.document_id,
+                   'document_slug', c.document_slug,
+                   'document_title', d.title,
+                   'document_version', c.document_version,
+                   'accepted_at', c.accepted_at,
+                   'ip', c.ip
+                 )
+                 ORDER BY d.sort_order ASC
+               ) AS documents
+          FROM legal_consents c
+          JOIN legal_documents d ON d.id = c.document_id
+         ${where.length ? "WHERE " + where.join(" AND ") : ""}
+         GROUP BY c.parent_phone
+      )
+      SELECT a.parent_phone,
+             a.last_accepted_at,
+             a.ip,
+             a.user_agent,
+             a.documents,
+             (
+               SELECT u.full_name
+                 FROM app_users u
+                WHERE u.role = 'parent'
+                  AND regexp_replace(u.phone,'\\D','','g') = regexp_replace(a.parent_phone,'\\D','','g')
+                  AND COALESCE(u.full_name, '') <> ''
+                LIMIT 1
+             ) AS parent_full_name
+        FROM agg a
+        ORDER BY a.last_accepted_at DESC
+        LIMIT ${p.limit} OFFSET ${p.offset}`;
     const r = await query(sql, args);
     return r.rows;
   },
