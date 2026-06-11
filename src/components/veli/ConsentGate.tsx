@@ -44,9 +44,18 @@ export default function ConsentGate() {
 
   if (!docs || docs.length === 0) return null;
 
+  const currentIndex = Math.max(0, docs.findIndex((d) => d.id === activeTab));
+  const currentDoc = docs[currentIndex];
+  const isLast = currentIndex === docs.length - 1;
+  const currentChecked = currentDoc ? !!accepted[currentDoc.id] : false;
   const allChecked = docs.every((d) => accepted[d.id]);
 
-  const submit = async () => {
+  const handleNext = async () => {
+    if (!currentChecked) return;
+    if (!isLast) {
+      setActiveTab(docs[currentIndex + 1].id);
+      return;
+    }
     if (!allChecked) return;
     setSubmitting(true);
     try {
@@ -111,11 +120,11 @@ export default function ConsentGate() {
 
         <div className="flex items-center justify-between gap-3 border-t bg-background p-3">
           <div className="text-xs text-muted-foreground">
-            Onaylanan: <strong>{Object.values(accepted).filter(Boolean).length}</strong> / {docs.length}
+            Adım <strong>{currentIndex + 1}</strong> / {docs.length}
           </div>
-          <Button onClick={submit} disabled={!allChecked || submitting} size="sm">
+          <Button onClick={handleNext} disabled={!currentChecked || submitting || (isLast && !allChecked)} size="sm">
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Onayla ve devam et
+            {isLast ? "Onayla ve bitir" : "Onayla ve devam et"}
           </Button>
         </div>
       </DialogContent>
