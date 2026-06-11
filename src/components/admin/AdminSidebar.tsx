@@ -25,6 +25,7 @@ const ICONS: Record<AppModule, React.ComponentType<{ className?: string }>> = {
   staff: UserCog,
   infrastructure: Server,
   legal: FileText,
+  push: BellRing,
 };
 
 interface Props {
