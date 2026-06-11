@@ -35,7 +35,13 @@ function phoneVariants(raw: string): { canonical: string; variants: string[] } {
   return { canonical, variants };
 }
 
-interface ParentContext { phone: string; token: string; }
+interface ParentContext { phone: string; token: string; ip: string | null; userAgent: string | null; }
+
+function extractIp(req: Request): string | null {
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  return req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || null;
+}
 
 async function authParent(req: Request): Promise<ParentContext> {
   const authHeader = req.headers.get("Authorization");
@@ -51,7 +57,12 @@ async function authParent(req: Request): Promise<ParentContext> {
     throw new HttpError(401, "Oturum süresi doldu");
   }
   query("UPDATE parent_sessions SET last_seen_at=now() WHERE token=$1", [token]).catch(() => {});
-  return { phone: r.rows[0].phone, token };
+  return {
+    phone: r.rows[0].phone,
+    token,
+    ip: extractIp(req),
+    userAgent: req.headers.get("user-agent"),
+  };
 }
 
 async function findStudentsForParent(phoneVariantsList: string[]) {
