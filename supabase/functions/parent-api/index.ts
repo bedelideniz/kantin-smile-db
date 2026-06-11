@@ -1022,10 +1022,12 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
 
     for (const d of docs.rows) {
       await query(
-        `INSERT INTO legal_consents (parent_phone, document_id, document_slug, document_version)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (parent_phone, document_id, document_version) DO NOTHING`,
-        [canonical, d.id, d.slug, d.version],
+        `INSERT INTO legal_consents (parent_phone, document_id, document_slug, document_version, ip, user_agent)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (parent_phone, document_id, document_version) DO UPDATE
+           SET ip = COALESCE(EXCLUDED.ip, legal_consents.ip),
+               user_agent = COALESCE(EXCLUDED.user_agent, legal_consents.user_agent)`,
+        [canonical, d.id, d.slug, d.version, ctx.ip, ctx.userAgent],
       );
     }
     return { ok: true, accepted: docs.rows.length };
