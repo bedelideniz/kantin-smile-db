@@ -17,6 +17,7 @@ import {
 import logo from "@/assets/kantinpay-logo.png";
 import BottomNav from "@/components/veli/BottomNav";
 import ParentSplash from "@/components/veli/ParentSplash";
+import ConsentGate from "@/components/veli/ConsentGate";
 import ParentStories from "@/components/veli/ParentStories";
 import PhotoUploadModal from "@/components/veli/PhotoUploadModal";
 import StudentSettingsModal from "@/components/veli/StudentSettingsModal";
