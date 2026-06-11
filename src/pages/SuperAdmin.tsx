@@ -22,10 +22,11 @@ import SaleLogsManager from "@/components/admin/SaleLogsManager";
 import CanteenPayoutsManager from "@/components/admin/CanteenPayoutsManager";
 import CanteenAnnouncementsManager from "@/components/admin/CanteenAnnouncementsManager";
 import SchoolStoriesManager from "@/components/admin/SchoolStoriesManager";
+import LegalDocumentsManager from "@/components/admin/LegalDocumentsManager";
 import { callAdminApi, MODULE_LABELS, type AppModule } from "@/lib/adminApi";
 
 const TAB_ORDER: AppModule[] = [
-  "dashboard","schools","students","marketers","splashes","stories","announcements","donations","payments","sms","alarms","payouts","logs","staff","infrastructure",
+  "dashboard","schools","students","marketers","splashes","stories","announcements","donations","payments","sms","alarms","payouts","logs","legal","staff","infrastructure",
 ];
 
 export default function SuperAdmin() {
@@ -158,6 +159,7 @@ export default function SuperAdmin() {
       case "payouts": return <CanteenPayoutsManager />;
       case "logs": return <SaleLogsManager />;
       case "staff": return <StaffManager />;
+      case "legal": return <LegalDocumentsManager />;
       case "infrastructure": return (
         <Card>
           <CardHeader>

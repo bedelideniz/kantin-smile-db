@@ -774,7 +774,48 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_school_stories_expires_at  ON school_stories(expires_at);
     `,
   },
+  {
+    version: "0026_legal_documents",
+    description: "Versioned legal documents (4 KVKK/üyelik/rıza/ETK metinleri) shown to parents on first login + acceptance tracking",
+    sql: `
+      CREATE TABLE IF NOT EXISTS legal_documents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        slug TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        content_html TEXT NOT NULL DEFAULT '',
+        version INT NOT NULL DEFAULT 1,
+        sort_order INT NOT NULL DEFAULT 0,
+        is_required BOOLEAN NOT NULL DEFAULT TRUE,
+        updated_by UUID,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+
+      CREATE TABLE IF NOT EXISTS legal_consents (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        parent_phone TEXT NOT NULL,
+        document_id UUID NOT NULL REFERENCES legal_documents(id) ON DELETE CASCADE,
+        document_slug TEXT NOT NULL,
+        document_version INT NOT NULL,
+        accepted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        ip TEXT,
+        user_agent TEXT,
+        UNIQUE (parent_phone, document_id, document_version)
+      );
+      CREATE INDEX IF NOT EXISTS idx_legal_consents_phone ON legal_consents(parent_phone);
+      CREATE INDEX IF NOT EXISTS idx_legal_consents_doc   ON legal_consents(document_id);
+
+      INSERT INTO legal_documents (slug, title, sort_order, is_required, content_html)
+      VALUES
+        ('uyelik-sozlesmesi',       'Veli/Kullanıcı Üyelik Sözleşmesi', 1, TRUE, ''),
+        ('kvkk-aydinlatma',         'KVKK Aydınlatma Metni',            2, TRUE, ''),
+        ('acik-riza',               'Açık Rıza Metni',                  3, TRUE, ''),
+        ('ticari-elektronik-ileti', 'Ticari Elektronik İleti İzni',     4, TRUE, '')
+      ON CONFLICT (slug) DO NOTHING;
+    `,
+  },
 ];
+
 
 
 

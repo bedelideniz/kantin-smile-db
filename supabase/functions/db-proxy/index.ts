@@ -1303,7 +1303,80 @@ const HANDLERS: Record<string, Handler> = {
       results,
     };
   },
+
+  // ===== Legal documents (super admin) =====
+  list_legal_documents: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      `SELECT id, slug, title, content_html, version, sort_order, is_required, updated_at, created_at
+         FROM legal_documents ORDER BY sort_order ASC, title ASC`,
+    );
+    return r.rows;
+  },
+  update_legal_document: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      id: z.string().uuid(),
+      title: z.string().trim().min(1).max(200).optional(),
+      content_html: z.string().min(1).max(500_000),
+      bump_version: z.boolean().optional().default(false),
+      is_required: z.boolean().optional(),
+    }).parse(params);
+    const r = await query<{ id: string; slug: string; version: number }>(
+      `UPDATE legal_documents
+          SET title        = COALESCE($2, title),
+              content_html = $3,
+              is_required  = COALESCE($4, is_required),
+              version      = CASE WHEN $5::bool THEN version + 1 ELSE version END,
+              updated_at   = now(),
+              updated_by   = $6
+        WHERE id = $1
+        RETURNING id, slug, version`,
+      [p.id, p.title ?? null, p.content_html, p.is_required ?? null, p.bump_version, ctx.userId],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "Belge bulunamadı");
+    return r.rows[0];
+  },
+  list_legal_consents: async (ctx, params) => {
+    requireSuperAdmin(ctx);
+    const p = z.object({
+      document_id: z.string().uuid().optional(),
+      phone: z.string().trim().min(3).max(20).optional(),
+      limit: z.number().int().min(1).max(2000).optional().default(500),
+    }).parse(params ?? {});
+    const where: string[] = [];
+    const args: any[] = [];
+    if (p.document_id) { args.push(p.document_id); where.push(`c.document_id = $${args.length}`); }
+    if (p.phone) {
+      const digits = p.phone.replace(/\D+/g, "");
+      args.push(`%${digits}%`); where.push(`regexp_replace(c.parent_phone,'\\D','','g') ILIKE $${args.length}`);
+    }
+    const sql = `
+      SELECT c.id, c.parent_phone, c.document_id, c.document_slug, c.document_version,
+             c.accepted_at, c.ip, c.user_agent, d.title AS document_title
+        FROM legal_consents c
+        JOIN legal_documents d ON d.id = c.document_id
+       ${where.length ? "WHERE " + where.join(" AND ") : ""}
+       ORDER BY c.accepted_at DESC
+       LIMIT ${p.limit}`;
+    const r = await query(sql, args);
+    return r.rows;
+  },
+  legal_consents_summary: async (ctx) => {
+    requireSuperAdmin(ctx);
+    const r = await query(
+      `SELECT d.id, d.slug, d.title, d.version,
+              COUNT(c.id)::int AS total_consents,
+              COUNT(DISTINCT c.parent_phone)::int AS unique_parents
+         FROM legal_documents d
+         LEFT JOIN legal_consents c ON c.document_id = d.id AND c.document_version = d.version
+        GROUP BY d.id, d.slug, d.title, d.version, d.sort_order
+        ORDER BY d.sort_order ASC`,
+    );
+    return r.rows;
+  },
 };
+
 
 const INGREDIENT_UNITS = ["adet", "gr", "kg", "ml", "lt"] as const;
 const IngredientInputSchema = z.object({

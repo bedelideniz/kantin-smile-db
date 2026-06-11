@@ -970,7 +970,57 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     if (r.rowCount === 0) throw new HttpError(404, "Kayıt bulunamadı");
     return { ok: true };
   },
+
+  // ===== Legal documents / consents =====
+  list_legal_documents: async (ctx) => {
+    const { canonical } = phoneVariants(ctx.phone);
+    const r = await query<{
+      id: string; slug: string; title: string; content_html: string;
+      version: number; sort_order: number; is_required: boolean;
+      accepted_version: number | null; accepted_at: string | null;
+    }>(
+      `SELECT d.id, d.slug, d.title, d.content_html, d.version, d.sort_order, d.is_required,
+              c.document_version AS accepted_version,
+              c.accepted_at
+         FROM legal_documents d
+         LEFT JOIN LATERAL (
+           SELECT document_version, accepted_at
+             FROM legal_consents
+            WHERE parent_phone = $1 AND document_id = d.id
+            ORDER BY accepted_at DESC LIMIT 1
+         ) c ON TRUE
+        ORDER BY d.sort_order ASC, d.title ASC`,
+      [canonical],
+    );
+    return r.rows.map((row) => ({
+      ...row,
+      pending: row.accepted_version === null || row.accepted_version < row.version,
+    }));
+  },
+  accept_legal_documents: async (ctx, params) => {
+    const p = z.object({
+      document_ids: z.array(z.string().uuid()).min(1).max(20),
+    }).parse(params);
+    const { canonical } = phoneVariants(ctx.phone);
+
+    const docs = await query<{ id: string; slug: string; version: number }>(
+      `SELECT id, slug, version FROM legal_documents WHERE id = ANY($1::uuid[])`,
+      [p.document_ids],
+    );
+    if (docs.rowCount === 0) throw new HttpError(404, "Belge bulunamadı");
+
+    for (const d of docs.rows) {
+      await query(
+        `INSERT INTO legal_consents (parent_phone, document_id, document_slug, document_version)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (parent_phone, document_id, document_version) DO NOTHING`,
+        [canonical, d.id, d.slug, d.version],
+      );
+    }
+    return { ok: true, accepted: docs.rows.length };
+  },
 };
+
 
 const BodySchema = z.object({
   op: z.string().min(1).max(64),
