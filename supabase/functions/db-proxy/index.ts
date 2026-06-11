@@ -1390,8 +1390,10 @@ const HANDLERS: Record<string, Handler> = {
                SELECT u.full_name
                  FROM app_users u
                 WHERE u.role = 'parent'
-                  AND regexp_replace(u.phone,'\\D','','g') = regexp_replace(a.parent_phone,'\\D','','g')
+                  AND RIGHT(regexp_replace(u.phone,'\\D','','g'), 10)
+                    = RIGHT(regexp_replace(a.parent_phone,'\\D','','g'), 10)
                   AND COALESCE(u.full_name, '') <> ''
+                ORDER BY u.created_at DESC NULLS LAST
                 LIMIT 1
              ) AS parent_full_name
         FROM agg a
