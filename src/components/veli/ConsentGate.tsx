@@ -72,24 +72,24 @@ export default function ConsentGate() {
   return (
     <Dialog open>
       <DialogContent
-        className="max-w-3xl p-0 overflow-hidden gap-0 sm:max-h-[92vh] [&>button.absolute]:hidden"
+        className="max-w-3xl w-[calc(100vw-1rem)] sm:w-full p-0 overflow-hidden gap-0 max-h-[95vh] sm:max-h-[92vh] [&>button.absolute]:hidden"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
-        <DialogHeader className="border-b bg-muted/40 p-4">
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            Sözleşme ve aydınlatma metinleri
+        <DialogHeader className="border-b bg-muted/40 p-3 sm:p-4">
+          <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+            <ShieldCheck className="h-5 w-5 text-primary shrink-0" />
+            <span className="truncate">Sözleşme ve aydınlatma metinleri</span>
           </DialogTitle>
           <DialogDescription className="text-xs">
             KantinPay'i kullanmaya başlamadan önce aşağıdaki {docs.length} belgeyi okuyup onaylamanız gerekmektedir.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col">
-          <TabsList className="m-3 mb-0 h-auto flex-wrap justify-start gap-1 bg-muted/60 p-1">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col min-w-0">
+          <TabsList className="m-2 sm:m-3 mb-0 h-auto flex-wrap justify-start gap-1 bg-muted/60 p-1">
             {docs.map((d, i) => (
-              <TabsTrigger key={d.id} value={d.id} className="text-xs data-[state=active]:bg-background">
+              <TabsTrigger key={d.id} value={d.id} className="text-[11px] sm:text-xs data-[state=active]:bg-background px-2 py-1">
                 {i + 1}. {d.title}
                 {accepted[d.id] && <span className="ml-1 text-primary">✓</span>}
               </TabsTrigger>
@@ -97,14 +97,14 @@ export default function ConsentGate() {
           </TabsList>
 
           {docs.map((d) => (
-            <TabsContent key={d.id} value={d.id} className="m-0 flex flex-col">
-              <ScrollArea className="h-[55vh] px-4 py-3">
+            <TabsContent key={d.id} value={d.id} className="m-0 flex flex-col min-w-0">
+              <ScrollArea className="h-[50vh] sm:h-[55vh] px-3 sm:px-4 py-3">
                 <article
-                  className="prose prose-sm max-w-none dark:prose-invert prose-headings:font-semibold prose-table:text-xs"
+                  className="prose prose-sm max-w-none dark:prose-invert prose-headings:font-semibold prose-table:text-xs break-words [&_*]:max-w-full [&_pre]:overflow-x-auto [&_table]:block [&_table]:overflow-x-auto"
                   dangerouslySetInnerHTML={{ __html: d.content_html || "<p class='text-muted-foreground'>Bu belgenin içeriği henüz yüklenmemiş.</p>" }}
                 />
               </ScrollArea>
-              <label className="flex cursor-pointer items-start gap-3 border-t bg-muted/30 p-4 hover:bg-muted/60">
+              <label className="flex cursor-pointer items-start gap-3 border-t bg-muted/30 p-3 sm:p-4 hover:bg-muted/60">
                 <Checkbox
                   checked={!!accepted[d.id]}
                   onCheckedChange={(v) => setAccepted((s) => ({ ...s, [d.id]: !!v }))}
@@ -118,11 +118,11 @@ export default function ConsentGate() {
           ))}
         </Tabs>
 
-        <div className="flex items-center justify-between gap-3 border-t bg-background p-3">
-          <div className="text-xs text-muted-foreground">
+        <div className="flex items-center justify-between gap-2 border-t bg-background p-3">
+          <div className="text-xs text-muted-foreground shrink-0">
             Adım <strong>{currentIndex + 1}</strong> / {docs.length}
           </div>
-          <Button onClick={handleNext} disabled={!currentChecked || submitting || (isLast && !allChecked)} size="sm">
+          <Button onClick={handleNext} disabled={!currentChecked || submitting || (isLast && !allChecked)} size="sm" className="shrink-0">
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isLast ? "Onayla ve bitir" : "Onayla ve devam et"}
           </Button>
