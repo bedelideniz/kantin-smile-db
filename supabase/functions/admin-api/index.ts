@@ -8,11 +8,11 @@ import { isDbConnectionError, query, withTransaction } from "../_shared/external
 
 type AppModule =
   | "schools" | "students" | "marketers" | "splashes" | "donations"
-  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard" | "announcements" | "stories" | "legal";
+  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard" | "announcements" | "stories" | "legal" | "push";
 
 const MODULES: AppModule[] = [
   "schools","students","marketers","splashes","donations",
-  "payments","sms","infrastructure","alarms","staff","logs","payouts","dashboard","announcements","stories","legal",
+  "payments","sms","infrastructure","alarms","staff","logs","payouts","dashboard","announcements","stories","legal","push",
 ];
 
 function admin() {
