@@ -133,6 +133,7 @@ export type Database = {
         | "dashboard"
         | "announcements"
         | "stories"
+        | "legal"
       app_role:
         | "super_admin"
         | "school_admin"
@@ -282,6 +283,7 @@ export const Constants = {
         "dashboard",
         "announcements",
         "stories",
+        "legal",
       ],
       app_role: [
         "super_admin",
