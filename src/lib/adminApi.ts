@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type AppModule =
   | "schools" | "students" | "marketers" | "splashes" | "donations"
-  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard" | "announcements" | "stories";
+  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard" | "announcements" | "stories" | "legal";
 
 export const MODULE_LABELS: Record<AppModule, string> = {
   schools: "Okullar",
@@ -20,7 +20,9 @@ export const MODULE_LABELS: Record<AppModule, string> = {
   logs: "İşlem Logları",
   payouts: "Kantin Ödemeleri",
   dashboard: "Dashboard (TV)",
+  legal: "Sözleşmeler",
 };
+
 
 export class AdminApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
