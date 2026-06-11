@@ -412,6 +412,7 @@ export default function VeliPanel() {
       </div>
       <BottomNav />
       <ParentSplash schoolId={selected?.school_id ?? null} />
+      <ConsentGate />
       {(() => {
         const needsPhoto = session.students.find((s) => !s.photo_url);
         if (!needsPhoto) return null;
