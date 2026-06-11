@@ -14,6 +14,7 @@ import {
   type ParentSession,
 } from "@/lib/parentApi";
 import logo from "@/assets/kantinpay-logo.png";
+import { linkOneSignalToParent } from "@/lib/oneSignal";
 
 type Step = "phone" | "change_pin";
 
@@ -56,6 +57,7 @@ export default function VeliGiris() {
         setStep("change_pin");
         setPin("");
       } else {
+        linkOneSignalToParent(digits).catch(() => {});
         navigate("/veli", { replace: true });
       }
     } catch (e: any) {
@@ -95,6 +97,7 @@ export default function VeliGiris() {
       await callParentApi("change_pin", { new_pin: newPin });
       const cur = getParentSession();
       if (cur) saveParentSession({ ...cur, must_change: false });
+      if (cur?.phone) linkOneSignalToParent(cur.phone).catch(() => {});
       toast({ title: "PIN güncellendi" });
       navigate("/veli", { replace: true });
     } catch (e: any) {
