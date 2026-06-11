@@ -1387,10 +1387,11 @@ const HANDLERS: Record<string, Handler> = {
              a.user_agent,
              a.documents,
              (
-               SELECT s.parent_full_name
-                 FROM students s
-                WHERE regexp_replace(s.parent_phone,'\\D','','g') = regexp_replace(a.parent_phone,'\\D','','g')
-                  AND COALESCE(s.parent_full_name, '') <> ''
+               SELECT u.full_name
+                 FROM app_users u
+                WHERE u.role = 'parent'
+                  AND regexp_replace(u.phone,'\\D','','g') = regexp_replace(a.parent_phone,'\\D','','g')
+                  AND COALESCE(u.full_name, '') <> ''
                 LIMIT 1
              ) AS parent_full_name
         FROM agg a
