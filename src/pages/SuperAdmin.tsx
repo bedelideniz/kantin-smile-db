@@ -159,6 +159,7 @@ export default function SuperAdmin() {
       case "payouts": return <CanteenPayoutsManager />;
       case "logs": return <SaleLogsManager />;
       case "staff": return <StaffManager />;
+      case "legal": return <LegalDocumentsManager />;
       case "infrastructure": return (
         <Card>
           <CardHeader>
