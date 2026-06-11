@@ -410,27 +410,35 @@ function ConsentTracking({ docs }: { docs: LegalDoc[] }) {
                   <td className="px-3 py-2 font-mono text-xs">{p.parent_phone}</td>
                   {docs.map((d) => {
                     const e = p.documents.find((x) => x.document_id === d.id);
-                    if (!e) return <td key={d.id} className="px-3 py-2 text-center text-muted-foreground">—</td>;
+                    if (!e) {
+                      return (
+                        <td key={d.id} className="px-3 py-2 text-center">
+                          <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">
+                            Onaylanmadı
+                          </Badge>
+                        </td>
+                      );
+                    }
                     const stale = e.document_version < d.version;
                     return (
-                      <td key={d.id} className="px-3 py-2 text-center">
+                      <td key={d.id} className="px-3 py-2 text-center align-top">
                         <div className="flex flex-col items-center gap-0.5">
                           <Badge
                             variant={stale ? "outline" : "default"}
                             className={`text-[10px] ${stale ? "border-amber-500 text-amber-600" : ""}`}
                             title={stale ? `Eski versiyon (v${e.document_version}). Güncel v${d.version}` : `v${e.document_version}`}
                           >
-                            v{e.document_version}
+                            ✓ v{e.document_version}
                           </Badge>
-                          <span className="text-[10px] text-muted-foreground">
-                            {new Date(e.accepted_at).toLocaleDateString("tr-TR")}
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            {fmtDateTime(e.accepted_at)}
                           </span>
                         </div>
                       </td>
                     );
                   })}
                   <td className="px-3 py-2 text-xs text-muted-foreground font-mono">{p.ip ?? "—"}</td>
-                  <td className="px-3 py-2 text-xs">{new Date(p.last_accepted_at).toLocaleString("tr-TR")}</td>
+                  <td className="px-3 py-2 text-xs whitespace-nowrap">{fmtDateTime(p.last_accepted_at)}</td>
                 </tr>
               ))}
             </tbody>
