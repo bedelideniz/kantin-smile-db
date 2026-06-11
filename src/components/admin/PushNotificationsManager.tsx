@@ -25,7 +25,13 @@ export default function PushNotificationsManager() {
   const [lastResult, setLastResult] = useState<string | null>(null);
 
   useEffect(() => {
-    callAdminApi<School[]>("list_schools").then(setSchools).catch(() => {});
+    supabase.functions.invoke("db-proxy", { body: { op: "list_schools" } })
+      .then((r: any) => {
+        if (r?.error) return;
+        const list = (r?.data?.data ?? r?.data) as School[];
+        if (Array.isArray(list)) setSchools(list.map((s) => ({ id: s.id, name: s.name })));
+      })
+      .catch(() => {});
   }, []);
 
   const send = async () => {
