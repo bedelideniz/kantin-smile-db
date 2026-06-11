@@ -282,6 +282,21 @@ export default function LegalDocumentsManager() {
   );
 }
 
+function fmtDateTime(s: string | null | undefined): string {
+  if (!s) return "—";
+  let d = new Date(s);
+  if (isNaN(d.getTime())) {
+    // Postgres can emit "2024-06-11 10:30:00+00" — JS sometimes fails on that.
+    const fixed = String(s).replace(" ", "T");
+    d = new Date(fixed);
+    if (isNaN(d.getTime())) return "—";
+  }
+  return d.toLocaleString("tr-TR", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
 function ConsentTracking({ docs }: { docs: LegalDoc[] }) {
   const { toast } = useToast();
   const [docFilter, setDocFilter] = useState<string>("__all__");
