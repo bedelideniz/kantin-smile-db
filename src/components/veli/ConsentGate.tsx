@@ -72,7 +72,7 @@ export default function ConsentGate() {
   return (
     <Dialog open>
       <DialogContent
-        className="max-w-3xl p-0 overflow-hidden gap-0 sm:max-h-[92vh]"
+        className="max-w-3xl p-0 overflow-hidden gap-0 sm:max-h-[92vh] [&>button.absolute]:hidden"
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
