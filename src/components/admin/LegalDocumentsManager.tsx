@@ -286,17 +286,21 @@ function ConsentTracking({ docs }: { docs: LegalDoc[] }) {
   const { toast } = useToast();
   const [docFilter, setDocFilter] = useState<string>("__all__");
   const [phone, setPhone] = useState("");
-  const [items, setItems] = useState<Consent[]>([]);
+  const [items, setItems] = useState<ParentConsent[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 100;
   const debounce = useRef<number | null>(null);
 
-  const load = async () => {
+  const load = async (resetPage = false) => {
+    const targetPage = resetPage ? 0 : page;
+    if (resetPage) setPage(0);
     setLoading(true);
     try {
-      const params: any = {};
+      const params: any = { limit: PAGE_SIZE, offset: targetPage * PAGE_SIZE };
       if (docFilter !== "__all__") params.document_id = docFilter;
       if (phone.trim()) params.phone = phone.trim();
-      const r = await callOp<Consent[]>("list_legal_consents", params);
+      const r = await callOp<ParentConsent[]>("list_legal_consents", params);
       setItems(r);
     } catch (e: any) {
       toast({ title: "Listelenemedi", description: e?.message, variant: "destructive" });
@@ -305,17 +309,31 @@ function ConsentTracking({ docs }: { docs: LegalDoc[] }) {
     }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [docFilter]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [page]);
+  useEffect(() => { load(true); /* eslint-disable-next-line */ }, [docFilter]);
   useEffect(() => {
     if (debounce.current) window.clearTimeout(debounce.current);
-    debounce.current = window.setTimeout(load, 350);
+    debounce.current = window.setTimeout(() => load(true), 350);
     return () => { if (debounce.current) window.clearTimeout(debounce.current); };
     // eslint-disable-next-line
   }, [phone]);
 
   const exportCsv = () => {
-    const rows = [["Telefon", "Belge", "Versiyon", "Onay Tarihi", "IP"]];
-    items.forEach((c) => rows.push([c.parent_phone, c.document_title, String(c.document_version), c.accepted_at, c.ip ?? ""]));
+    const header = ["Ad Soyad", "Telefon", "IP", "Son Onay", ...docs.map((d) => d.title)];
+    const rows = [header];
+    items.forEach((p) => {
+      const row = [
+        p.parent_full_name ?? "",
+        p.parent_phone,
+        p.ip ?? "",
+        p.last_accepted_at,
+        ...docs.map((d) => {
+          const e = p.documents.find((x) => x.document_id === d.id);
+          return e ? `v${e.document_version} · ${new Date(e.accepted_at).toLocaleString("tr-TR")}` : "";
+        }),
+      ];
+      rows.push(row);
+    });
     const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -340,7 +358,7 @@ function ConsentTracking({ docs }: { docs: LegalDoc[] }) {
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Telefon ara (5XX...)"
+              placeholder="Ad veya telefon ara"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               className="pl-8"
@@ -355,33 +373,68 @@ function ConsentTracking({ docs }: { docs: LegalDoc[] }) {
           <table className="w-full text-sm">
             <thead className="bg-muted/60 text-xs">
               <tr>
+                <th className="px-3 py-2 text-left">Ad Soyad</th>
                 <th className="px-3 py-2 text-left">Telefon</th>
-                <th className="px-3 py-2 text-left">Belge</th>
-                <th className="px-3 py-2 text-left">Versiyon</th>
-                <th className="px-3 py-2 text-left">Tarih</th>
+                {docs.map((d) => (
+                  <th key={d.id} className="px-3 py-2 text-center whitespace-nowrap">{d.title}</th>
+                ))}
                 <th className="px-3 py-2 text-left">IP</th>
+                <th className="px-3 py-2 text-left">Son Onay</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={5} className="p-6 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></td></tr>
+                <tr><td colSpan={4 + docs.length} className="p-6 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></td></tr>
               )}
               {!loading && items.length === 0 && (
-                <tr><td colSpan={5} className="p-6 text-center text-muted-foreground">Onay kaydı yok.</td></tr>
+                <tr><td colSpan={4 + docs.length} className="p-6 text-center text-muted-foreground">Onay kaydı yok.</td></tr>
               )}
-              {!loading && items.map((c) => (
-                <tr key={c.id} className="border-t hover:bg-muted/30">
-                  <td className="px-3 py-2 font-mono">{c.parent_phone}</td>
-                  <td className="px-3 py-2">{c.document_title}</td>
-                  <td className="px-3 py-2"><Badge variant="outline" className="text-[10px]">v{c.document_version}</Badge></td>
-                  <td className="px-3 py-2 text-xs">{new Date(c.accepted_at).toLocaleString("tr-TR")}</td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">{c.ip ?? "—"}</td>
+              {!loading && items.map((p) => (
+                <tr key={p.parent_phone} className="border-t hover:bg-muted/30">
+                  <td className="px-3 py-2 font-medium">{p.parent_full_name ?? <span className="text-muted-foreground italic">—</span>}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{p.parent_phone}</td>
+                  {docs.map((d) => {
+                    const e = p.documents.find((x) => x.document_id === d.id);
+                    if (!e) return <td key={d.id} className="px-3 py-2 text-center text-muted-foreground">—</td>;
+                    const stale = e.document_version < d.version;
+                    return (
+                      <td key={d.id} className="px-3 py-2 text-center">
+                        <div className="flex flex-col items-center gap-0.5">
+                          <Badge
+                            variant={stale ? "outline" : "default"}
+                            className={`text-[10px] ${stale ? "border-amber-500 text-amber-600" : ""}`}
+                            title={stale ? `Eski versiyon (v${e.document_version}). Güncel v${d.version}` : `v${e.document_version}`}
+                          >
+                            v{e.document_version}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(e.accepted_at).toLocaleDateString("tr-TR")}
+                          </span>
+                        </div>
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2 text-xs text-muted-foreground font-mono">{p.ip ?? "—"}</td>
+                  <td className="px-3 py-2 text-xs">{new Date(p.last_accepted_at).toLocaleString("tr-TR")}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="text-xs text-muted-foreground">Toplam: {items.length} kayıt</div>
+
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            Sayfa {page + 1} · {items.length} veli gösteriliyor
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0 || loading}>
+              ‹ Önceki
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setPage((p) => p + 1)} disabled={items.length < PAGE_SIZE || loading}>
+              Sonraki ›
+            </Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
