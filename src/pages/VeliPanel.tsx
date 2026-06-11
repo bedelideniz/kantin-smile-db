@@ -121,6 +121,9 @@ export default function VeliPanel() {
 
   const logout = async () => {
     try { await callParentApi("logout"); } catch { /* ignore */ }
+    if ((window as any).ReactNativeWebView) {
+      (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOGOUT' }));
+    }
     clearParentSession();
     navigate("/veli-giris", { replace: true });
   };
