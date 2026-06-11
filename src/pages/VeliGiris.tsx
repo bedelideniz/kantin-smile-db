@@ -13,7 +13,7 @@ import {
   saveParentSession,
   type ParentSession,
 } from "@/lib/parentApi";
-import logo from "@/assets/kantinpay-logo.png";
+
 import { linkOneSignalToParent } from "@/lib/oneSignal";
 
 type Step = "phone" | "change_pin";
