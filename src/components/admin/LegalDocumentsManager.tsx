@@ -26,16 +26,22 @@ interface LegalDoc {
   created_at: string;
 }
 
-interface Consent {
-  id: string;
-  parent_phone: string;
+interface ConsentDocEntry {
   document_id: string;
   document_slug: string;
   document_title: string;
   document_version: number;
   accepted_at: string;
   ip: string | null;
+}
+
+interface ParentConsent {
+  parent_phone: string;
+  parent_full_name: string | null;
+  last_accepted_at: string;
+  ip: string | null;
   user_agent: string | null;
+  documents: ConsentDocEntry[];
 }
 
 interface Summary {
