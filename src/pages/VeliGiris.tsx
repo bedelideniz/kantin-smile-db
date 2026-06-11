@@ -123,11 +123,7 @@ export default function VeliGiris() {
         style={{ background: "radial-gradient(circle, hsl(45 85% 60%) 0%, transparent 70%)" }} />
 
       <div className="relative w-full max-w-sm">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div className="rounded-3xl bg-white/70 p-5 shadow-xl backdrop-blur-xl ring-1 ring-white/60">
-            <img src={logo} alt="KantinPay" className="h-44 w-auto object-contain drop-shadow-sm" />
-          </div>
-        </div>
+
 
         <Card className="border-white/60 bg-white/70 shadow-2xl backdrop-blur-xl" style={{ borderRadius: "1.75rem" }}>
           <CardHeader>
