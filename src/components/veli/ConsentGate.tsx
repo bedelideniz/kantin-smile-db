@@ -33,7 +33,8 @@ export default function ConsentGate() {
     callParentApi<LegalDoc[]>("list_legal_documents")
       .then((rows) => {
         if (cancelled) return;
-        const pending = rows.filter((d) => d.pending && d.is_required);
+        // Only block on documents that are required, pending, AND have content set by admin.
+        const pending = rows.filter((d) => d.pending && d.is_required && d.content_html && d.content_html.trim().length > 20);
         setDocs(pending);
         if (pending.length > 0) setActiveTab(pending[0].id);
       })
