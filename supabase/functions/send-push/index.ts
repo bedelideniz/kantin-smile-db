@@ -53,6 +53,14 @@ Deno.serve(async (req) => {
       headings: { tr: p.title, en: p.title },
       contents: { tr: p.message, en: p.message },
       target_channel: "push",
+      // Yalnızca mobil uygulamaya gönder — aynı veli web push'a da aboneyse
+      // çift bildirim almasın diye web/Chrome/Safari/Firefox abonelikleri hariç tutulur.
+      isIos: true,
+      isAndroid: true,
+      isAnyWeb: false,
+      isChromeWeb: false,
+      isFirefox: false,
+      isSafari: false,
     };
     if (p.url) payload.url = p.url;
 
