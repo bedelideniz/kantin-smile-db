@@ -207,6 +207,35 @@ export default function PushNotificationsManager() {
           <Textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={500} placeholder="Bildirim metni" />
         </div>
 
+        <div>
+          <Label className="text-xs">Görsel (opsiyonel)</Label>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f); }}
+          />
+          {imageUrl ? (
+            <div className="mt-1 flex items-start gap-3">
+              <img src={imageUrl} alt="Bildirim görseli" className="h-20 w-32 rounded-md border object-cover" />
+              <Button type="button" size="sm" variant="outline" onClick={() => setImageUrl("")}>
+                <X className="mr-1 h-3.5 w-3.5" /> Kaldır
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-1">
+              <Button type="button" size="sm" variant="outline" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
+                Görsel yükle
+              </Button>
+              <p className="mt-1 text-[11px] text-muted-foreground">JPG/PNG, en fazla 3MB. Bildirimde büyük görsel olarak gösterilir.</p>
+            </div>
+          )}
+        </div>
+
+
+
         <div className="flex items-center justify-between gap-3 border-t pt-3">
           <div className="text-xs text-muted-foreground">{lastResult ?? ""}</div>
           <Button onClick={send} disabled={sending}>
