@@ -11,6 +11,7 @@ const BodySchema = z.object({
   title: z.string().trim().min(1).max(120),
   message: z.string().trim().min(1).max(500),
   url: z.string().trim().url().max(500).optional().or(z.literal("")),
+  image_url: z.string().trim().url().max(800).optional().or(z.literal("")),
   target: z.enum(["all", "phones", "school"]),
   phones: z.array(z.string().trim().min(3).max(20)).max(2000).optional(),
   school_id: z.string().uuid().optional(),
