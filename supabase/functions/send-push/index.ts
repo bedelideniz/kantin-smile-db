@@ -103,17 +103,14 @@ Deno.serve(async (req) => {
       body = await res.json().catch(() => ({}));
     }
 
-    if (!res.ok) {
-      const msg = body?.errors ? JSON.stringify(body.errors) : `OneSignal ${res.status}`;
-      console.error("send-push OneSignal error:", msg);
-      throw new HttpError(502, msg);
-    }
-    // OneSignal 200 dönüp id boş bırakabilir = hiçbir abone eşleşmedi.
-    if (!body?.id) {
-      const msg = body?.errors
-        ? JSON.stringify(body.errors)
-        : "Hedefte bildirime abone cihaz bulunamadı (uygulamayı yükleyip bildirime izin vermiş olmalı)";
-      console.error("send-push no recipients:", JSON.stringify(body));
+    const errText = JSON.stringify(body?.errors ?? "");
+    const noSubs = errText.includes("not subscribed") || errText.includes("no subscribers");
+
+    if (!res.ok || !body?.id || noSubs) {
+      console.error("send-push OneSignal error:", res.status, JSON.stringify(body));
+      const msg = noSubs
+        ? `Hedef veli(ler) henüz KantinPay mobil uygulamasını yükleyip bildirime izin vermemiş, bu yüzden bildirim ulaştırılamadı.${recipientCount ? ` (${recipientCount} numara denendi)` : ""}`
+        : (body?.errors ? JSON.stringify(body.errors) : `OneSignal ${res.status}`);
       throw new HttpError(400, msg);
     }
     return new Response(JSON.stringify({
