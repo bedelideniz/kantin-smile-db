@@ -41,18 +41,7 @@ Deno.serve(async (req) => {
     const restKey = Deno.env.get("ONESIGNAL_REST_API_KEY");
     if (!restKey) throw new HttpError(500, "ONESIGNAL_REST_API_KEY tanımlı değil");
 
-    const rawBody = await req.json();
-    if (rawBody?.debug_view === true) {
-      const r = await fetch(`${ONESIGNAL_URL}?app_id=${ONESIGNAL_APP_ID}&limit=10`, {
-        headers: { "Authorization": `Key ${restKey}` },
-      });
-      const b = await r.json().catch(() => ({}));
-      return new Response(JSON.stringify({ ok: true, debug: b }), {
-        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const parsed = BodySchema.safeParse(rawBody);
+    const parsed = BodySchema.safeParse(await req.json());
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten().fieldErrors }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -65,20 +54,20 @@ Deno.serve(async (req) => {
       headings: { tr: p.title, en: p.title },
       contents: { tr: p.message, en: p.message },
       target_channel: "push",
-      // Yalnızca mobil uygulamaya gönder — aynı veli web push'a da aboneyse
-      // çift bildirim almasın diye web/Chrome/Safari/Firefox abonelikleri hariç tutulur.
-      isIos: true,
-      isAndroid: true,
-      isAnyWeb: false,
-      isChromeWeb: false,
-      isFirefox: false,
-      isSafari: false,
     };
     if (p.url) payload.url = p.url;
+    if (p.image_url) {
+      // Görsel: Android (big_picture), iOS (ios_attachments), web (chrome_web_image)
+      payload.big_picture = p.image_url;
+      payload.ios_attachments = { image: p.image_url };
+      payload.chrome_web_image = p.image_url;
+      payload.huawei_big_picture = p.image_url;
+    }
 
     let recipientCount = 0;
     if (p.target === "all") {
-      payload.included_segments = ["Subscribed Users"];
+      // Bu OneSignal uygulamasındaki varsayılan segment adı "Total Subscriptions".
+      payload.included_segments = ["Total Subscriptions"];
     } else {
       let phones: string[] = [];
       if (p.target === "school") {
@@ -93,7 +82,7 @@ Deno.serve(async (req) => {
       payload.include_aliases = { external_id: phones };
     }
 
-    const res = await fetch(ONESIGNAL_URL, {
+    let res = await fetch(ONESIGNAL_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -101,10 +90,31 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify(payload),
     });
-    const body = await res.json().catch(() => ({}));
+    let body = await res.json().catch(() => ({}));
+
+    // Segment adı bulunamazsa eski varsayılan adla bir kez daha dene.
+    if (!res.ok && p.target === "all" && JSON.stringify(body?.errors ?? "").includes("segment")) {
+      payload.included_segments = ["Subscribed Users"];
+      res = await fetch(ONESIGNAL_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Key ${restKey}` },
+        body: JSON.stringify(payload),
+      });
+      body = await res.json().catch(() => ({}));
+    }
+
     if (!res.ok) {
       const msg = body?.errors ? JSON.stringify(body.errors) : `OneSignal ${res.status}`;
+      console.error("send-push OneSignal error:", msg);
       throw new HttpError(502, msg);
+    }
+    // OneSignal 200 dönüp id boş bırakabilir = hiçbir abone eşleşmedi.
+    if (!body?.id) {
+      const msg = body?.errors
+        ? JSON.stringify(body.errors)
+        : "Hedefte bildirime abone cihaz bulunamadı (uygulamayı yükleyip bildirime izin vermiş olmalı)";
+      console.error("send-push no recipients:", JSON.stringify(body));
+      throw new HttpError(400, msg);
     }
     return new Response(JSON.stringify({
       ok: true,
