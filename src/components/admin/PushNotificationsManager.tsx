@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { BellRing, Loader2, Send } from "lucide-react";
+import { BellRing, ImagePlus, Loader2, Send, X } from "lucide-react";
 
 
 type Target = "all" | "school" | "phones";
@@ -21,6 +21,9 @@ export default function PushNotificationsManager() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [url, setUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
 
@@ -33,6 +36,35 @@ export default function PushNotificationsManager() {
       })
       .catch(() => {});
   }, []);
+
+  const uploadImage = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Sadece görsel dosyası yükleyin", variant: "destructive" });
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast({ title: "Görsel en fazla 3MB olabilir", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `push/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("canteen-announcements").upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+      });
+      if (error) throw new Error(error.message);
+      const { data } = supabase.storage.from("canteen-announcements").getPublicUrl(path);
+      setImageUrl(data.publicUrl);
+      toast({ title: "Görsel yüklendi" });
+    } catch (e: any) {
+      toast({ title: "Görsel yüklenemedi", description: e?.message ?? "Hata", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   const send = async () => {
     if (!title.trim() || !message.trim()) {
@@ -59,13 +91,27 @@ export default function PushNotificationsManager() {
           title: title.trim(),
           message: message.trim(),
           url: url.trim() || undefined,
+          image_url: imageUrl || undefined,
           target,
           school_id: target === "school" ? schoolId : undefined,
           phones,
         },
       });
-      if (error) throw new Error(error.message);
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if (error) {
+        // Edge function hata gövdesindeki asıl mesajı çıkar
+        let msg = error.message;
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === "function") {
+            const body = await ctx.json();
+            if (body?.error) msg = typeof body.error === "string" ? body.error : JSON.stringify(body.error);
+          }
+        } catch { /* ignore */ }
+        throw new Error(msg);
+      }
+      if ((data as any)?.error) throw new Error(
+        typeof (data as any).error === "string" ? (data as any).error : JSON.stringify((data as any).error)
+      );
       const r = (data as any)?.data;
       const recipients = r?.recipients ?? 0;
       setLastResult(`Gönderildi · ${recipients} alıcıya iletildi · id: ${r?.notification_id ?? "-"}`);
@@ -74,6 +120,7 @@ export default function PushNotificationsManager() {
       setMessage("");
       setUrl("");
       setPhonesRaw("");
+      setImageUrl("");
     } catch (e: any) {
       const msg = e?.message ?? "Hata";
       setLastResult(`Hata: ${msg}`);
@@ -159,6 +206,35 @@ export default function PushNotificationsManager() {
           <Label className="text-xs">Mesaj <span className="text-muted-foreground">({message.length}/500)</span></Label>
           <Textarea rows={4} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={500} placeholder="Bildirim metni" />
         </div>
+
+        <div>
+          <Label className="text-xs">Görsel (opsiyonel)</Label>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f); }}
+          />
+          {imageUrl ? (
+            <div className="mt-1 flex items-start gap-3">
+              <img src={imageUrl} alt="Bildirim görseli" className="h-20 w-32 rounded-md border object-cover" />
+              <Button type="button" size="sm" variant="outline" onClick={() => setImageUrl("")}>
+                <X className="mr-1 h-3.5 w-3.5" /> Kaldır
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-1">
+              <Button type="button" size="sm" variant="outline" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
+                Görsel yükle
+              </Button>
+              <p className="mt-1 text-[11px] text-muted-foreground">JPG/PNG, en fazla 3MB. Bildirimde büyük görsel olarak gösterilir.</p>
+            </div>
+          )}
+        </div>
+
+
 
         <div className="flex items-center justify-between gap-3 border-t pt-3">
           <div className="text-xs text-muted-foreground">{lastResult ?? ""}</div>
