@@ -37,6 +37,35 @@ export default function PushNotificationsManager() {
       .catch(() => {});
   }, []);
 
+  const uploadImage = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Sadece görsel dosyası yükleyin", variant: "destructive" });
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast({ title: "Görsel en fazla 3MB olabilir", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `push/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from("canteen-announcements").upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+      });
+      if (error) throw new Error(error.message);
+      const { data } = supabase.storage.from("canteen-announcements").getPublicUrl(path);
+      setImageUrl(data.publicUrl);
+      toast({ title: "Görsel yüklendi" });
+    } catch (e: any) {
+      toast({ title: "Görsel yüklenemedi", description: e?.message ?? "Hata", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   const send = async () => {
     if (!title.trim() || !message.trim()) {
       toast({ title: "Başlık ve mesaj zorunlu", variant: "destructive" });
@@ -62,13 +91,27 @@ export default function PushNotificationsManager() {
           title: title.trim(),
           message: message.trim(),
           url: url.trim() || undefined,
+          image_url: imageUrl || undefined,
           target,
           school_id: target === "school" ? schoolId : undefined,
           phones,
         },
       });
-      if (error) throw new Error(error.message);
-      if ((data as any)?.error) throw new Error((data as any).error);
+      if (error) {
+        // Edge function hata gövdesindeki asıl mesajı çıkar
+        let msg = error.message;
+        try {
+          const ctx = (error as any)?.context;
+          if (ctx && typeof ctx.json === "function") {
+            const body = await ctx.json();
+            if (body?.error) msg = typeof body.error === "string" ? body.error : JSON.stringify(body.error);
+          }
+        } catch { /* ignore */ }
+        throw new Error(msg);
+      }
+      if ((data as any)?.error) throw new Error(
+        typeof (data as any).error === "string" ? (data as any).error : JSON.stringify((data as any).error)
+      );
       const r = (data as any)?.data;
       const recipients = r?.recipients ?? 0;
       setLastResult(`Gönderildi · ${recipients} alıcıya iletildi · id: ${r?.notification_id ?? "-"}`);
@@ -77,6 +120,7 @@ export default function PushNotificationsManager() {
       setMessage("");
       setUrl("");
       setPhonesRaw("");
+      setImageUrl("");
     } catch (e: any) {
       const msg = e?.message ?? "Hata";
       setLastResult(`Hata: ${msg}`);
