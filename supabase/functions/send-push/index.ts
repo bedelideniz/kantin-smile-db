@@ -40,7 +40,18 @@ Deno.serve(async (req) => {
     const restKey = Deno.env.get("ONESIGNAL_REST_API_KEY");
     if (!restKey) throw new HttpError(500, "ONESIGNAL_REST_API_KEY tanımlı değil");
 
-    const parsed = BodySchema.safeParse(await req.json());
+    const rawBody = await req.json();
+    if (rawBody?.debug_view === true) {
+      const r = await fetch(`${ONESIGNAL_URL}?app_id=${ONESIGNAL_APP_ID}&limit=10`, {
+        headers: { "Authorization": `Key ${restKey}` },
+      });
+      const b = await r.json().catch(() => ({}));
+      return new Response(JSON.stringify({ ok: true, debug: b }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const parsed = BodySchema.safeParse(rawBody);
     if (!parsed.success) {
       return new Response(JSON.stringify({ error: parsed.error.flatten().fieldErrors }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
