@@ -855,21 +855,37 @@ Deno.serve(async (req) => {
     // "constraint NNNN is not a foreign key constraint" on insert/update/delete.
     try {
       const repaired: string[] = [];
+      const diag: unknown[] = [];
       await withTransaction(async (client) => {
-        const r = await client.query(`
-          SELECT t.tgname, t.tgrelid::regclass::text AS tbl
+        // Diagnostic: list all triggers whose stored constraint OID no longer
+        // resolves to an FK constraint (regardless of trigger function name).
+        const d = await client.query(`
+          SELECT t.tgname,
+                 t.tgrelid::regclass::text AS tbl,
+                 t.tgconstraint AS conoid,
+                 t.tgfoid::regproc::text AS fn,
+                 t.tgisinternal,
+                 c.contype
             FROM pg_trigger t
             LEFT JOIN pg_constraint c ON c.oid = t.tgconstraint
            WHERE t.tgconstraint <> 0
              AND (c.oid IS NULL OR c.contype <> 'f')
-             AND t.tgfoid::regproc::text LIKE 'RI_FKey_%'
         `);
-        for (const row of r.rows as Array<{ tgname: string; tbl: string }>) {
+        for (const row of d.rows) diag.push(row);
+
+        for (const row of d.rows as Array<{ tgname: string; tbl: string; fn: string }>) {
+          // Drop only RI_FKey_* triggers — those are the FK enforcement ones.
+          if (!row.fn || !row.fn.startsWith("RI_FKey_")) continue;
+          await client.query(`ALTER TABLE ${row.tbl} DISABLE TRIGGER "${row.tgname}"`).catch(() => {});
           await client.query(`DROP TRIGGER IF EXISTS "${row.tgname}" ON ${row.tbl}`);
           repaired.push(`${row.tbl}.${row.tgname}`);
         }
       });
-      results.push({ version: "_repair_orphan_ri_triggers", status: repaired.length ? `dropped ${repaired.length}` : "ok" });
+      results.push({
+        version: "_repair_orphan_ri_triggers",
+        status: repaired.length ? `dropped ${repaired.length}` : "ok",
+        error: JSON.stringify({ diag, repaired }),
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       results.push({ version: "_repair_orphan_ri_triggers", status: "failed", error: msg });
