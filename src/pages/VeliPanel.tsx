@@ -22,7 +22,7 @@ import ParentStories from "@/components/veli/ParentStories";
 import PhotoUploadModal from "@/components/veli/PhotoUploadModal";
 import StudentSettingsModal from "@/components/veli/StudentSettingsModal";
 import NotificationsBell from "@/components/veli/NotificationsBell";
-import { linkOneSignalToParent } from "@/lib/oneSignal";
+import { linkOneSignalToParent, notifyNativeParentLogout } from "@/lib/oneSignal";
 
 interface TxItem { product_name: string; qty: number; unit_price: number; line_total: number; }
 interface Tx {
@@ -150,9 +150,7 @@ export default function VeliPanel() {
 
   const logout = async () => {
     try { await callParentApi("logout"); } catch { /* ignore */ }
-    if ((window as any).ReactNativeWebView) {
-      (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOGOUT' }));
-    }
+    notifyNativeParentLogout();
     clearParentSession();
     navigate("/veli-giris", { replace: true });
   };
