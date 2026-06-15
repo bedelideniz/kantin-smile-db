@@ -98,8 +98,9 @@ async function sendSalePush(opts: {
       contents: { tr: message, en: message },
       target_channel: "push",
       include_aliases: { external_id: targets },
-      // Native app: open the app and route inside. Web fallback uses web_url.
-      app_url: `${PARENT_APP_URL}${deepPath}`,
+      // Do NOT set `url` (opens external browser on native).
+      // Native app will be opened by tapping; in-app click handler reads `data.route`.
+      // `web_url` is only used by web-push subscribers.
       web_url: `${PARENT_APP_URL}${deepPath}`,
       data: { route: deepPath, txId: opts.txId, studentId: opts.studentId },
     };
