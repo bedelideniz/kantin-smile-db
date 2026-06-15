@@ -91,13 +91,18 @@ async function sendSalePush(opts: {
     const title = `${opts.studentName} kantinde harcama yaptı`;
     const message = `Tutar: ${fmtTL(opts.total)} ₺ · Yeni bakiye: ${fmtTL(opts.balanceAfter)} ₺`;
 
+    const deepPath = `/veli?tx=${opts.txId}&student=${opts.studentId}`;
     const payload: Record<string, unknown> = {
       app_id: ONESIGNAL_APP_ID,
       headings: { tr: title, en: title },
       contents: { tr: message, en: message },
       target_channel: "push",
       include_aliases: { external_id: targets },
-      url: `${PARENT_APP_URL}/veli?tx=${opts.txId}&student=${opts.studentId}`,
+      // Do NOT set `url` (opens external browser on native).
+      // Native app will be opened by tapping; in-app click handler reads `data.route`.
+      // `web_url` is only used by web-push subscribers.
+      web_url: `${PARENT_APP_URL}${deepPath}`,
+      data: { route: deepPath, txId: opts.txId, studentId: opts.studentId },
     };
 
     const res = await fetch(ONESIGNAL_URL, {
