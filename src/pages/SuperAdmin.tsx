@@ -40,6 +40,7 @@ export default function SuperAdmin() {
   const [myModules, setMyModules] = useState<AppModule[] | null>(null);
   const [active, setActive] = useState<AppModule>("dashboard");
   const [openAlarms, setOpenAlarms] = useState<number>(0);
+  const [openDisputes, setOpenDisputes] = useState<number>(0);
   const visibleTabs = myModules ? TAB_ORDER.filter((m) => myModules.includes(m)) : [];
 
   useEffect(() => {
