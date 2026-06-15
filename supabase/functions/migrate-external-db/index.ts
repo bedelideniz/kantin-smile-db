@@ -825,6 +825,31 @@ const MIGRATIONS: Migration[] = [
       );
     `,
   },
+  {
+    version: "0028_transaction_disputes",
+    description: "Veli işlem itirazları (kategori + not + durum + inceleme)",
+    sql: `
+      CREATE TABLE IF NOT EXISTS transaction_disputes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        transaction_id UUID NOT NULL,
+        student_id UUID NOT NULL,
+        school_id UUID,
+        parent_phone TEXT NOT NULL,
+        category TEXT NOT NULL,
+        note TEXT,
+        amount NUMERIC(12,2),
+        status TEXT NOT NULL DEFAULT 'open',
+        resolution_note TEXT,
+        reviewed_by UUID,
+        reviewed_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE INDEX IF NOT EXISTS idx_tx_disputes_tx     ON transaction_disputes(transaction_id);
+      CREATE INDEX IF NOT EXISTS idx_tx_disputes_school ON transaction_disputes(school_id, status);
+      CREATE INDEX IF NOT EXISTS idx_tx_disputes_phone  ON transaction_disputes(parent_phone);
+    `,
+  },
 ];
 
 
