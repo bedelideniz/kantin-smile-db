@@ -107,6 +107,24 @@ export default function VeliPanel() {
     })();
   }, [selectedId, toast]);
 
+  // Scroll to & briefly highlight a tx if opened via push notification deep link.
+  useEffect(() => {
+    if (!highlightTxId || txLoading) return;
+    const exists = transactions.some((t) => t.id === highlightTxId);
+    if (!exists) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById(`tx-${highlightTxId}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Clear the query param after we've used it, keep highlight visible briefly
+      const next = new URLSearchParams(searchParams);
+      next.delete("tx");
+      next.delete("student");
+      setSearchParams(next, { replace: true });
+      setTimeout(() => setHighlightTxId(null), 3500);
+    }, 100);
+    return () => clearTimeout(t);
+  }, [highlightTxId, txLoading, transactions, searchParams, setSearchParams]);
+
   const refresh = async () => {
     setRefreshing(true);
     try {
