@@ -52,6 +52,7 @@ export default function VeliPanel() {
   const [transactions, setTransactions] = useState<Tx[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [highlightTxId, setHighlightTxId] = useState<string | null>(null);
+  const [disputeTx, setDisputeTx] = useState<Tx | null>(null);
 
   // Load session & validate, then refresh student list from backend
   useEffect(() => {
