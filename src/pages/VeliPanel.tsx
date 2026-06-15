@@ -41,6 +41,7 @@ const fmtDate = (s: string) => {
 
 export default function VeliPanel() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const [session, setSession] = useState<ParentSession | null>(null);
   const [selectedId, setSelectedIdState] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export default function VeliPanel() {
   const [txLoading, setTxLoading] = useState(false);
   const [transactions, setTransactions] = useState<Tx[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [highlightTxId, setHighlightTxId] = useState<string | null>(null);
 
   // Load session & validate, then refresh student list from backend
   useEffect(() => {
