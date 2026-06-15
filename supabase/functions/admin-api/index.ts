@@ -8,11 +8,11 @@ import { isDbConnectionError, isInvalidForeignKeyConstraintError, query, repairI
 
 type AppModule =
   | "schools" | "students" | "marketers" | "splashes" | "donations"
-  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard" | "announcements" | "stories" | "legal" | "push";
+  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard" | "announcements" | "stories" | "legal" | "push" | "disputes";
 
 const MODULES: AppModule[] = [
   "schools","students","marketers","splashes","donations",
-  "payments","sms","infrastructure","alarms","staff","logs","payouts","dashboard","announcements","stories","legal","push",
+  "payments","sms","infrastructure","alarms","staff","logs","payouts","dashboard","announcements","stories","legal","push","disputes",
 ];
 
 function admin() {
