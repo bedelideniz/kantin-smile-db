@@ -91,13 +91,17 @@ async function sendSalePush(opts: {
     const title = `${opts.studentName} kantinde harcama yaptı`;
     const message = `Tutar: ${fmtTL(opts.total)} ₺ · Yeni bakiye: ${fmtTL(opts.balanceAfter)} ₺`;
 
+    const deepPath = `/veli?tx=${opts.txId}&student=${opts.studentId}`;
     const payload: Record<string, unknown> = {
       app_id: ONESIGNAL_APP_ID,
       headings: { tr: title, en: title },
       contents: { tr: message, en: message },
       target_channel: "push",
       include_aliases: { external_id: targets },
-      url: `${PARENT_APP_URL}/veli?tx=${opts.txId}&student=${opts.studentId}`,
+      // Native app: open the app and route inside. Web fallback uses web_url.
+      app_url: `${PARENT_APP_URL}${deepPath}`,
+      web_url: `${PARENT_APP_URL}${deepPath}`,
+      data: { route: deepPath, txId: opts.txId, studentId: opts.studentId },
     };
 
     const res = await fetch(ONESIGNAL_URL, {
