@@ -875,9 +875,10 @@ Deno.serve(async (req) => {
 
         for (const row of d.rows as Array<{ tgname: string; tbl: string; fn: string }>) {
           // Drop only RI_FKey_* triggers — those are the FK enforcement ones.
-          if (!row.fn || !row.fn.startsWith("RI_FKey_")) continue;
-          await client.query(`ALTER TABLE ${row.tbl} DISABLE TRIGGER "${row.tgname}"`).catch(() => {});
-          await client.query(`DROP TRIGGER IF EXISTS "${row.tgname}" ON ${row.tbl}`);
+          const fnName = (row.fn || "").replace(/"/g, "");
+          if (!fnName.startsWith("RI_FKey_")) continue;
+          await client.query(`ALTER TABLE "${row.tbl}" DISABLE TRIGGER "${row.tgname}"`).catch(() => {});
+          await client.query(`DROP TRIGGER IF EXISTS "${row.tgname}" ON "${row.tbl}"`);
           repaired.push(`${row.tbl}.${row.tgname}`);
         }
       });
