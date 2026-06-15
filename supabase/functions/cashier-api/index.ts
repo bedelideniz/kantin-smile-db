@@ -37,8 +37,9 @@ async function sendSalePush(opts: {
   balanceAfter: number;
   txId: string;
 }) {
+  console.log("[salePush] start", { studentId: opts.studentId, txId: opts.txId });
   const restKey = Deno.env.get("ONESIGNAL_REST_API_KEY");
-  if (!restKey) return;
+  if (!restKey) { console.warn("[salePush] missing ONESIGNAL_REST_API_KEY"); return; }
   try {
     // Gather candidate phones (primary + co-parents)
     const r = await query<{ phone: string }>(
@@ -47,22 +48,30 @@ async function sendSalePush(opts: {
        SELECT phone FROM student_co_parents WHERE student_id = $1`,
       [opts.studentId],
     );
+    console.log("[salePush] phones found", r.rowCount, r.rows);
     if (r.rowCount === 0) return;
 
     const allPhones = Array.from(new Set(r.rows.map((x) => pushExternalId(x.phone)).filter((x) => x.length >= 10)));
+    console.log("[salePush] normalized externalIds", allPhones);
     if (allPhones.length === 0) return;
 
     // Filter out phones that opted out (sale_push = false). Missing row = default ON.
-    const prefRows = await query<{ phone: string; sale_push: boolean }>(
-      `SELECT phone, sale_push FROM parent_notification_prefs
-        WHERE regexp_replace(phone, '\\D', '', 'g') ~ '.{10,}'
-          AND right(regexp_replace(phone, '\\D', '', 'g'), 10) = ANY($1::text[])`,
-      [allPhones],
-    );
-    const optedOut = new Set(
-      prefRows.rows.filter((x) => x.sale_push === false).map((x) => pushExternalId(x.phone)),
-    );
+    let optedOut = new Set<string>();
+    try {
+      const prefRows = await query<{ phone: string; sale_push: boolean }>(
+        `SELECT phone, sale_push FROM parent_notification_prefs
+          WHERE right(regexp_replace(phone, '\\D', '', 'g'), 10) = ANY($1::text[])`,
+        [allPhones],
+      );
+      optedOut = new Set(
+        prefRows.rows.filter((x) => x.sale_push === false).map((x) => pushExternalId(x.phone)),
+      );
+      console.log("[salePush] optedOut", Array.from(optedOut));
+    } catch (e) {
+      console.warn("[salePush] prefs query failed (continuing)", (e as Error).message);
+    }
     const targets = allPhones.filter((p) => !optedOut.has(p));
+    console.log("[salePush] targets", targets);
     if (targets.length === 0) return;
 
     const fmtTL = (n: number) =>
@@ -84,12 +93,10 @@ async function sendSalePush(opts: {
       headers: { "Content-Type": "application/json", "Authorization": `Key ${restKey}` },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.warn("sale push failed", res.status, body);
-    }
+    const body = await res.text().catch(() => "");
+    console.log("[salePush] onesignal response", res.status, body);
   } catch (e) {
-    console.warn("sendSalePush error", (e as Error).message);
+    console.warn("[salePush] error", (e as Error).message, (e as Error).stack);
   }
 }
 
