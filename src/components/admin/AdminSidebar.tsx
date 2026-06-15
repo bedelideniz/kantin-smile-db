@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, School, Users, Megaphone, Image as ImageIcon, HandCoins,
-  CreditCard, MessageSquare, BellRing, Wallet, ScrollText, UserCog, Server, Sparkles, FileText,
+  CreditCard, MessageSquare, BellRing, Wallet, ScrollText, UserCog, Server, Sparkles, FileText, ShieldAlert,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -26,6 +26,7 @@ const ICONS: Record<AppModule, React.ComponentType<{ className?: string }>> = {
   infrastructure: Server,
   legal: FileText,
   push: BellRing,
+  disputes: ShieldAlert,
 };
 
 interface Props {
