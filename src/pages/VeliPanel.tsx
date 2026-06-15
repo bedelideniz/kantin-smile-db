@@ -381,8 +381,14 @@ export default function VeliPanel() {
               ) : transactions.map((t) => (
                 <div
                   key={t.id}
-                  className="rounded-xl border border-border/60 bg-card p-3 shadow-sm transition hover:border-accent/40 hover:shadow-md"
+                  id={`tx-${t.id}`}
+                  className={`rounded-xl border bg-card p-3 shadow-sm transition hover:border-accent/40 hover:shadow-md ${
+                    highlightTxId === t.id
+                      ? "border-primary ring-2 ring-primary/40 animate-pulse"
+                      : "border-border/60"
+                  }`}
                 >
+
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-medium text-primary/70">{fmtDate(t.created_at)}</div>
