@@ -432,7 +432,7 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
       lookup_at: z.string().datetime().optional(),
     }).parse(params);
 
-    return await withTransaction(async (client) => {
+    const result = await withTransaction(async (client) => {
       // Lock student row
       const sr = await client.query(
         `SELECT id, full_name, balance, is_active, card_lost, daily_spend_limit
