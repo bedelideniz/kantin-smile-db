@@ -23,6 +23,7 @@ import PhotoUploadModal from "@/components/veli/PhotoUploadModal";
 import StudentSettingsModal from "@/components/veli/StudentSettingsModal";
 import NotificationsBell from "@/components/veli/NotificationsBell";
 import { linkOneSignalToParent, notifyNativeParentLogout } from "@/lib/oneSignal";
+import DisputeDialog from "@/components/veli/DisputeDialog";
 
 interface TxItem { product_name: string; qty: number; unit_price: number; line_total: number; }
 interface Tx {
