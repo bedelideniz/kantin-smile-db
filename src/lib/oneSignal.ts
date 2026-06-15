@@ -46,8 +46,19 @@ export async function initOneSignal(): Promise<void> {
     OneSignal.Notifications.requestPermission(true).catch(() => {});
 
     OneSignal.Notifications.addEventListener('click', (event: any) => {
-      const url: string | undefined = event?.notification?.additionalData?.url;
-      if (url) window.location.href = url;
+      const data = event?.notification?.additionalData ?? {};
+      const route: string | undefined = data.route || data.url;
+      if (!route) return;
+      try {
+        // In-app navigation (SPA) — don't open external browser
+        const path = route.startsWith('http')
+          ? new URL(route).pathname + new URL(route).search
+          : route;
+        window.history.pushState({}, '', path);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      } catch {
+        window.location.assign(route);
+      }
     });
 
     initialized = true;
