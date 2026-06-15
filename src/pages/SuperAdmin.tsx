@@ -73,6 +73,20 @@ export default function SuperAdmin() {
     return () => { window.removeEventListener("alarms:changed", handler); clearInterval(id); };
   }, [myModules, active]);
 
+  useEffect(() => {
+    if (!myModules?.includes("disputes")) return;
+    const refresh = () => {
+      callAdminApi<{ count: number }>("count_open_disputes")
+        .then((r) => setOpenDisputes(r?.count ?? 0))
+        .catch(() => {});
+    };
+    refresh();
+    const handler = () => refresh();
+    window.addEventListener("disputes:changed", handler);
+    const id = setInterval(refresh, 30_000);
+    return () => { window.removeEventListener("disputes:changed", handler); clearInterval(id); };
+  }, [myModules, active]);
+
   if (loading || !user) {
     return <div className="flex min-h-screen items-center justify-center">Yükleniyor…</div>;
   }
