@@ -58,9 +58,6 @@ export default function VeliGiris() {
         setPin("");
       } else {
         linkOneSignalToParent(digits).catch(() => {});
-        if ((window as any).ReactNativeWebView) {
-          (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOGIN', phoneNumber: digits }));
-        }
         navigate("/veli", { replace: true });
       }
     } catch (e: any) {

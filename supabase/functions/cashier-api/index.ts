@@ -30,6 +30,17 @@ function pushExternalId(raw: string): string {
   return raw.replace(/\D+/g, "").slice(-10);
 }
 
+function pushExternalIds(raw: string): string[] {
+  const digits = raw.replace(/\D+/g, "");
+  const national = digits.slice(-10);
+  return Array.from(new Set([
+    national,
+    national ? `0${national}` : "",
+    national ? `90${national}` : "",
+    digits,
+  ].filter((x) => x.length >= 10)));
+}
+
 async function sendSalePush(opts: {
   studentId: string;
   studentName: string;
@@ -51,7 +62,8 @@ async function sendSalePush(opts: {
     console.log("[salePush] phones found", r.rowCount, r.rows);
     if (r.rowCount === 0) return;
 
-    const allPhones = Array.from(new Set(r.rows.map((x) => pushExternalId(x.phone)).filter((x) => x.length >= 10)));
+    const canonicalPhones = Array.from(new Set(r.rows.map((x) => pushExternalId(x.phone)).filter((x) => x.length >= 10)));
+    const allPhones = Array.from(new Set(r.rows.flatMap((x) => pushExternalIds(x.phone))));
     console.log("[salePush] normalized externalIds", allPhones);
     if (allPhones.length === 0) return;
 
@@ -61,7 +73,7 @@ async function sendSalePush(opts: {
       const prefRows = await query<{ phone: string; sale_push: boolean }>(
         `SELECT phone, sale_push FROM parent_notification_prefs
           WHERE right(regexp_replace(phone, '\\D', '', 'g'), 10) = ANY($1::text[])`,
-        [allPhones],
+        [canonicalPhones],
       );
       optedOut = new Set(
         prefRows.rows.filter((x) => x.sale_push === false).map((x) => pushExternalId(x.phone)),
