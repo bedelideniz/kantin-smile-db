@@ -22,6 +22,7 @@ import ParentStories from "@/components/veli/ParentStories";
 import PhotoUploadModal from "@/components/veli/PhotoUploadModal";
 import StudentSettingsModal from "@/components/veli/StudentSettingsModal";
 import NotificationsBell from "@/components/veli/NotificationsBell";
+import { linkOneSignalToParent } from "@/lib/oneSignal";
 
 interface TxItem { product_name: string; qty: number; unit_price: number; line_total: number; }
 interface Tx {
@@ -57,6 +58,7 @@ export default function VeliPanel() {
     if (!s) { navigate("/veli-giris", { replace: true }); return; }
     if (s.must_change) { navigate("/veli-giris", { replace: true }); return; }
     setSession(s);
+    linkOneSignalToParent(s.phone).catch(() => {});
     const stored = getSelectedStudentId();
     const fromQuery = searchParams.get("student");
     const txFromQuery = searchParams.get("tx");
