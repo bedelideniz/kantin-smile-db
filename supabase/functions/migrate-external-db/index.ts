@@ -861,7 +861,6 @@ Deno.serve(async (req) => {
             FROM pg_trigger t
             LEFT JOIN pg_constraint c ON c.oid = t.tgconstraint
            WHERE t.tgconstraint <> 0
-             AND t.tgisinternal = true
              AND (c.oid IS NULL OR c.contype <> 'f')
              AND t.tgfoid::regproc::text LIKE 'RI_FKey_%'
         `);
