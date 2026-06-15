@@ -882,9 +882,13 @@ Deno.serve(async (req) => {
           if (seen.has(key)) continue;
           seen.add(key);
           try {
+            await client.query(`SAVEPOINT sp_repair`);
             await client.query(`ALTER TABLE ${row.conrel} DROP CONSTRAINT "${row.conname}" CASCADE`);
+            await client.query(`RELEASE SAVEPOINT sp_repair`);
             repaired.push(`dropped ${key}`);
           } catch (err) {
+            await client.query(`ROLLBACK TO SAVEPOINT sp_repair`).catch(() => {});
+            await client.query(`RELEASE SAVEPOINT sp_repair`).catch(() => {});
             repaired.push(`skip ${key}: ${(err as Error).message}`);
           }
         }
