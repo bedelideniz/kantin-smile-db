@@ -58,9 +58,15 @@ export default function VeliPanel() {
     if (s.must_change) { navigate("/veli-giris", { replace: true }); return; }
     setSession(s);
     const stored = getSelectedStudentId();
-    const initial = s.students.find((c) => c.id === stored)?.id ?? s.students[0]?.id ?? null;
+    const fromQuery = searchParams.get("student");
+    const txFromQuery = searchParams.get("tx");
+    const initial =
+      (fromQuery && s.students.find((c) => c.id === fromQuery)?.id) ||
+      s.students.find((c) => c.id === stored)?.id ||
+      s.students[0]?.id || null;
     setSelectedIdState(initial);
     if (initial) setSelectedStudentId(initial);
+    if (txFromQuery) setHighlightTxId(txFromQuery);
 
     // Always refresh from backend to pick up newly added siblings
     (async () => {
