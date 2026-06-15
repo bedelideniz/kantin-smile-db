@@ -8,6 +8,10 @@ const ONESIGNAL_APP_ID = 'be926903-6bc2-43a0-8be0-e66249b2a72a';
 
 let initialized = false;
 
+function normalizeParentPhone(raw: string): string {
+  return raw.replace(/\D+/g, '').slice(-10);
+}
+
 export async function initOneSignal(): Promise<void> {
   if (initialized) return;
   if (!Capacitor.isNativePlatform()) return; // skip on web
@@ -40,12 +44,15 @@ export async function initOneSignal(): Promise<void> {
 export async function linkOneSignalToParent(parentPhone: string): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
   try {
+    const externalId = normalizeParentPhone(parentPhone);
+    if (externalId.length < 10) return;
+
     const mod: any = await import('onesignal-cordova-plugin');
     const OneSignal = mod.default ?? mod.OneSignal ?? mod;
 
-    OneSignal.login(parentPhone);
+    await OneSignal.login(externalId);
     OneSignal.User.addTag('role', 'parent');
-    OneSignal.User.addTag('phone', parentPhone);
+    OneSignal.User.addTag('phone', externalId);
 
     // Optionally persist subscription id to backend
     try {
@@ -54,7 +61,7 @@ export async function linkOneSignalToParent(parentPhone: string): Promise<void> 
         (await OneSignal.User?.pushSubscription?.getIdAsync?.());
       if (subId) {
         await supabase.functions.invoke('parent-api', {
-          body: { action: 'register_push', onesignal_id: subId, phone: parentPhone },
+          body: { action: 'register_push', onesignal_id: subId, phone: externalId },
         }).catch(() => {});
       }
     } catch {
