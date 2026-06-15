@@ -208,6 +208,7 @@ export default function SuperAdmin() {
           active={active}
           onSelect={setActive}
           openAlarms={openAlarms}
+          openDisputes={openDisputes}
         />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur">
