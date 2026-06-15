@@ -81,6 +81,11 @@ export function isDbConnectionError(err: unknown): boolean {
   return err instanceof DbConnectionError || isTransient(err);
 }
 
+export function isInvalidForeignKeyConstraintError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /constraint \d+ is not a foreign key constraint/i.test(msg);
+}
+
 async function recreatePool() {
   if (_pool) {
     const oldPool = _pool;
@@ -156,4 +161,84 @@ export async function withTransaction<T>(
   }
   const msg = lastErr instanceof Error ? lastErr.message : String(lastErr);
   throw new DbConnectionError(msg || "External database connection failed");
+}
+
+function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}
+
+export async function repairInvalidForeignKeyTriggers(): Promise<{ diag: unknown[]; repaired: string[] }> {
+  const diag: unknown[] = [];
+  const repaired: string[] = [];
+
+  await withTransaction(async (client) => {
+    const d = await client.query(`
+      SELECT t.oid::text AS oid,
+             t.tgname,
+             t.tgrelid::regclass::text AS tbl,
+             rel.relkind,
+             t.tgconstraint::text AS conoid,
+             p.proname AS fn,
+             c.contype,
+             c.conname,
+             c.conrelid::regclass::text AS conrel
+        FROM pg_trigger t
+        JOIN pg_proc p ON p.oid = t.tgfoid
+        LEFT JOIN pg_constraint c ON c.oid = t.tgconstraint
+        LEFT JOIN pg_class rel ON rel.oid = t.tgrelid
+       WHERE t.tgconstraint <> 0
+         AND p.proname LIKE 'RI_FKey_%'
+         AND (c.oid IS NULL OR c.contype <> 'f')
+       ORDER BY t.oid
+    `);
+    diag.push(...d.rows);
+    if (d.rowCount === 0) return;
+
+    await client.query("SET LOCAL allow_system_table_mods = on").catch(() => {});
+
+    const groups = new Map<string, any[]>();
+    for (const row of d.rows) {
+      const key = row.conname && row.conrel ? `${row.conrel}::${row.conname}` : `orphan::${row.conoid}`;
+      groups.set(key, [...(groups.get(key) ?? []), row]);
+    }
+
+    for (const [key, rows] of groups) {
+      const first = rows[0];
+      if (first.conname && first.conrel) {
+        try {
+          await client.query("SAVEPOINT sp_repair_invalid_fk");
+          await client.query(`ALTER TABLE ${first.conrel} DROP CONSTRAINT ${quoteIdent(first.conname)} CASCADE`);
+          await client.query("RELEASE SAVEPOINT sp_repair_invalid_fk");
+          repaired.push(`dropped constraint ${key}`);
+          continue;
+        } catch (err) {
+          await client.query("ROLLBACK TO SAVEPOINT sp_repair_invalid_fk").catch(() => {});
+          await client.query("RELEASE SAVEPOINT sp_repair_invalid_fk").catch(() => {});
+          repaired.push(`constraint drop failed ${key}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
+      const oids = rows.map((r) => Number(r.oid)).filter((n) => Number.isInteger(n) && n > 0);
+      if (oids.length === 0) continue;
+      const oidList = oids.join(",");
+      await client.query(`DELETE FROM pg_depend WHERE classid = 'pg_trigger'::regclass AND objid IN (${oidList})`);
+      const del = await client.query(`DELETE FROM pg_trigger WHERE oid IN (${oidList})`);
+      repaired.push(`deleted ${del.rowCount ?? 0} invalid RI triggers for ${key}`);
+    }
+
+    await client.query(`
+      DO $$ BEGIN
+        IF to_regclass('donation_distributions') IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='donation_distributions'::regclass AND contype='p') THEN
+          ALTER TABLE donation_distributions ADD PRIMARY KEY (id);
+        END IF;
+        IF to_regclass('canteen_payouts') IS NOT NULL
+           AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canteen_payouts'::regclass AND contype='p') THEN
+          ALTER TABLE canteen_payouts ADD PRIMARY KEY (id);
+        END IF;
+      END $$;
+    `);
+  });
+
+  return { diag, repaired };
 }
