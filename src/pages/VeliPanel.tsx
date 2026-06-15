@@ -491,6 +491,12 @@ export default function VeliPanel() {
           setSession({ ...session, students: updated });
         }}
       />
+
+      <DisputeDialog
+        open={!!disputeTx}
+        onOpenChange={(v) => { if (!v) setDisputeTx(null); }}
+        tx={disputeTx}
+      />
     </main>
   );
 }
