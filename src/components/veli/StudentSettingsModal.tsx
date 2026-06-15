@@ -322,6 +322,36 @@ export default function StudentSettingsModal({ open, onOpenChange, student, onUp
               )}
             </div>
 
+            {/* Push notification preference (per parent phone) */}
+            <div className="rounded-xl border bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Bell className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold">Harcama Bildirimleri</div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Çocuğunuz kantinde her harcama yaptığında telefonunuza anlık bildirim
+                      gönderilir. Bu ayar tüm öğrencileriniz için geçerlidir.
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={salePush}
+                  disabled={prefsLoading || prefsSaving}
+                  onCheckedChange={handleToggleSalePush}
+                  aria-label="Harcama bildirimleri"
+                />
+              </div>
+              {(prefsLoading || prefsSaving) && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>{prefsLoading ? "Yükleniyor…" : "Kaydediliyor…"}</span>
+                </div>
+              )}
+            </div>
+
             {/* Co-parents (eş / diğer veli) */}
             <div className="rounded-xl border bg-card p-4">
               <div className="flex items-start gap-3">
