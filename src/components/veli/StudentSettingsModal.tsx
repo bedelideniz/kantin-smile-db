@@ -43,6 +43,12 @@ export default function StudentSettingsModal({ open, onOpenChange, student, onUp
   const [inviting, setInviting] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
+  // Notification prefs (per parent phone)
+  const [salePush, setSalePush] = useState<boolean>(true);
+  const [prefsLoading, setPrefsLoading] = useState(false);
+  const [prefsSaving, setPrefsSaving] = useState(false);
+
+
   useEffect(() => {
     setCardLost(!!student?.card_lost);
     const has = student?.daily_spend_limit != null;
