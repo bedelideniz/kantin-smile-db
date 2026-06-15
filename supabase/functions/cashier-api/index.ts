@@ -14,12 +14,85 @@ class HttpError extends Error {
 
 const SESSION_TTL_HOURS = 12;
 
+const ONESIGNAL_APP_ID = "be926903-6bc2-43a0-8be0-e66249b2a72a";
+const ONESIGNAL_URL = "https://api.onesignal.com/notifications";
+const PARENT_APP_URL = Deno.env.get("PARENT_APP_URL") ?? "https://dash.kantinpay.com";
+
 function normalizePhone(input: string): string {
   const digits = input.replace(/\D+/g, "");
   if (digits.length === 10) return "0" + digits;
   if (digits.length === 12 && digits.startsWith("90")) return "0" + digits.slice(2);
   return digits;
 }
+
+function pushExternalId(raw: string): string {
+  // Matches OneSignal external_id used by mobile app (last 10 TR digits)
+  return raw.replace(/\D+/g, "").slice(-10);
+}
+
+async function sendSalePush(opts: {
+  studentId: string;
+  studentName: string;
+  total: number;
+  balanceAfter: number;
+  txId: string;
+}) {
+  const restKey = Deno.env.get("ONESIGNAL_REST_API_KEY");
+  if (!restKey) return;
+  try {
+    // Gather candidate phones (primary + co-parents)
+    const r = await query<{ phone: string }>(
+      `SELECT parent_phone AS phone FROM students WHERE id = $1 AND parent_phone IS NOT NULL AND parent_phone <> ''
+       UNION
+       SELECT phone FROM student_co_parents WHERE student_id = $1`,
+      [opts.studentId],
+    );
+    if (r.rowCount === 0) return;
+
+    const allPhones = Array.from(new Set(r.rows.map((x) => pushExternalId(x.phone)).filter((x) => x.length >= 10)));
+    if (allPhones.length === 0) return;
+
+    // Filter out phones that opted out (sale_push = false). Missing row = default ON.
+    const prefRows = await query<{ phone: string; sale_push: boolean }>(
+      `SELECT phone, sale_push FROM parent_notification_prefs
+        WHERE regexp_replace(phone, '\\D', '', 'g') ~ '.{10,}'
+          AND right(regexp_replace(phone, '\\D', '', 'g'), 10) = ANY($1::text[])`,
+      [allPhones],
+    );
+    const optedOut = new Set(
+      prefRows.rows.filter((x) => x.sale_push === false).map((x) => pushExternalId(x.phone)),
+    );
+    const targets = allPhones.filter((p) => !optedOut.has(p));
+    if (targets.length === 0) return;
+
+    const fmtTL = (n: number) =>
+      n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const title = `${opts.studentName} kantinde harcama yaptı`;
+    const message = `Tutar: ${fmtTL(opts.total)} ₺ · Yeni bakiye: ${fmtTL(opts.balanceAfter)} ₺`;
+
+    const payload: Record<string, unknown> = {
+      app_id: ONESIGNAL_APP_ID,
+      headings: { tr: title, en: title },
+      contents: { tr: message, en: message },
+      target_channel: "push",
+      include_aliases: { external_id: targets },
+      url: `${PARENT_APP_URL}/veli?tx=${opts.txId}&student=${opts.studentId}`,
+    };
+
+    const res = await fetch(ONESIGNAL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Key ${restKey}` },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.warn("sale push failed", res.status, body);
+    }
+  } catch (e) {
+    console.warn("sendSalePush error", (e as Error).message);
+  }
+}
+
 
 function generateToken(): string {
   const bytes = new Uint8Array(32);
