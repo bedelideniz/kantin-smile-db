@@ -75,8 +75,33 @@ export default function StudentSettingsModal({ open, onOpenChange, student, onUp
       setInviteName("");
       setInvitePhone("");
     }
+    if (open) {
+      setPrefsLoading(true);
+      callParentApi<{ sale_push: boolean }>("get_notification_prefs")
+        .then((r) => setSalePush(!!r.sale_push))
+        .catch(() => {})
+        .finally(() => setPrefsLoading(false));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, student?.id]);
+
+  const handleToggleSalePush = async (next: boolean) => {
+    const prev = salePush;
+    setSalePush(next);
+    setPrefsSaving(true);
+    try {
+      await callParentApi("set_notification_prefs", { sale_push: next });
+      toast({
+        title: next ? "Harcama bildirimleri açık" : "Harcama bildirimleri kapalı",
+        description: next
+          ? "Çocuğunuz her harcama yaptığında bildirim alırsınız."
+          : "Kantin harcamaları için otomatik bildirim gönderilmeyecek.",
+      });
+    } catch (e) {
+      setSalePush(prev);
+      toast({ title: "Kaydedilemedi", description: (e as Error).message, variant: "destructive" });
+    } finally { setPrefsSaving(false); }
+  };
 
   const formatPhone = (raw: string) => raw.replace(/\D+/g, "").slice(0, 11);
 
