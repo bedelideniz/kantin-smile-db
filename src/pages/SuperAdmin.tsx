@@ -24,10 +24,11 @@ import CanteenAnnouncementsManager from "@/components/admin/CanteenAnnouncements
 import SchoolStoriesManager from "@/components/admin/SchoolStoriesManager";
 import LegalDocumentsManager from "@/components/admin/LegalDocumentsManager";
 import PushNotificationsManager from "@/components/admin/PushNotificationsManager";
+import DisputesManager from "@/components/admin/DisputesManager";
 import { callAdminApi, MODULE_LABELS, type AppModule } from "@/lib/adminApi";
 
 const TAB_ORDER: AppModule[] = [
-  "dashboard","schools","students","marketers","splashes","stories","announcements","donations","payments","sms","push","alarms","payouts","logs","legal","staff","infrastructure",
+  "dashboard","schools","students","marketers","splashes","stories","announcements","donations","payments","sms","push","alarms","disputes","payouts","logs","legal","staff","infrastructure",
 ];
 
 export default function SuperAdmin() {
