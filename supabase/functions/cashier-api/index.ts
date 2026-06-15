@@ -619,6 +619,24 @@ const PROTECTED_OPS: Record<string, (ctx: CashierContext, params: any) => Promis
         stock_warnings: stockWarnings,
       };
     });
+
+    // Fire-and-forget push notification to parent(s). Errors are swallowed.
+    const pushPromise = sendSalePush({
+      studentId: result.student.id,
+      studentName: result.student.full_name,
+      total: result.total_amount,
+      balanceAfter: result.balance_after,
+      txId: result.transaction_id,
+    });
+    // @ts-ignore — EdgeRuntime exists in Supabase Deno runtime
+    if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+      // @ts-ignore
+      EdgeRuntime.waitUntil(pushPromise);
+    } else {
+      pushPromise.catch(() => {});
+    }
+
+    return result;
   },
   recent_sales: async (ctx, params) => {
     const p = z.object({ limit: z.number().int().min(1).max(50).default(10) }).parse(params ?? {});
