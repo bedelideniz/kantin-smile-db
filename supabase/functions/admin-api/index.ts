@@ -4,7 +4,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2.95.0/cors";
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 import { z } from "npm:zod@3.23.8";
 import { authenticate, HttpError, requireRole } from "../_shared/auth.ts";
-import { isDbConnectionError, query, withTransaction } from "../_shared/external-db.ts";
+import { isDbConnectionError, isInvalidForeignKeyConstraintError, query, repairInvalidForeignKeyTriggers, withTransaction } from "../_shared/external-db.ts";
 
 type AppModule =
   | "schools" | "students" | "marketers" | "splashes" | "donations"
@@ -805,7 +805,15 @@ Deno.serve(async (req) => {
 
     const handler = OPS[parsed.data.op];
     if (!handler) throw new HttpError(404, `Bilinmeyen işlem: ${parsed.data.op}`);
-    const data = await handler({ userId: auth.userId }, parsed.data.params ?? {});
+    let data: unknown;
+    try {
+      data = await handler({ userId: auth.userId }, parsed.data.params ?? {});
+    } catch (err) {
+      if (!isInvalidForeignKeyConstraintError(err)) throw err;
+      const repair = await repairInvalidForeignKeyTriggers();
+      console.warn("admin-api repaired invalid FK triggers:", JSON.stringify(repair));
+      data = await handler({ userId: auth.userId }, parsed.data.params ?? {});
+    }
     return new Response(JSON.stringify({ ok: true, data }), {
       status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
