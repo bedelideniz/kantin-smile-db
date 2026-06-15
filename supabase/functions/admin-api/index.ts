@@ -8,11 +8,11 @@ import { isDbConnectionError, isInvalidForeignKeyConstraintError, query, repairI
 
 type AppModule =
   | "schools" | "students" | "marketers" | "splashes" | "donations"
-  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard" | "announcements" | "stories" | "legal" | "push";
+  | "payments" | "sms" | "infrastructure" | "alarms" | "staff" | "logs" | "payouts" | "dashboard" | "announcements" | "stories" | "legal" | "push" | "disputes";
 
 const MODULES: AppModule[] = [
   "schools","students","marketers","splashes","donations",
-  "payments","sms","infrastructure","alarms","staff","logs","payouts","dashboard","announcements","stories","legal","push",
+  "payments","sms","infrastructure","alarms","staff","logs","payouts","dashboard","announcements","stories","legal","push","disputes",
 ];
 
 function admin() {
@@ -783,6 +783,70 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
       is_owner: owner,
       modules: owner ? MODULES : (perms ?? []).map((p) => p.module),
     };
+  },
+
+  // ---------- disputes (veli itirazları) ----------
+  list_disputes: async (ctx, params) => {
+    await requireModule(ctx.userId, "disputes");
+    const p = z.object({
+      status: z.enum(["open","reviewing","resolved","rejected","all"]).default("open"),
+      limit: z.number().int().min(1).max(200).default(100),
+    }).parse(params ?? {});
+    const args: any[] = [p.limit];
+    let where = "1=1";
+    if (p.status !== "all") { args.unshift(p.status); where = "d.status = $1"; }
+    const r = await query(
+      `SELECT d.id, d.transaction_id, d.school_id, d.parent_phone, d.category, d.note,
+              d.amount, d.status, d.resolution_note, d.reviewed_at, d.created_at,
+              t.tx_no, t.total_amount, t.created_at AS tx_created_at,
+              s.full_name AS student_name, s.class_name AS student_class, s.student_no,
+              sch.name AS school_name,
+              COALESCE((
+                SELECT json_agg(json_build_object(
+                  'product_name', ti.product_name,
+                  'qty', ti.qty,
+                  'unit_price', ti.unit_price,
+                  'line_total', ti.line_total
+                ) ORDER BY ti.id)
+                FROM transaction_items ti WHERE ti.transaction_id = t.id
+              ), '[]'::json) AS items
+         FROM transaction_disputes d
+         JOIN transactions t ON t.id = d.transaction_id
+         JOIN students s ON s.id = d.student_id
+         LEFT JOIN schools sch ON sch.id = d.school_id
+        WHERE ${where}
+        ORDER BY d.created_at DESC
+        LIMIT $${args.length}`,
+      args,
+    );
+    return { disputes: r.rows };
+  },
+  count_open_disputes: async (ctx) => {
+    await requireModule(ctx.userId, "disputes");
+    const r = await query<{ c: string }>(
+      `SELECT COUNT(*)::text AS c FROM transaction_disputes WHERE status='open'`,
+    );
+    return { count: Number(r.rows[0]?.c ?? 0) };
+  },
+  update_dispute: async (ctx, params) => {
+    await requireModule(ctx.userId, "disputes");
+    const p = z.object({
+      dispute_id: z.string().uuid(),
+      status: z.enum(["open","reviewing","resolved","rejected"]),
+      resolution_note: z.string().trim().max(1000).optional(),
+    }).parse(params);
+    const r = await query(
+      `UPDATE transaction_disputes
+          SET status=$2,
+              resolution_note=COALESCE($3, resolution_note),
+              reviewed_by=$4,
+              reviewed_at=CASE WHEN $2 IN ('resolved','rejected') THEN now() ELSE reviewed_at END,
+              updated_at=now()
+        WHERE id=$1`,
+      [p.dispute_id, p.status, p.resolution_note ?? null, ctx.userId],
+    );
+    if (r.rowCount === 0) throw new HttpError(404, "İtiraz bulunamadı");
+    return { ok: true };
   },
 };
 

@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, School, Users, Megaphone, Image as ImageIcon, HandCoins,
-  CreditCard, MessageSquare, BellRing, Wallet, ScrollText, UserCog, Server, Sparkles, FileText,
+  CreditCard, MessageSquare, BellRing, Wallet, ScrollText, UserCog, Server, Sparkles, FileText, ShieldAlert,
 } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
@@ -26,6 +26,7 @@ const ICONS: Record<AppModule, React.ComponentType<{ className?: string }>> = {
   infrastructure: Server,
   legal: FileText,
   push: BellRing,
+  disputes: ShieldAlert,
 };
 
 interface Props {
@@ -33,9 +34,10 @@ interface Props {
   active: AppModule;
   onSelect: (m: AppModule) => void;
   openAlarms: number;
+  openDisputes?: number;
 }
 
-export default function AdminSidebar({ modules, active, onSelect, openAlarms }: Props) {
+export default function AdminSidebar({ modules, active, onSelect, openAlarms, openDisputes = 0 }: Props) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -55,6 +57,7 @@ export default function AdminSidebar({ modules, active, onSelect, openAlarms }: 
               {modules.map((m) => {
                 const Icon = ICONS[m];
                 const isActive = active === m;
+                const badge = m === "alarms" ? openAlarms : m === "disputes" ? openDisputes : 0;
                 return (
                   <SidebarMenuItem key={m}>
                     <SidebarMenuButton
@@ -65,9 +68,9 @@ export default function AdminSidebar({ modules, active, onSelect, openAlarms }: 
                     >
                       <Icon className="h-4 w-4" />
                       {!collapsed && <span className="flex-1 truncate">{MODULE_LABELS[m]}</span>}
-                      {m === "alarms" && openAlarms > 0 && (
+                      {badge > 0 && (
                         <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
-                          {openAlarms}
+                          {badge}
                         </span>
                       )}
                     </SidebarMenuButton>

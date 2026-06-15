@@ -24,10 +24,11 @@ import CanteenAnnouncementsManager from "@/components/admin/CanteenAnnouncements
 import SchoolStoriesManager from "@/components/admin/SchoolStoriesManager";
 import LegalDocumentsManager from "@/components/admin/LegalDocumentsManager";
 import PushNotificationsManager from "@/components/admin/PushNotificationsManager";
+import DisputesManager from "@/components/admin/DisputesManager";
 import { callAdminApi, MODULE_LABELS, type AppModule } from "@/lib/adminApi";
 
 const TAB_ORDER: AppModule[] = [
-  "dashboard","schools","students","marketers","splashes","stories","announcements","donations","payments","sms","push","alarms","payouts","logs","legal","staff","infrastructure",
+  "dashboard","schools","students","marketers","splashes","stories","announcements","donations","payments","sms","push","alarms","disputes","payouts","logs","legal","staff","infrastructure",
 ];
 
 export default function SuperAdmin() {
@@ -39,6 +40,7 @@ export default function SuperAdmin() {
   const [myModules, setMyModules] = useState<AppModule[] | null>(null);
   const [active, setActive] = useState<AppModule>("dashboard");
   const [openAlarms, setOpenAlarms] = useState<number>(0);
+  const [openDisputes, setOpenDisputes] = useState<number>(0);
   const visibleTabs = myModules ? TAB_ORDER.filter((m) => myModules.includes(m)) : [];
 
   useEffect(() => {
@@ -69,6 +71,20 @@ export default function SuperAdmin() {
     window.addEventListener("alarms:changed", handler);
     const id = setInterval(refresh, 30_000);
     return () => { window.removeEventListener("alarms:changed", handler); clearInterval(id); };
+  }, [myModules, active]);
+
+  useEffect(() => {
+    if (!myModules?.includes("disputes")) return;
+    const refresh = () => {
+      callAdminApi<{ count: number }>("count_open_disputes")
+        .then((r) => setOpenDisputes(r?.count ?? 0))
+        .catch(() => {});
+    };
+    refresh();
+    const handler = () => refresh();
+    window.addEventListener("disputes:changed", handler);
+    const id = setInterval(refresh, 30_000);
+    return () => { window.removeEventListener("disputes:changed", handler); clearInterval(id); };
   }, [myModules, active]);
 
   if (loading || !user) {
@@ -161,6 +177,7 @@ export default function SuperAdmin() {
       case "logs": return <SaleLogsManager />;
       case "staff": return <StaffManager />;
       case "legal": return <LegalDocumentsManager />;
+      case "disputes": return <DisputesManager />;
       case "push": return <PushNotificationsManager />;
       case "infrastructure": return (
         <Card>
@@ -191,6 +208,7 @@ export default function SuperAdmin() {
           active={active}
           onSelect={setActive}
           openAlarms={openAlarms}
+          openDisputes={openDisputes}
         />
         <div className="flex-1 flex flex-col min-w-0">
           <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur">
