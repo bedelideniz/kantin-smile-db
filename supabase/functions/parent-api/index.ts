@@ -1052,6 +1052,43 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     }
     return { ok: true, accepted: docs.rows.length };
   },
+
+  // ===== İşlem itirazı =====
+  create_dispute: async (ctx, params) => {
+    const p = z.object({
+      transaction_id: z.string().uuid(),
+      category: z.enum(["wrong_item", "price_diff", "wrong_charge", "not_me", "other"]),
+      note: z.string().max(1000).optional(),
+    }).parse(params);
+
+    const { variants, canonical } = phoneVariants(ctx.phone);
+
+    // Ownership: transaction must belong to a student of this parent
+    const own = await query<{ student_id: string; school_id: string; total_amount: string }>(
+      `SELECT t.student_id, t.school_id, t.total_amount
+         FROM transactions t
+         JOIN students s ON s.id = t.student_id
+        WHERE t.id = $1 AND s.is_active = TRUE
+          AND (s.parent_phone = ANY($2::text[])
+               OR regexp_replace(s.parent_phone, '\\D', '', 'g') = ANY($2::text[])
+               OR EXISTS (SELECT 1 FROM student_co_parents cp
+                           WHERE cp.student_id = s.id
+                             AND (cp.phone = ANY($2::text[])
+                                  OR regexp_replace(cp.phone, '\\D', '', 'g') = ANY($2::text[]))))`,
+      [p.transaction_id, variants],
+    );
+    if (own.rowCount === 0) throw new HttpError(403, "Bu işleme erişim yok");
+
+    const row = own.rows[0];
+    const ins = await query<{ id: string }>(
+      `INSERT INTO transaction_disputes
+         (transaction_id, student_id, school_id, parent_phone, category, note, amount, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'open')
+       RETURNING id`,
+      [p.transaction_id, row.student_id, row.school_id, canonical, p.category, p.note ?? null, row.total_amount],
+    );
+    return { ok: true, id: ins.rows[0].id };
+  },
 };
 
 

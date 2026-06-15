@@ -23,6 +23,7 @@ import PhotoUploadModal from "@/components/veli/PhotoUploadModal";
 import StudentSettingsModal from "@/components/veli/StudentSettingsModal";
 import NotificationsBell from "@/components/veli/NotificationsBell";
 import { linkOneSignalToParent, notifyNativeParentLogout } from "@/lib/oneSignal";
+import DisputeDialog from "@/components/veli/DisputeDialog";
 
 interface TxItem { product_name: string; qty: number; unit_price: number; line_total: number; }
 interface Tx {
@@ -51,6 +52,7 @@ export default function VeliPanel() {
   const [transactions, setTransactions] = useState<Tx[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [highlightTxId, setHighlightTxId] = useState<string | null>(null);
+  const [disputeTx, setDisputeTx] = useState<Tx | null>(null);
 
   // Load session & validate, then refresh student list from backend
   useEffect(() => {
@@ -432,10 +434,26 @@ export default function VeliPanel() {
                     </div>
                   </div>
                   <Separator className="my-2" />
-                  <div className="flex justify-between text-[11px] text-muted-foreground">
-                    <span>Önce: <span className="font-medium text-foreground/70">{fmtTL(t.balance_before)}</span></span>
-                    <span>Sonra: <span className="font-medium text-foreground/70">{fmtTL(t.balance_after)}</span></span>
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <div className="flex flex-1 justify-between">
+                      <span>Önce: <span className="font-medium text-foreground/70">{fmtTL(t.balance_before)}</span></span>
+                      <span>Sonra: <span className="font-medium text-foreground/70">{fmtTL(t.balance_after)}</span></span>
+                    </div>
                   </div>
+                  {t.kind !== "refund" && t.status !== "refunded" && (
+                    <div className="mt-2 flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 rounded-full border border-destructive/30 px-2 text-[11px] font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDisputeTx(t)}
+                      >
+                        <ShieldAlert className="h-3 w-3" />
+                        İtiraz et
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
             </CardContent>
@@ -472,6 +490,12 @@ export default function VeliPanel() {
           updateParentStudents(updated);
           setSession({ ...session, students: updated });
         }}
+      />
+
+      <DisputeDialog
+        open={!!disputeTx}
+        onOpenChange={(v) => { if (!v) setDisputeTx(null); }}
+        tx={disputeTx}
       />
     </main>
   );
