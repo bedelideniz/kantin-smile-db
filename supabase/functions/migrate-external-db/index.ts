@@ -814,6 +814,17 @@ const MIGRATIONS: Migration[] = [
       ON CONFLICT (slug) DO NOTHING;
     `,
   },
+  {
+    version: "0027_parent_notification_prefs",
+    description: "Parent push-notification preferences (per phone): toggle auto-sale notifications",
+    sql: `
+      CREATE TABLE IF NOT EXISTS parent_notification_prefs (
+        phone TEXT PRIMARY KEY,
+        sale_push BOOLEAN NOT NULL DEFAULT TRUE,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `,
+  },
 ];
 
 

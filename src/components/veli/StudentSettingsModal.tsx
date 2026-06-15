@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Loader2, ShieldAlert, ShieldCheck, CreditCard, Wallet, Users, UserPlus, Trash2 } from "lucide-react";
+import { Loader2, ShieldAlert, ShieldCheck, CreditCard, Wallet, Users, UserPlus, Trash2, Bell } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -43,6 +43,12 @@ export default function StudentSettingsModal({ open, onOpenChange, student, onUp
   const [inviting, setInviting] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
+  // Notification prefs (per parent phone)
+  const [salePush, setSalePush] = useState<boolean>(true);
+  const [prefsLoading, setPrefsLoading] = useState(false);
+  const [prefsSaving, setPrefsSaving] = useState(false);
+
+
   useEffect(() => {
     setCardLost(!!student?.card_lost);
     const has = student?.daily_spend_limit != null;
@@ -69,8 +75,33 @@ export default function StudentSettingsModal({ open, onOpenChange, student, onUp
       setInviteName("");
       setInvitePhone("");
     }
+    if (open) {
+      setPrefsLoading(true);
+      callParentApi<{ sale_push: boolean }>("get_notification_prefs")
+        .then((r) => setSalePush(!!r.sale_push))
+        .catch(() => {})
+        .finally(() => setPrefsLoading(false));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, student?.id]);
+
+  const handleToggleSalePush = async (next: boolean) => {
+    const prev = salePush;
+    setSalePush(next);
+    setPrefsSaving(true);
+    try {
+      await callParentApi("set_notification_prefs", { sale_push: next });
+      toast({
+        title: next ? "Harcama bildirimleri açık" : "Harcama bildirimleri kapalı",
+        description: next
+          ? "Çocuğunuz her harcama yaptığında bildirim alırsınız."
+          : "Kantin harcamaları için otomatik bildirim gönderilmeyecek.",
+      });
+    } catch (e) {
+      setSalePush(prev);
+      toast({ title: "Kaydedilemedi", description: (e as Error).message, variant: "destructive" });
+    } finally { setPrefsSaving(false); }
+  };
 
   const formatPhone = (raw: string) => raw.replace(/\D+/g, "").slice(0, 11);
 
@@ -287,6 +318,36 @@ export default function StudentSettingsModal({ open, onOpenChange, student, onUp
                       </span>
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+
+            {/* Push notification preference (per parent phone) */}
+            <div className="rounded-xl border bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Bell className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold">Harcama Bildirimleri</div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Çocuğunuz kantinde her harcama yaptığında telefonunuza anlık bildirim
+                      gönderilir. Bu ayar tüm öğrencileriniz için geçerlidir.
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={salePush}
+                  disabled={prefsLoading || prefsSaving}
+                  onCheckedChange={handleToggleSalePush}
+                  aria-label="Harcama bildirimleri"
+                />
+              </div>
+              {(prefsLoading || prefsSaving) && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>{prefsLoading ? "Yükleniyor…" : "Kaydediliyor…"}</span>
                 </div>
               )}
             </div>

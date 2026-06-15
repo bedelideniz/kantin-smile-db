@@ -583,6 +583,26 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
     }
     return { ok: true };
   },
+  // Parent notification preferences (per parent phone).
+  get_notification_prefs: async (ctx) => {
+    const { canonical, variants } = phoneVariants(ctx.phone);
+    const r = await query<{ sale_push: boolean }>(
+      `SELECT sale_push FROM parent_notification_prefs WHERE phone = ANY($1::text[]) LIMIT 1`,
+      [variants],
+    );
+    return { sale_push: r.rowCount === 0 ? true : !!r.rows[0].sale_push, phone: canonical };
+  },
+  set_notification_prefs: async (ctx, params) => {
+    const p = z.object({ sale_push: z.boolean() }).parse(params);
+    const { canonical } = phoneVariants(ctx.phone);
+    await query(
+      `INSERT INTO parent_notification_prefs (phone, sale_push, updated_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (phone) DO UPDATE SET sale_push = EXCLUDED.sale_push, updated_at = now()`,
+      [canonical, p.sale_push],
+    );
+    return { sale_push: p.sale_push };
+  },
   // Upload (or replace) a student's profile photo. Body sends a base64-encoded JPEG
   // (already cropped & resized client-side). Stored in `student-photos` bucket.
   upload_student_photo: async (ctx, params) => {

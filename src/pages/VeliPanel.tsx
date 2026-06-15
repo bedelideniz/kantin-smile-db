@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, LogOut, Wallet, ChevronDown, Receipt, GraduationCap, RefreshCcw, CircleAlert, Settings, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +41,7 @@ const fmtDate = (s: string) => {
 
 export default function VeliPanel() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const [session, setSession] = useState<ParentSession | null>(null);
   const [selectedId, setSelectedIdState] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export default function VeliPanel() {
   const [txLoading, setTxLoading] = useState(false);
   const [transactions, setTransactions] = useState<Tx[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [highlightTxId, setHighlightTxId] = useState<string | null>(null);
 
   // Load session & validate, then refresh student list from backend
   useEffect(() => {
@@ -56,9 +58,15 @@ export default function VeliPanel() {
     if (s.must_change) { navigate("/veli-giris", { replace: true }); return; }
     setSession(s);
     const stored = getSelectedStudentId();
-    const initial = s.students.find((c) => c.id === stored)?.id ?? s.students[0]?.id ?? null;
+    const fromQuery = searchParams.get("student");
+    const txFromQuery = searchParams.get("tx");
+    const initial =
+      (fromQuery && s.students.find((c) => c.id === fromQuery)?.id) ||
+      s.students.find((c) => c.id === stored)?.id ||
+      s.students[0]?.id || null;
     setSelectedIdState(initial);
     if (initial) setSelectedStudentId(initial);
+    if (txFromQuery) setHighlightTxId(txFromQuery);
 
     // Always refresh from backend to pick up newly added siblings
     (async () => {
@@ -98,6 +106,24 @@ export default function VeliPanel() {
       } finally { setTxLoading(false); }
     })();
   }, [selectedId, toast]);
+
+  // Scroll to & briefly highlight a tx if opened via push notification deep link.
+  useEffect(() => {
+    if (!highlightTxId || txLoading) return;
+    const exists = transactions.some((t) => t.id === highlightTxId);
+    if (!exists) return;
+    const t = setTimeout(() => {
+      const el = document.getElementById(`tx-${highlightTxId}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Clear the query param after we've used it, keep highlight visible briefly
+      const next = new URLSearchParams(searchParams);
+      next.delete("tx");
+      next.delete("student");
+      setSearchParams(next, { replace: true });
+      setTimeout(() => setHighlightTxId(null), 3500);
+    }, 100);
+    return () => clearTimeout(t);
+  }, [highlightTxId, txLoading, transactions, searchParams, setSearchParams]);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -355,8 +381,14 @@ export default function VeliPanel() {
               ) : transactions.map((t) => (
                 <div
                   key={t.id}
-                  className="rounded-xl border border-border/60 bg-card p-3 shadow-sm transition hover:border-accent/40 hover:shadow-md"
+                  id={`tx-${t.id}`}
+                  className={`rounded-xl border bg-card p-3 shadow-sm transition hover:border-accent/40 hover:shadow-md ${
+                    highlightTxId === t.id
+                      ? "border-primary ring-2 ring-primary/40 animate-pulse"
+                      : "border-border/60"
+                  }`}
                 >
+
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-medium text-primary/70">{fmtDate(t.created_at)}</div>
