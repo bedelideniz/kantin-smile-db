@@ -98,10 +98,17 @@ async function sendSalePush(opts: {
       contents: { tr: message, en: message },
       target_channel: "push",
       include_aliases: { external_id: targets },
-      // Do NOT set `url` (opens external browser on native).
-      // Native app will be opened by tapping; in-app click handler reads `data.route`.
-      // `web_url` is only used by web-push subscribers.
-      web_url: `${PARENT_APP_URL}${deepPath}`,
+      // Mobile-only: exclude all web-push (Chrome/Firefox/Safari/Edge) subscribers.
+      // User explicitly requested to disable browser notifications.
+      isAnyWeb: false,
+      isChromeWeb: false,
+      isFirefox: false,
+      isSafari: false,
+      isEdge: false,
+      isIos: true,
+      isAndroid: true,
+      isHuawei: true,
+      // Do NOT set `url` / `web_url` — native app handles taps via `data.route`.
       data: { route: deepPath, txId: opts.txId, studentId: opts.studentId },
     };
 
