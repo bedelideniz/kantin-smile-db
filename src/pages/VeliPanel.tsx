@@ -434,10 +434,26 @@ export default function VeliPanel() {
                     </div>
                   </div>
                   <Separator className="my-2" />
-                  <div className="flex justify-between text-[11px] text-muted-foreground">
-                    <span>Önce: <span className="font-medium text-foreground/70">{fmtTL(t.balance_before)}</span></span>
-                    <span>Sonra: <span className="font-medium text-foreground/70">{fmtTL(t.balance_after)}</span></span>
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <div className="flex flex-1 justify-between">
+                      <span>Önce: <span className="font-medium text-foreground/70">{fmtTL(t.balance_before)}</span></span>
+                      <span>Sonra: <span className="font-medium text-foreground/70">{fmtTL(t.balance_after)}</span></span>
+                    </div>
                   </div>
+                  {t.kind !== "refund" && t.status !== "refunded" && (
+                    <div className="mt-2 flex justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 gap-1 rounded-full border border-destructive/30 px-2 text-[11px] font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDisputeTx(t)}
+                      >
+                        <ShieldAlert className="h-3 w-3" />
+                        İtiraz et
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
             </CardContent>
