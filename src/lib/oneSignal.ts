@@ -8,8 +8,27 @@ const ONESIGNAL_APP_ID = 'be926903-6bc2-43a0-8be0-e66249b2a72a';
 
 let initialized = false;
 
-function normalizeParentPhone(raw: string): string {
+export function normalizeParentPhone(raw: string): string {
   return raw.replace(/\D+/g, '').slice(-10);
+}
+
+export function notifyNativeParentLogin(parentPhone: string): void {
+  const externalId = normalizeParentPhone(parentPhone);
+  if (externalId.length < 10) return;
+  if ((window as any).ReactNativeWebView) {
+    (window as any).ReactNativeWebView.postMessage(JSON.stringify({
+      type: 'LOGIN',
+      phoneNumber: externalId,
+      externalId,
+      rawPhone: parentPhone,
+    }));
+  }
+}
+
+export function notifyNativeParentLogout(): void {
+  if ((window as any).ReactNativeWebView) {
+    (window as any).ReactNativeWebView.postMessage(JSON.stringify({ type: 'LOGOUT' }));
+  }
 }
 
 export async function initOneSignal(): Promise<void> {
@@ -42,10 +61,13 @@ export async function initOneSignal(): Promise<void> {
  * Call this after a parent successfully logs in.
  */
 export async function linkOneSignalToParent(parentPhone: string): Promise<void> {
+  notifyNativeParentLogin(parentPhone);
   if (!Capacitor.isNativePlatform()) return;
   try {
     const externalId = normalizeParentPhone(parentPhone);
     if (externalId.length < 10) return;
+
+    await initOneSignal();
 
     const mod: any = await import('onesignal-cordova-plugin');
     const OneSignal = mod.default ?? mod.OneSignal ?? mod;
