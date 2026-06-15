@@ -857,15 +857,16 @@ Deno.serve(async (req) => {
       const repaired: string[] = [];
       const diag: unknown[] = [];
       await withTransaction(async (client) => {
-        // Diagnostic: list all triggers whose stored constraint OID no longer
-        // resolves to an FK constraint (regardless of trigger function name).
+        // Find triggers whose tgconstraint OID does not point to an FK constraint.
+        // These are leftover RI enforcement triggers from previous schema churn.
         const d = await client.query(`
           SELECT t.tgname,
                  t.tgrelid::regclass::text AS tbl,
                  t.tgconstraint AS conoid,
                  t.tgfoid::regproc::text AS fn,
-                 t.tgisinternal,
-                 c.contype
+                 c.contype,
+                 c.conname,
+                 c.conrelid::regclass::text AS conrel
             FROM pg_trigger t
             LEFT JOIN pg_constraint c ON c.oid = t.tgconstraint
            WHERE t.tgconstraint <> 0
@@ -873,14 +874,32 @@ Deno.serve(async (req) => {
         `);
         for (const row of d.rows) diag.push(row);
 
-        for (const row of d.rows as Array<{ tgname: string; tbl: string; fn: string }>) {
-          // Drop only RI_FKey_* triggers — those are the FK enforcement ones.
-          const fnName = (row.fn || "").replace(/"/g, "");
-          if (!fnName.startsWith("RI_FKey_")) continue;
-          await client.query(`ALTER TABLE "${row.tbl}" DISABLE TRIGGER "${row.tgname}"`).catch(() => {});
-          await client.query(`DROP TRIGGER IF EXISTS "${row.tgname}" ON "${row.tbl}"`);
-          repaired.push(`${row.tbl}.${row.tgname}`);
+        // Group by the underlying owning constraint (conname + conrel) and drop it CASCADE.
+        const seen = new Set<string>();
+        for (const row of d.rows as Array<{ conname: string | null; conrel: string | null }>) {
+          if (!row.conname || !row.conrel) continue;
+          const key = `${row.conrel}::${row.conname}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          try {
+            await client.query(`ALTER TABLE ${row.conrel} DROP CONSTRAINT "${row.conname}" CASCADE`);
+            repaired.push(`dropped ${key}`);
+          } catch (err) {
+            repaired.push(`skip ${key}: ${(err as Error).message}`);
+          }
         }
+
+        // Recreate primary keys we may have dropped (idempotent — only if missing).
+        await client.query(`
+          DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='donation_distributions'::regclass AND contype='p') THEN
+              ALTER TABLE donation_distributions ADD PRIMARY KEY (id);
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='canteen_payouts'::regclass AND contype='p') THEN
+              ALTER TABLE canteen_payouts ADD PRIMARY KEY (id);
+            END IF;
+          END $$;
+        `);
       });
       results.push({
         version: "_repair_orphan_ri_triggers",
