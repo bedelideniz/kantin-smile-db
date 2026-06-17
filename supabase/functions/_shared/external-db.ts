@@ -225,6 +225,7 @@ export async function repairInvalidForeignKeyTriggers(): Promise<{ diag: unknown
              c.conname,
              c.conrelid::regclass::text AS conrel,
              c.confrelid::regclass::text AS confrel,
+             CASE WHEN c.oid IS NOT NULL THEN pg_get_constraintdef(c.oid) END AS constraintdef,
              CASE
                WHEN c.oid IS NULL THEN 'missing_constraint'
                WHEN c.contype <> 'f' THEN 'not_foreign_key'
@@ -270,6 +271,9 @@ export async function repairInvalidForeignKeyTriggers(): Promise<{ diag: unknown
     for (const [key, rows] of groups) {
       const first = rows[0];
       const relationMismatch = rows.some((r) => String(r.reason ?? "").includes("relation_mismatch"));
+      if (relationMismatch && await recreateForeignKeyConstraint(client, first, repaired)) {
+        continue;
+      }
       if (first.conname && first.conrel && !relationMismatch) {
         try {
           await client.query("SAVEPOINT sp_repair_invalid_fk");
