@@ -170,6 +170,44 @@ function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
+async function recreateForeignKeyConstraint(client: any, row: any, repaired: string[]) {
+  if (!row.conname || !row.conrel || !row.constraintdef) return false;
+  const key = `${row.conrel}::${row.conname}`;
+
+  await client.query("SAVEPOINT sp_recreate_fk_drop");
+  try {
+    await client.query(`ALTER TABLE ${row.conrel} DROP CONSTRAINT ${quoteIdent(row.conname)} CASCADE`);
+    await client.query("RELEASE SAVEPOINT sp_recreate_fk_drop");
+  } catch (err) {
+    await client.query("ROLLBACK TO SAVEPOINT sp_recreate_fk_drop").catch(() => {});
+    await client.query("RELEASE SAVEPOINT sp_recreate_fk_drop").catch(() => {});
+    repaired.push(`constraint drop failed ${key}: ${err instanceof Error ? err.message : String(err)}`);
+    return false;
+  }
+
+  await client.query("SAVEPOINT sp_recreate_fk_add");
+  try {
+    await client.query(`ALTER TABLE ${row.conrel} ADD CONSTRAINT ${quoteIdent(row.conname)} ${row.constraintdef}`);
+    await client.query("RELEASE SAVEPOINT sp_recreate_fk_add");
+    repaired.push(`recreated constraint ${key}`);
+    return true;
+  } catch (err) {
+    await client.query("ROLLBACK TO SAVEPOINT sp_recreate_fk_add").catch(() => {});
+    await client.query("RELEASE SAVEPOINT sp_recreate_fk_add").catch(() => {});
+    await client.query("SAVEPOINT sp_recreate_fk_add_not_valid");
+    try {
+      await client.query(`ALTER TABLE ${row.conrel} ADD CONSTRAINT ${quoteIdent(row.conname)} ${row.constraintdef} NOT VALID`);
+      await client.query("RELEASE SAVEPOINT sp_recreate_fk_add_not_valid");
+      repaired.push(`recreated constraint ${key} as NOT VALID`);
+      return true;
+    } catch (fallbackErr) {
+      await client.query("ROLLBACK TO SAVEPOINT sp_recreate_fk_add_not_valid").catch(() => {});
+      await client.query("RELEASE SAVEPOINT sp_recreate_fk_add_not_valid").catch(() => {});
+      throw new Error(`Failed to recreate ${key}: ${fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)}; first attempt: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+}
+
 export async function repairInvalidForeignKeyTriggers(): Promise<{ diag: unknown[]; repaired: string[] }> {
   const diag: unknown[] = [];
   const repaired: string[] = [];
