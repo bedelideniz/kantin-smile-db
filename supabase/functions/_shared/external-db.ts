@@ -170,6 +170,44 @@ function quoteIdent(name: string): string {
   return `"${name.replace(/"/g, '""')}"`;
 }
 
+async function recreateForeignKeyConstraint(client: any, row: any, repaired: string[]) {
+  if (!row.conname || !row.conrel || !row.constraintdef) return false;
+  const key = `${row.conrel}::${row.conname}`;
+
+  await client.query("SAVEPOINT sp_recreate_fk_drop");
+  try {
+    await client.query(`ALTER TABLE ${row.conrel} DROP CONSTRAINT ${quoteIdent(row.conname)} CASCADE`);
+    await client.query("RELEASE SAVEPOINT sp_recreate_fk_drop");
+  } catch (err) {
+    await client.query("ROLLBACK TO SAVEPOINT sp_recreate_fk_drop").catch(() => {});
+    await client.query("RELEASE SAVEPOINT sp_recreate_fk_drop").catch(() => {});
+    repaired.push(`constraint drop failed ${key}: ${err instanceof Error ? err.message : String(err)}`);
+    return false;
+  }
+
+  await client.query("SAVEPOINT sp_recreate_fk_add");
+  try {
+    await client.query(`ALTER TABLE ${row.conrel} ADD CONSTRAINT ${quoteIdent(row.conname)} ${row.constraintdef}`);
+    await client.query("RELEASE SAVEPOINT sp_recreate_fk_add");
+    repaired.push(`recreated constraint ${key}`);
+    return true;
+  } catch (err) {
+    await client.query("ROLLBACK TO SAVEPOINT sp_recreate_fk_add").catch(() => {});
+    await client.query("RELEASE SAVEPOINT sp_recreate_fk_add").catch(() => {});
+    await client.query("SAVEPOINT sp_recreate_fk_add_not_valid");
+    try {
+      await client.query(`ALTER TABLE ${row.conrel} ADD CONSTRAINT ${quoteIdent(row.conname)} ${row.constraintdef} NOT VALID`);
+      await client.query("RELEASE SAVEPOINT sp_recreate_fk_add_not_valid");
+      repaired.push(`recreated constraint ${key} as NOT VALID`);
+      return true;
+    } catch (fallbackErr) {
+      await client.query("ROLLBACK TO SAVEPOINT sp_recreate_fk_add_not_valid").catch(() => {});
+      await client.query("RELEASE SAVEPOINT sp_recreate_fk_add_not_valid").catch(() => {});
+      throw new Error(`Failed to recreate ${key}: ${fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)}; first attempt: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+}
+
 export async function repairInvalidForeignKeyTriggers(): Promise<{ diag: unknown[]; repaired: string[] }> {
   const diag: unknown[] = [];
   const repaired: string[] = [];
@@ -179,19 +217,44 @@ export async function repairInvalidForeignKeyTriggers(): Promise<{ diag: unknown
       SELECT t.oid::text AS oid,
              t.tgname,
              t.tgrelid::regclass::text AS tbl,
+             t.tgconstrrelid::regclass::text AS constrrel,
              rel.relkind,
              t.tgconstraint::text AS conoid,
              p.proname AS fn,
              c.contype,
              c.conname,
-             c.conrelid::regclass::text AS conrel
+             c.conrelid::regclass::text AS conrel,
+             c.confrelid::regclass::text AS confrel,
+             CASE WHEN c.oid IS NOT NULL THEN pg_get_constraintdef(c.oid) END AS constraintdef,
+             CASE
+               WHEN c.oid IS NULL THEN 'missing_constraint'
+               WHEN c.contype <> 'f' THEN 'not_foreign_key'
+               WHEN p.proname IN ('RI_FKey_noaction_del','RI_FKey_restrict_del','RI_FKey_cascade_del','RI_FKey_setnull_del','RI_FKey_setdefault_del','RI_FKey_noaction_upd','RI_FKey_restrict_upd','RI_FKey_cascade_upd','RI_FKey_setnull_upd','RI_FKey_setdefault_upd')
+                    AND (c.confrelid <> t.tgrelid OR c.conrelid <> t.tgconstrrelid) THEN 'pk_side_relation_mismatch'
+               WHEN p.proname IN ('RI_FKey_check_ins','RI_FKey_check_upd')
+                    AND (c.conrelid <> t.tgrelid OR c.confrelid <> t.tgconstrrelid) THEN 'fk_side_relation_mismatch'
+               ELSE 'unknown'
+             END AS reason
         FROM pg_trigger t
         JOIN pg_proc p ON p.oid = t.tgfoid
         LEFT JOIN pg_constraint c ON c.oid = t.tgconstraint
         LEFT JOIN pg_class rel ON rel.oid = t.tgrelid
        WHERE t.tgconstraint <> 0
          AND p.proname LIKE 'RI_FKey_%'
-         AND (c.oid IS NULL OR c.contype <> 'f')
+         AND (
+           c.oid IS NULL
+           OR c.contype <> 'f'
+           OR (
+             c.contype = 'f'
+             AND (
+               (p.proname IN ('RI_FKey_noaction_del','RI_FKey_restrict_del','RI_FKey_cascade_del','RI_FKey_setnull_del','RI_FKey_setdefault_del','RI_FKey_noaction_upd','RI_FKey_restrict_upd','RI_FKey_cascade_upd','RI_FKey_setnull_upd','RI_FKey_setdefault_upd')
+                AND (c.confrelid <> t.tgrelid OR c.conrelid <> t.tgconstrrelid))
+               OR
+               (p.proname IN ('RI_FKey_check_ins','RI_FKey_check_upd')
+                AND (c.conrelid <> t.tgrelid OR c.confrelid <> t.tgconstrrelid))
+             )
+           )
+         )
        ORDER BY t.oid
     `);
     diag.push(...d.rows);
@@ -207,7 +270,11 @@ export async function repairInvalidForeignKeyTriggers(): Promise<{ diag: unknown
 
     for (const [key, rows] of groups) {
       const first = rows[0];
-      if (first.conname && first.conrel) {
+      const relationMismatch = rows.some((r) => String(r.reason ?? "").includes("relation_mismatch"));
+      if (relationMismatch && await recreateForeignKeyConstraint(client, first, repaired)) {
+        continue;
+      }
+      if (first.conname && first.conrel && !relationMismatch) {
         try {
           await client.query("SAVEPOINT sp_repair_invalid_fk");
           await client.query(`ALTER TABLE ${first.conrel} DROP CONSTRAINT ${quoteIdent(first.conname)} CASCADE`);
