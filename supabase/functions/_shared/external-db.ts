@@ -83,7 +83,10 @@ export function isDbConnectionError(err: unknown): boolean {
 
 export function isInvalidForeignKeyConstraintError(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err);
-  return /constraint \d+ is not a foreign key constraint/i.test(msg);
+  return (
+    /constraint \d+ is not a foreign key constraint/i.test(msg) ||
+    /wrong pg_constraint entry for trigger/i.test(msg)
+  );
 }
 
 async function recreatePool() {
