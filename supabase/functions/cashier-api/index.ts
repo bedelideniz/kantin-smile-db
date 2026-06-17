@@ -92,6 +92,7 @@ async function sendSalePush(opts: {
     const message = `Tutar: ${fmtTL(opts.total)} ₺ · Yeni bakiye: ${fmtTL(opts.balanceAfter)} ₺`;
 
     const deepPath = `/veli?tx=${opts.txId}&student=${opts.studentId}`;
+    const mascotUrl = "https://kantin-smile-db.lovable.app/__l5e/assets-v1/1b22e447-6c00-446b-8b60-ed434fd617b8/maskot.png";
     const payload: Record<string, unknown> = {
       app_id: ONESIGNAL_APP_ID,
       headings: { tr: title, en: title },
@@ -108,6 +109,12 @@ async function sendSalePush(opts: {
       isIos: true,
       isAndroid: true,
       isHuawei: true,
+      // KantinPay maskotu — her bildirimde görsel olarak eklenir.
+      big_picture: mascotUrl,
+      large_icon: mascotUrl,
+      huawei_big_picture: mascotUrl,
+      huawei_large_icon: mascotUrl,
+      ios_attachments: { maskot: mascotUrl },
       // Do NOT set `url` / `web_url` — native app handles taps via `data.route`.
       data: { route: deepPath, txId: opts.txId, studentId: opts.studentId },
     };
