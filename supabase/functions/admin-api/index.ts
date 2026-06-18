@@ -240,9 +240,10 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
     return { ok: true };
   },
   refund_transaction: async (ctx, params) => {
-    await requireModule(ctx.userId, "alarms");
+    await requireAnyModule(ctx.userId, ["alarms", "disputes"]);
     const p = z.object({
       alarm_id: z.string().uuid().optional(),
+      dispute_id: z.string().uuid().optional(),
       transaction_id: z.string().uuid(),
       kind: z.enum(["full","partial"]),
       // For partial refunds: list of items with qty to refund
