@@ -44,6 +44,17 @@ async function requireModule(userId: string, mod: AppModule) {
   if (!data) throw new HttpError(403, `Bu modüle yetkiniz yok: ${mod}`);
 }
 
+async function requireAnyModule(userId: string, mods: AppModule[]) {
+  if (await isOwner(userId)) return;
+  const { data, error } = await admin()
+    .from("super_admin_module_permissions")
+    .select("module")
+    .eq("user_id", userId)
+    .in("module", mods);
+  if (error) throw new HttpError(500, error.message);
+  if (!data || data.length === 0) throw new HttpError(403, `Bu işlem için yetkiniz yok: ${mods.join(", ")}`);
+}
+
 const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unknown>> = {
   // ---------- staff management ----------
   list_staff: async (ctx) => {
