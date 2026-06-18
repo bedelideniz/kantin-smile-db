@@ -824,18 +824,26 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
     const r = await query(
       `SELECT d.id, d.transaction_id, d.school_id, d.parent_phone, d.category, d.note,
               d.amount, d.status, d.resolution_note, d.reviewed_at, d.created_at,
-              t.tx_no, t.total_amount, t.created_at AS tx_created_at,
+              t.tx_no, t.total_amount, t.refunded_amount, t.status AS tx_status,
+              t.created_at AS tx_created_at,
               s.full_name AS student_name, s.class_name AS student_class, s.student_no,
               sch.name AS school_name,
               COALESCE((
                 SELECT json_agg(json_build_object(
+                  'id', ti.id,
                   'product_name', ti.product_name,
                   'qty', ti.qty,
                   'unit_price', ti.unit_price,
                   'line_total', ti.line_total
                 ) ORDER BY ti.id)
                 FROM transaction_items ti WHERE ti.transaction_id = t.id
-              ), '[]'::json) AS items
+              ), '[]'::json) AS items,
+              COALESCE((
+                SELECT json_agg(json_build_object(
+                  'id', rf.id, 'amount', rf.amount, 'kind', rf.kind, 'created_at', rf.created_at
+                ) ORDER BY rf.created_at)
+                FROM transaction_refunds rf WHERE rf.transaction_id = t.id
+              ), '[]'::json) AS refunds
          FROM transaction_disputes d
          JOIN transactions t ON t.id = d.transaction_id
          JOIN students s ON s.id = d.student_id
