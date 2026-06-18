@@ -21,6 +21,7 @@ import PazarlamaciGiris from "./pages/PazarlamaciGiris.tsx";
 import PazarlamaciPanel from "./pages/PazarlamaciPanel.tsx";
 import BagisYoneticiGiris from "./pages/BagisYoneticiGiris.tsx";
 import BagisYoneticiPanel from "./pages/BagisYoneticiPanel.tsx";
+import Gizlilik from "./pages/Gizlilik.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,8 @@ const App = () => (
           <Route path="/pazarlamaci" element={<PazarlamaciPanel />} />
           <Route path="/bagis-yonetici-giris" element={<BagisYoneticiGiris />} />
           <Route path="/bagis-yonetici" element={<BagisYoneticiPanel />} />
+          <Route path="/gizlilik" element={<Gizlilik />} />
+          <Route path="/privacy" element={<Gizlilik />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
