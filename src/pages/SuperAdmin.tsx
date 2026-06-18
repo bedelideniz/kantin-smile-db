@@ -201,9 +201,7 @@ export default function SuperAdmin() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex flex-wrap gap-2">
-              <Button onClick={runMigration} disabled={running}>
-                {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
-              </Button>
+              <MigrationButton running={running} progress={progress} onClick={runMigration} />
               <Button variant="secondary" onClick={pingDb}>DB Bağlantısını Test Et</Button>
             </div>
             {pingResult && <pre className="overflow-auto rounded bg-muted p-3 text-xs">{pingResult}</pre>}
