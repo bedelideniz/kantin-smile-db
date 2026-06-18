@@ -119,7 +119,9 @@ export default function SuperAdmin() {
     const { data, error } = await supabase.functions.invoke("migrate-external-db");
     setRunning(false);
     if (error) { toast({ title: "Migration hatası", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Migration tamamlandı", description: JSON.stringify(data?.results ?? data) });
+    const results = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
+    setMigrationResult(results);
+    setMigrationOpen(true);
   };
 
   const pingDb = async () => {
