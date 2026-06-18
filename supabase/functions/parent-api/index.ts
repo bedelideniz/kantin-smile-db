@@ -741,10 +741,37 @@ const PROTECTED_OPS: Record<string, (ctx: ParentContext, params: any) => Promise
            LEFT JOIN transaction_refund_items ri ON ri.refund_id = r.id
           WHERE t.student_id = $1
           GROUP BY r.id, t.tx_no
+       ),
+       topups AS (
+         SELECT wt.id::text AS id,
+                'topup'::text AS kind,
+                wt.amount AS total_amount,
+                NULL::numeric AS balance_before,
+                NULL::numeric AS balance_after,
+                wt.created_at,
+                wt.source AS payment_method,
+                'completed'::text AS status,
+                json_build_array(json_build_object(
+                  'product_name',
+                    CASE wt.source
+                      WHEN 'admin'  THEN 'Bakiye yükleme (yönetici)'
+                      WHEN 'parent' THEN 'Bakiye yükleme (veli)'
+                      WHEN 'online' THEN 'Bakiye yükleme (online)'
+                      WHEN 'manual' THEN 'Bakiye yükleme'
+                      ELSE 'Bakiye yükleme'
+                    END,
+                  'qty', 1,
+                  'unit_price', wt.amount,
+                  'line_total', wt.amount
+                )) AS items
+           FROM wallet_topups wt
+          WHERE wt.student_id = $1
        )
        SELECT * FROM sales
        UNION ALL
        SELECT * FROM refunds
+       UNION ALL
+       SELECT * FROM topups
        ORDER BY created_at DESC
        LIMIT $2`,
       [p.student_id, p.limit],

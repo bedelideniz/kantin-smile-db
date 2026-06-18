@@ -29,7 +29,7 @@ interface TxItem { product_name: string; qty: number; unit_price: number; line_t
 interface Tx {
   id: string; total_amount: string | number; balance_before: string | number;
   balance_after: string | number; created_at: string; payment_method: string; status: string;
-  kind?: "sale" | "refund";
+  kind?: "sale" | "refund" | "topup";
   items: TxItem[];
 }
 
@@ -409,12 +409,21 @@ export default function VeliPanel() {
                       </div>
                     </div>
                     <div className="text-right">
-                      {t.kind === "refund" ? (
+                      {t.kind === "topup" ? (
                         <>
-                          <div className="rounded-lg bg-primary/10 px-2 py-1 font-bold tabular-nums text-primary">
+                          <div className="rounded-lg bg-emerald-500/10 px-2 py-1 font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
                             +{fmtTL(t.total_amount)}
                           </div>
-                          <Badge className="mt-1 bg-primary text-primary-foreground text-[10px] hover:bg-primary">
+                          <Badge className="mt-1 bg-emerald-600 text-white text-[10px] hover:bg-emerald-600">
+                            YÜKLEME
+                          </Badge>
+                        </>
+                      ) : t.kind === "refund" ? (
+                        <>
+                          <div className="rounded-lg bg-orange-500/10 px-2 py-1 font-bold tabular-nums text-orange-600 dark:text-orange-400">
+                            +{fmtTL(t.total_amount)}
+                          </div>
+                          <Badge className="mt-1 bg-orange-500 text-white text-[10px] hover:bg-orange-500">
                             {t.status === "partial" ? "KISMİ İADE" : "İADE"}
                           </Badge>
                         </>
@@ -433,14 +442,18 @@ export default function VeliPanel() {
                       )}
                     </div>
                   </div>
-                  <Separator className="my-2" />
-                  <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                    <div className="flex flex-1 justify-between">
-                      <span>Önce: <span className="font-medium text-foreground/70">{fmtTL(t.balance_before)}</span></span>
-                      <span>Sonra: <span className="font-medium text-foreground/70">{fmtTL(t.balance_after)}</span></span>
-                    </div>
-                  </div>
-                  {t.kind !== "refund" && t.status !== "refunded" && (
+                  {t.balance_before != null && t.balance_after != null && (
+                    <>
+                      <Separator className="my-2" />
+                      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                        <div className="flex flex-1 justify-between">
+                          <span>Önce: <span className="font-medium text-foreground/70">{fmtTL(t.balance_before)}</span></span>
+                          <span>Sonra: <span className="font-medium text-foreground/70">{fmtTL(t.balance_after)}</span></span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {(!t.kind || t.kind === "sale") && t.status !== "refunded" && (
                     <div className="mt-2 flex justify-end">
                       <Button
                         type="button"
