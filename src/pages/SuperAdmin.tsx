@@ -40,6 +40,7 @@ export default function SuperAdmin() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [myModules, setMyModules] = useState<AppModule[] | null>(null);
   const [active, setActive] = useState<AppModule>("dashboard");
@@ -116,8 +117,15 @@ export default function SuperAdmin() {
 
   const runMigration = async () => {
     setRunning(true);
+    setProgress(2);
+    // Smooth simulated progress — asymptotically approaches ~92% until the call returns.
+    const timer = setInterval(() => {
+      setProgress((p) => (p >= 92 ? p : p + Math.max(0.5, (92 - p) * 0.06)));
+    }, 250);
     const { data, error } = await supabase.functions.invoke("migrate-external-db");
-    setRunning(false);
+    clearInterval(timer);
+    setProgress(100);
+    setTimeout(() => { setRunning(false); setProgress(0); }, 400);
     if (error) { toast({ title: "Migration hatası", description: error.message, variant: "destructive" }); return; }
     const results = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
     setMigrationResult(results);
@@ -156,9 +164,7 @@ export default function SuperAdmin() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                <Button onClick={runMigration} disabled={running}>
-                  {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
-                </Button>
+                <MigrationButton running={running} progress={progress} onClick={runMigration} />
                 <Button variant="secondary" onClick={pingDb}>DB Bağlantısını Test Et</Button>
               </div>
               {pingResult && <pre className="overflow-auto rounded bg-muted p-3 text-xs">{pingResult}</pre>}
@@ -195,9 +201,7 @@ export default function SuperAdmin() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex flex-wrap gap-2">
-              <Button onClick={runMigration} disabled={running}>
-                {running ? "Çalışıyor…" : "Migration'ları Çalıştır"}
-              </Button>
+              <MigrationButton running={running} progress={progress} onClick={runMigration} />
               <Button variant="secondary" onClick={pingDb}>DB Bağlantısını Test Et</Button>
             </div>
             {pingResult && <pre className="overflow-auto rounded bg-muted p-3 text-xs">{pingResult}</pre>}
@@ -363,5 +367,42 @@ function StatCell({ label, value, tone }: { label: string; value: number; tone: 
       <div className={`text-xl font-semibold ${cls}`}>{value}</div>
       <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
     </div>
+  );
+}
+
+function MigrationButton({
+  running,
+  progress,
+  onClick,
+}: {
+  running: boolean;
+  progress: number;
+  onClick: () => void;
+}) {
+  const pct = Math.min(100, Math.max(0, Math.round(progress)));
+  return (
+    <Button
+      onClick={onClick}
+      disabled={running}
+      className="relative overflow-hidden min-w-[200px]"
+    >
+      {running && (
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 bg-primary-foreground/20 transition-[width] duration-300 ease-out"
+          style={{ width: `${pct}%` }}
+        />
+      )}
+      <span className="relative z-10 inline-flex items-center gap-2 tabular-nums">
+        {running ? (
+          <>
+            <span>Çalışıyor…</span>
+            <span className="opacity-90">{pct}%</span>
+          </>
+        ) : (
+          "Migration'ları Çalıştır"
+        )}
+      </span>
+    </Button>
   );
 }
