@@ -40,6 +40,7 @@ export default function SuperAdmin() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [myModules, setMyModules] = useState<AppModule[] | null>(null);
   const [active, setActive] = useState<AppModule>("dashboard");
