@@ -453,7 +453,7 @@ export default function VeliPanel() {
                       </div>
                     </>
                   )}
-                  {t.kind !== "refund" && t.status !== "refunded" && (
+                  {(!t.kind || t.kind === "sale") && t.status !== "refunded" && (
                     <div className="mt-2 flex justify-end">
                       <Button
                         type="button"
