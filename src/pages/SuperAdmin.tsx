@@ -232,6 +232,136 @@ export default function SuperAdmin() {
           </main>
         </div>
       </div>
+      <MigrationResultDialog
+        open={migrationOpen}
+        onOpenChange={setMigrationOpen}
+        results={migrationResult}
+      />
     </SidebarProvider>
+  );
+}
+
+type MigrationItem = { version?: string; status?: string; error?: any; [k: string]: any };
+
+function MigrationResultDialog({
+  open,
+  onOpenChange,
+  results,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  results: MigrationItem[] | null;
+}) {
+  const { toast } = useToast();
+  const items = results ?? [];
+
+  const stats = useMemo(() => {
+    let ok = 0, fail = 0, other = 0;
+    for (const r of items) {
+      const s = String(r?.status ?? "").toLowerCase();
+      if (s === "ok" || s === "verified" || s === "success") ok++;
+      else if (s === "error" || s === "failed") fail++;
+      else other++;
+    }
+    return { ok, fail, other, total: items.length };
+  }, [items]);
+
+  const statusMeta = (s?: string) => {
+    const v = String(s ?? "").toLowerCase();
+    if (v === "ok" || v === "verified" || v === "success")
+      return { label: s ?? "ok", icon: CheckCircle2, cls: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900" };
+    if (v === "error" || v === "failed")
+      return { label: s ?? "error", icon: XCircle, cls: "text-red-600 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900" };
+    return { label: s ?? "—", icon: AlertTriangle, cls: "text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900" };
+  };
+
+  const copyJson = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(items, null, 2));
+      toast({ title: "Panoya kopyalandı" });
+    } catch {
+      toast({ title: "Kopyalanamadı", variant: "destructive" });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl p-0 overflow-hidden">
+        <div className="bg-gradient-to-br from-primary/10 via-background to-background border-b px-6 py-5">
+          <DialogHeader className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary">
+                <Database className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg">Migration Tamamlandı</DialogTitle>
+                <DialogDescription>
+                  Veritabanı şeması güncellendi. Aşağıda her bir adımın durumu listelenmiştir.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+            <StatCell label="Toplam" value={stats.total} tone="muted" />
+            <StatCell label="Başarılı" value={stats.ok} tone="ok" />
+            <StatCell label="Uyarı" value={stats.other} tone="warn" />
+            <StatCell label="Hata" value={stats.fail} tone="err" />
+          </div>
+        </div>
+
+        <ScrollArea className="max-h-[55vh]">
+          <ul className="divide-y">
+            {items.length === 0 && (
+              <li className="px-6 py-8 text-center text-sm text-muted-foreground">
+                Sonuç verisi bulunamadı.
+              </li>
+            )}
+            {items.map((r, i) => {
+              const meta = statusMeta(r?.status);
+              const Icon = meta.icon;
+              return (
+                <li key={i} className="flex items-start gap-3 px-6 py-3">
+                  <Icon className={`h-4 w-4 mt-0.5 ${meta.cls.split(" ")[0]}`} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <code className="text-sm font-medium truncate">{r?.version ?? `#${i + 1}`}</code>
+                      <Badge variant="outline" className={`text-[10px] uppercase tracking-wide ${meta.cls}`}>
+                        {meta.label}
+                      </Badge>
+                    </div>
+                    {r?.error && (
+                      <p className="mt-1 text-xs text-red-600 break-all">
+                        {typeof r.error === "string" ? r.error : JSON.stringify(r.error)}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </ScrollArea>
+
+        <DialogFooter className="border-t bg-muted/30 px-6 py-3 sm:justify-between">
+          <Button variant="ghost" size="sm" onClick={copyJson}>
+            <Copy className="h-4 w-4 mr-2" /> JSON kopyala
+          </Button>
+          <Button size="sm" onClick={() => onOpenChange(false)}>Kapat</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function StatCell({ label, value, tone }: { label: string; value: number; tone: "muted" | "ok" | "warn" | "err" }) {
+  const cls =
+    tone === "ok" ? "text-emerald-600" :
+    tone === "warn" ? "text-amber-600" :
+    tone === "err" ? "text-red-600" :
+    "text-foreground";
+  return (
+    <div className="rounded-lg border bg-background/60 px-2 py-2">
+      <div className={`text-xl font-semibold ${cls}`}>{value}</div>
+      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+    </div>
   );
 }
