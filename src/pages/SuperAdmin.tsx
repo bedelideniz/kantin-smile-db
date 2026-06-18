@@ -369,3 +369,40 @@ function StatCell({ label, value, tone }: { label: string; value: number; tone: 
     </div>
   );
 }
+
+function MigrationButton({
+  running,
+  progress,
+  onClick,
+}: {
+  running: boolean;
+  progress: number;
+  onClick: () => void;
+}) {
+  const pct = Math.min(100, Math.max(0, Math.round(progress)));
+  return (
+    <Button
+      onClick={onClick}
+      disabled={running}
+      className="relative overflow-hidden min-w-[200px]"
+    >
+      {running && (
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 bg-primary-foreground/20 transition-[width] duration-300 ease-out"
+          style={{ width: `${pct}%` }}
+        />
+      )}
+      <span className="relative z-10 inline-flex items-center gap-2 tabular-nums">
+        {running ? (
+          <>
+            <span>Çalışıyor…</span>
+            <span className="opacity-90">{pct}%</span>
+          </>
+        ) : (
+          "Migration'ları Çalıştır"
+        )}
+      </span>
+    </Button>
+  );
+}
