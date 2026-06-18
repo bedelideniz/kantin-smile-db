@@ -44,6 +44,17 @@ async function requireModule(userId: string, mod: AppModule) {
   if (!data) throw new HttpError(403, `Bu modüle yetkiniz yok: ${mod}`);
 }
 
+async function requireAnyModule(userId: string, mods: AppModule[]) {
+  if (await isOwner(userId)) return;
+  const { data, error } = await admin()
+    .from("super_admin_module_permissions")
+    .select("module")
+    .eq("user_id", userId)
+    .in("module", mods);
+  if (error) throw new HttpError(500, error.message);
+  if (!data || data.length === 0) throw new HttpError(403, `Bu işlem için yetkiniz yok: ${mods.join(", ")}`);
+}
+
 const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unknown>> = {
   // ---------- staff management ----------
   list_staff: async (ctx) => {
@@ -229,9 +240,10 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
     return { ok: true };
   },
   refund_transaction: async (ctx, params) => {
-    await requireModule(ctx.userId, "alarms");
+    await requireAnyModule(ctx.userId, ["alarms", "disputes"]);
     const p = z.object({
       alarm_id: z.string().uuid().optional(),
+      dispute_id: z.string().uuid().optional(),
       transaction_id: z.string().uuid(),
       kind: z.enum(["full","partial"]),
       // For partial refunds: list of items with qty to refund
@@ -300,11 +312,11 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
 
       const ref = await client.query(
         `INSERT INTO transaction_refunds
-           (transaction_id, alarm_id, school_id, student_id, amount, kind,
+           (transaction_id, alarm_id, dispute_id, school_id, student_id, amount, kind,
             balance_before, balance_after, refunded_by_admin, note)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          RETURNING id`,
-        [p.transaction_id, p.alarm_id ?? null, tx.school_id, tx.student_id, amount, p.kind,
+        [p.transaction_id, p.alarm_id ?? null, p.dispute_id ?? null, tx.school_id, tx.student_id, amount, p.kind,
          balanceBefore, balanceAfter, ctx.userId, p.note ?? null],
       );
       const refundId = ref.rows[0].id;
@@ -325,6 +337,20 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
               SET status='resolved', resolved_at=now(), resolved_by_admin=$2, resolution_note=$3
             WHERE id=$1`,
           [p.alarm_id, ctx.userId, p.note ?? null],
+        );
+      }
+
+      // Resolve the dispute if provided
+      if (p.dispute_id) {
+        await client.query(
+          `UPDATE transaction_disputes
+              SET status='resolved',
+                  reviewed_by=$2,
+                  reviewed_at=now(),
+                  resolution_note=COALESCE($3, resolution_note),
+                  updated_at=now()
+            WHERE id=$1`,
+          [p.dispute_id, ctx.userId, p.note ?? null],
         );
       }
 
@@ -798,18 +824,26 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
     const r = await query(
       `SELECT d.id, d.transaction_id, d.school_id, d.parent_phone, d.category, d.note,
               d.amount, d.status, d.resolution_note, d.reviewed_at, d.created_at,
-              t.tx_no, t.total_amount, t.created_at AS tx_created_at,
+              t.tx_no, t.total_amount, t.refunded_amount, t.status AS tx_status,
+              t.created_at AS tx_created_at,
               s.full_name AS student_name, s.class_name AS student_class, s.student_no,
               sch.name AS school_name,
               COALESCE((
                 SELECT json_agg(json_build_object(
+                  'id', ti.id,
                   'product_name', ti.product_name,
                   'qty', ti.qty,
                   'unit_price', ti.unit_price,
                   'line_total', ti.line_total
                 ) ORDER BY ti.id)
                 FROM transaction_items ti WHERE ti.transaction_id = t.id
-              ), '[]'::json) AS items
+              ), '[]'::json) AS items,
+              COALESCE((
+                SELECT json_agg(json_build_object(
+                  'id', rf.id, 'amount', rf.amount, 'kind', rf.kind, 'created_at', rf.created_at
+                ) ORDER BY rf.created_at)
+                FROM transaction_refunds rf WHERE rf.transaction_id = t.id
+              ), '[]'::json) AS refunds
          FROM transaction_disputes d
          JOIN transactions t ON t.id = d.transaction_id
          JOIN students s ON s.id = d.student_id
