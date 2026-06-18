@@ -21,6 +21,7 @@ import PazarlamaciGiris from "./pages/PazarlamaciGiris.tsx";
 import PazarlamaciPanel from "./pages/PazarlamaciPanel.tsx";
 import BagisYoneticiGiris from "./pages/BagisYoneticiGiris.tsx";
 import BagisYoneticiPanel from "./pages/BagisYoneticiPanel.tsx";
+import Gizlilik from "./pages/Gizlilik.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
