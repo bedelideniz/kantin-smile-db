@@ -312,11 +312,11 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
 
       const ref = await client.query(
         `INSERT INTO transaction_refunds
-           (transaction_id, alarm_id, school_id, student_id, amount, kind,
+           (transaction_id, alarm_id, dispute_id, school_id, student_id, amount, kind,
             balance_before, balance_after, refunded_by_admin, note)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          RETURNING id`,
-        [p.transaction_id, p.alarm_id ?? null, tx.school_id, tx.student_id, amount, p.kind,
+        [p.transaction_id, p.alarm_id ?? null, p.dispute_id ?? null, tx.school_id, tx.student_id, amount, p.kind,
          balanceBefore, balanceAfter, ctx.userId, p.note ?? null],
       );
       const refundId = ref.rows[0].id;
@@ -337,6 +337,20 @@ const OPS: Record<string, (ctx: { userId: string }, params: any) => Promise<unkn
               SET status='resolved', resolved_at=now(), resolved_by_admin=$2, resolution_note=$3
             WHERE id=$1`,
           [p.alarm_id, ctx.userId, p.note ?? null],
+        );
+      }
+
+      // Resolve the dispute if provided
+      if (p.dispute_id) {
+        await client.query(
+          `UPDATE transaction_disputes
+              SET status='resolved',
+                  reviewed_by=$2,
+                  reviewed_at=now(),
+                  resolution_note=COALESCE($3, resolution_note),
+                  updated_at=now()
+            WHERE id=$1`,
+          [p.dispute_id, ctx.userId, p.note ?? null],
         );
       }
 
