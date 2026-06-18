@@ -117,8 +117,15 @@ export default function SuperAdmin() {
 
   const runMigration = async () => {
     setRunning(true);
+    setProgress(2);
+    // Smooth simulated progress — asymptotically approaches ~92% until the call returns.
+    const timer = setInterval(() => {
+      setProgress((p) => (p >= 92 ? p : p + Math.max(0.5, (92 - p) * 0.06)));
+    }, 250);
     const { data, error } = await supabase.functions.invoke("migrate-external-db");
-    setRunning(false);
+    clearInterval(timer);
+    setProgress(100);
+    setTimeout(() => { setRunning(false); setProgress(0); }, 400);
     if (error) { toast({ title: "Migration hatası", description: error.message, variant: "destructive" }); return; }
     const results = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
     setMigrationResult(results);
