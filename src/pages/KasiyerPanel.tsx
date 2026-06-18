@@ -1030,26 +1030,115 @@ export default function KasiyerPanel() {
 
       <Dialog open={!!saleError} onOpenChange={(o) => !o && setSaleError(null)}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader className="items-center text-center">
-            <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-              <AlertTriangle className="h-9 w-9 text-destructive" />
-            </div>
-            <DialogTitle className="text-2xl text-destructive">Satış başarısız</DialogTitle>
-            <DialogDescription className="text-center text-base text-foreground">
-              {saleError}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="sm:justify-center">
-            <Button
-              size="lg"
-              variant="destructive"
-              className="min-w-32"
-              onClick={() => setSaleError(null)}
-              autoFocus
-            >
-              Tamam
-            </Button>
-          </DialogFooter>
+          {(() => {
+            const msg = saleError ?? "";
+            const m = msg.match(/engellenen\s+ürün(?:\(ler\))?\s*:\s*(.+)$/i);
+            const names = m
+              ? m[1].split(/[,•·]+/).map((s) => s.trim()).filter(Boolean)
+              : [];
+            const norm = (s: string) => s.toLocaleLowerCase("tr-TR").trim();
+            const blockedItems = names.map((name) => {
+              const prod =
+                products.find((p) => norm(p.name) === norm(name)) ??
+                products.find((p) => norm(p.name).includes(norm(name)));
+              const inCart = cart.find((c) => norm(c.name) === norm(name));
+              return {
+                name,
+                image_url: prod?.image_url ?? null,
+                product_id: prod?.id ?? inCart?.product_id ?? null,
+                inCart: !!inCart,
+              };
+            });
+            const removableIds = blockedItems
+              .filter((b) => b.inCart && b.product_id)
+              .map((b) => b.product_id as string);
+            const hasBlocked = blockedItems.length > 0;
+            const removeBlocked = () => {
+              const ids = new Set(removableIds);
+              if (ids.size === 0) {
+                setSaleError(null);
+                return;
+              }
+              setCart((prev) => prev.filter((i) => !ids.has(i.product_id)));
+              setSaleError(null);
+              toast({
+                title: "Yasaklı ürünler çıkarıldı",
+                description: `${ids.size} ürün sepetten kaldırıldı.`,
+              });
+            };
+            return (
+              <>
+                <DialogHeader className="items-center text-center">
+                  <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+                    <ShieldOff className="h-9 w-9 text-destructive" />
+                  </div>
+                  <DialogTitle className="text-2xl text-destructive">
+                    {hasBlocked ? "Yasaklı ürün tespit edildi" : "Satış başarısız"}
+                  </DialogTitle>
+                  <DialogDescription className="text-center text-base text-foreground">
+                    {hasBlocked
+                      ? "Veli aşağıdaki ürün(ler)in satışını engellemiş."
+                      : saleError}
+                  </DialogDescription>
+                </DialogHeader>
+
+                {hasBlocked && (
+                  <div className="mt-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3">
+                    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+                      {blockedItems.map((b, idx) => (
+                        <div key={`${b.name}-${idx}`} className="flex flex-col items-center text-center">
+                          <div className="relative h-20 w-20 overflow-hidden rounded-lg border bg-muted shadow-sm">
+                            {b.image_url ? (
+                              <img
+                                src={b.image_url}
+                                alt={b.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <ShieldOff className="h-8 w-8 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="absolute inset-0 ring-2 ring-destructive/60 rounded-lg pointer-events-none" />
+                            <div className="absolute -top-1 -right-1 rounded-full bg-destructive text-destructive-foreground p-0.5 shadow">
+                              <X className="h-3.5 w-3.5" />
+                            </div>
+                          </div>
+                          <div className="mt-1.5 line-clamp-2 text-xs font-medium leading-tight">
+                            {b.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <DialogFooter className="gap-2 sm:justify-center">
+                  {hasBlocked && removableIds.length > 0 && (
+                    <Button
+                      size="lg"
+                      variant="destructive"
+                      className="min-w-44"
+                      onClick={removeBlocked}
+                      autoFocus
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Sepetten çıkar ({removableIds.length})
+                    </Button>
+                  )}
+                  <Button
+                    size="lg"
+                    variant={hasBlocked && removableIds.length > 0 ? "outline" : "destructive"}
+                    className="min-w-32"
+                    onClick={() => setSaleError(null)}
+                    autoFocus={!hasBlocked || removableIds.length === 0}
+                  >
+                    Tamam
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
