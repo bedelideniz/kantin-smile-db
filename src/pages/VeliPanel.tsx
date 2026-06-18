@@ -29,7 +29,7 @@ interface TxItem { product_name: string; qty: number; unit_price: number; line_t
 interface Tx {
   id: string; total_amount: string | number; balance_before: string | number;
   balance_after: string | number; created_at: string; payment_method: string; status: string;
-  kind?: "sale" | "refund";
+  kind?: "sale" | "refund" | "topup";
   items: TxItem[];
 }
 
