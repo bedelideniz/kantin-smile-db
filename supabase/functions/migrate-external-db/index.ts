@@ -850,6 +850,15 @@ const MIGRATIONS: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_tx_disputes_phone  ON transaction_disputes(parent_phone);
     `,
   },
+  {
+    version: "0029_refunds_dispute_link",
+    description: "İade kayıtlarını veli itirazlarına bağla",
+    sql: `
+      ALTER TABLE transaction_refunds
+        ADD COLUMN IF NOT EXISTS dispute_id UUID REFERENCES transaction_disputes(id) ON DELETE SET NULL;
+      CREATE INDEX IF NOT EXISTS idx_refunds_dispute ON transaction_refunds(dispute_id);
+    `,
+  },
 ];
 
 
