@@ -115,6 +115,11 @@ async function sendSalePush(opts: {
       huawei_big_picture: mascotUrl,
       huawei_large_icon: mascotUrl,
       ios_attachments: { maskot: mascotUrl },
+      // Özel bildirim sesi — dosyalar native projede paketli olmalı:
+      //   iOS : ios/App/App/kantin_ding.caf  (Xcode'a "Copy items if needed" + target App ile ekleyin)
+      //   Android : android/app/src/main/res/raw/kantin_ding.mp3 (dosya adı küçük harf, alt çizgi OK)
+      ios_sound: "kantin_ding.caf",
+      android_sound: "kantin_ding",
       // Do NOT set `url` / `web_url` — native app handles taps via `data.route`.
       data: { route: deepPath, txId: opts.txId, studentId: opts.studentId },
     };
